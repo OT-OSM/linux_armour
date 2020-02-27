@@ -1,0 +1,9 @@
+---
+- name: Tcp Wrapper and System File Permissions
+  file:
+    path: '/etc/{{ item }}'
+    owner: root
+    group: root
+    mode: '0644'
+  with_items:
+     - '{{ System_File_Permissions }}'

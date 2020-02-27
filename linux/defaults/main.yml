@@ -1,0 +1,18 @@
+---
+# defaults file for linux
+
+System_File_Permissions:
+  - host.conf
+  - hostname
+  - hosts
+  - hosts.allow
+  - hosts.deny
+  - passwd
+  - passwd-
+  - shadow
+  - shadow-
+  - gshadow
+  - gshadow-
+  - group
+  - group-
+

@@ -1,0 +1,8 @@
+---
+- name: Reload service aidecheck
+  service:
+    name: '{{ item }}'
+    state: started
+  with_items:
+    - aidecheck
+    - aidecheck.timer

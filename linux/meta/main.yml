@@ -1,0 +1,22 @@
+galaxy_info:
+  author: Anjali Singh
+  description: CIS benchmark for Linux
+  company: Opstree Solutions
+  license: license (BSD)
+
+  min_ansible_version: 2.9
+
+
+  platforms:
+  - name: Ubuntu
+    versions:
+    - bionic
+
+  galaxy_tags:
+        - opstree
+        - otosm
+        - cisbenchmark
+        - cis
+        - devops
+
+dependencies: []
