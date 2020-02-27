@@ -19,7 +19,7 @@ Supported OS
 
 Dependencies
 ------------
-* None
+* Python should be on present on testing server.
 
 Role Variables
 --------------

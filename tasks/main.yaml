@@ -15,13 +15,13 @@
   include_tasks: filesystem_configuration.yaml
 
 - name: Ensure filesystem integrity is regularly checked
-  copy:
+  template:
     src: '{{ item.src }}'
     dest: '{{ item.dest }}'
     owner: root
     group: root
     mode: '0644'
   with_items:
-    - { src: /etc/ansible/conf/aidecheck.service, dest: /etc/systemd/system/aidecheck.service }
-    - { src: /etc/ansible/conf/aidecheck.timer, dest: /etc/systemd/system/aidecheck.timer }
+    - { src: aidecheck.service, dest: /etc/systemd/system/aidecheck.service }
+    - { src: aidecheck.timer, dest: /etc/systemd/system/aidecheck.timer }
 

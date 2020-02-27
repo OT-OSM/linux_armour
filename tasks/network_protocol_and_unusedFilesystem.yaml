@@ -1,7 +1,7 @@
 ---
     - name: Ensure dccp and sctp && Disable unused filesystem disabled
-      copy:
-        src: /etc/ansible/conf/csi.conf
+      template:
+        src: csi.conf
         dest: /etc/modprobe.d/csi.conf
         owner: root
         group: root
