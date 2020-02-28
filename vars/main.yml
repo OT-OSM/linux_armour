@@ -1,1 +1,3 @@
 ---
+# Services needs to be disable
+os_services_name: ['avahi-daemon', 'dhcpd', 'slapdi', 'named']   # 'named' service is for dns-server
