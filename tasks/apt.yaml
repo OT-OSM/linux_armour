@@ -1,0 +1,6 @@
+---
+- name: remove deprecated or insecure packages
+  apt:
+    name: '{{ os_packages_list }}'
+    state: 'absent'
+  when: os_packages_clean | bool

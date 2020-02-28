@@ -1,4 +1,7 @@
 ---
+#- name: Special purpose services
+# include_tasks: services.yaml
+
 - name: Tcp Wrapper and System File Permissions
   include_tasks: file_permissions.yaml 
     
@@ -7,6 +10,9 @@
 
 - name: Ensure bogus ICMP responses are ignored
   include_tasks: network_configuration_router.yaml 
+
+- name: inetd Services
+  include_tasks: apt.yaml
 
 - name: Ensure dccp and sctp is disabled
   include_tasks: network_protocol_and_unusedFilesystem.yaml
