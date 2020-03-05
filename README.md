@@ -59,7 +59,7 @@ There are two types of variables i.e Mandatory and optional.
 
 Inventory
 ----------
-An inventory should look like this:-
+An inventory should look like this:
 ```ini
 [osconfig]                 
 192.168.1.198    ansible_user=ubuntu    
