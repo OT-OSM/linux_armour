@@ -2,12 +2,13 @@ Ansible Role: osm_linux_armour
 =========
 
 This Ansible roles deals with auditing of Ubuntu according to CIS benchmark.
-|   S. No.          |Services               |Checks that should be in place|
-|----------------|-----------------------|-----------------------------|
+
+|  **S. No.**    |**Services**           |**Checks that should be in place**|
+|----------------|-----------------------|----------------------------------|
 |1.  |Special Purpose Services           |Ensure Avahi, DHCP, LDAP Server is not enabled|
 |2.  |Service Client                     |Ensure rsh, telnet, LDAP client is not installed|
 |3.  |inetd Services                     |Ensure telnet server, discarded services,rsh server is not installed|
-|4.  |Logging and Auditing               |auditd is installed and enabled, audit log storage size, system is disabled when audit logs are full, audit logs are not automatically deleted, login and logout events are collected, session initiation information is collected
+|4.  |Logging and Auditing               |auditd is installed and enabled, audit log storage size, system is disabled when audit logs are full, audit logs are not automatically deleted, login and logout events are collected, session initiation information is collected|
 |5.  |Filesystem Configuration           |Disable unused filesystems, Ensure /tmp, /var/tmp is configured|
 |6.  |System File Permissions            |Ensure passwd, passwd-, group, group-, shadow, shadow-, gshadow, gshadow- are configured|
 |7.  |Filesystem Integrity Check         |Ensure filesystem integrity is regularly checked|
