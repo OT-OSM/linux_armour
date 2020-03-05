@@ -1,5 +1,4 @@
 ---
-
     - name: Ensure IP forwarding is disabled
       sysctl:
         name: '{{ item}}'
@@ -10,6 +9,7 @@
       with_items:
         - net.ipv4.ip_forward
         - net.ipv6.conf.all.forwarding
+
     - name: Ensure packet redirect sending is disabled
       sysctl:
         name: '{{ item }}'
@@ -20,6 +20,7 @@
       with_items:
         - net.ipv4.conf.all.send_redirects
         - net.ipv4.conf.default.send_redirects
+
     - name: Ensure suspicious packets are logged
       sysctl:
         name: '{{ item }}'

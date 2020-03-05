@@ -2,7 +2,8 @@
 - name: Reload service aidecheck
   service:
     name: '{{ item }}'
-    state: started
+    state: restarted
   with_items:
     - aidecheck
     - aidecheck.timer
+    - auditd
