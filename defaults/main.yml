@@ -13,7 +13,6 @@ System_File_Permissions:
   - gshadow-
   - group
   - group-
-
 # pam_limits 
 os_kernel_enable_core_dump: false
 
@@ -31,6 +30,5 @@ os_packages_list:
   - openldap-clients
   - openldap2-client
   - ldap-utils
-    
 # Audit
 audit_package: 'auditd'
