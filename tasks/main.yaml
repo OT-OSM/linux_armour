@@ -4,7 +4,7 @@
 
 - name: Tcp Wrapper and System File Permissions
   include_tasks: file_permissions.yaml
-    
+
 - name: Network Configuration Host
   include_tasks: network_configuration_host.yaml
 
