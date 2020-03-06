@@ -1,3 +1,4 @@
+---
 galaxy_info:
   author: Anjali Singh
   description: CIS benchmark for Linux
@@ -8,15 +9,15 @@ galaxy_info:
 
 
   platforms:
-  - name: Ubuntu
-    versions:
-    - bionic
+    - name: Ubuntu
+      versions:
+        - bionic
 
   galaxy_tags:
-        - opstree
-        - otosm
-        - cisbenchmark
-        - cis
-        - devops
+    - opstree
+    - otosm
+    - cisbenchmark
+    - cis
+    - devops
 
 dependencies: []

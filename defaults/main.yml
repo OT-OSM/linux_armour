@@ -13,7 +13,7 @@ System_File_Permissions:
   - gshadow-
   - group
   - group-
-# pam_limits 
+# pam_limit
 os_kernel_enable_core_dump: false
 
 # remove packages with known issues
