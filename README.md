@@ -38,7 +38,7 @@ Dependencies
 
 Role Variables
 --------------
-There are two types of variables i.e Mandatory and optional.
+There are two types of variables i.e Mandatory and optional. Mandatory variables are those which should be configured as per CIS benchmark and Optional variables depends upon the service one is using. It can be enable or disable depending upon the requirements.
 
 ### Mandatory Variables
 
@@ -82,7 +82,7 @@ Example Playbook
 
 Future Proposed Changes
 -----------------------
-Can be applied on centos.
+We will add support for other os as well.
 
 References
 ----------
