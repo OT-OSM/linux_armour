@@ -45,8 +45,8 @@ There are two types of variables i.e Mandatory and optional. Mandatory variables
 |**Variables**| **Default Values**| **Description**|
 |-------------|-------------------|----------------|
 | System_File_Permissions | host.conf, hostname, hosts, hosts.allow, hosts.deny, passwd, passwd-, shadow, shadow-, gshadow, gshadow-, group, group- | Special files whose permissions will change. |
-|os_kernel_enable_core_dump| false||
-|os_packages_clean| true | |
+|os_kernel_enable_core_dump| false|core dump value which is set to 0|
+|os_packages_clean| true |deprecated packages are removed|
 |os_packages_list|xinetd, inetd, ypserv, telnet-server, telnet-client, rsh-server, rsh-client, prelink, openldap-clients, openldap2-client, ldap-utils| Disbale these sevices if not required|
 |audit_package |auditd     |This is used to keep record of every logs|
 
@@ -82,7 +82,7 @@ Example Playbook
 
 Future Proposed Changes
 -----------------------
-We will add support for other os as well.
+Will add support for other os as well.
 
 References
 ----------
