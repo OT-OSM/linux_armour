@@ -1,0 +1,34 @@
+---
+System_File_Permissions:
+  - host.conf
+  - hostname
+  - hosts
+  - hosts.allow
+  - hosts.deny
+  - passwd
+  - passwd-
+  - shadow
+  - shadow-
+  - gshadow
+  - gshadow-
+  - group
+  - group-
+# pam_limit
+os_kernel_enable_core_dump: false
+
+# remove packages with known issues
+os_packages_clean: true
+os_packages_list:
+  - xinetd
+  - inetd
+  - ypserv
+  - telnet-server
+  - telnet-client
+  - rsh-server
+  - rsh-client
+  - prelink
+  - openldap-clients
+  - openldap2-client
+  - ldap-utils
+# Audit
+audit_package: 'auditd'

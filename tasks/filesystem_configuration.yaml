@@ -1,0 +1,13 @@
+---
+- name: Ensure /tmp is configured
+  lineinfile:
+    path: /etc/fstab
+    insertafter: EOF
+    line: 'tmpfs {{ item }} tmpfs defaults,rw,nosuid,nodev,noexec,relatime 0 0'
+  with_items:
+    - /tmp
+    - /var/tmp
+
+- name: Ensure sticky bit is set on all world-writable directories
+  shell: df --local -P | awk '{if (NR!=1) print $6}' | xargs -I '{}' find '{}' -xdev -type d \( -perm -0002 -a ! -perm -1000 \) 2>/dev/null | xargs -I '{}' chmod a+t '{}'
+  changed_when: false

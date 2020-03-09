@@ -1,0 +1,8 @@
+---
+    - name: Ensure dccp and sctp && Disable unused filesystem disabled
+      template:
+        src: csi.conf
+        dest: /etc/modprobe.d/csi.conf
+        owner: root
+        group: root
+        mode: '0644'

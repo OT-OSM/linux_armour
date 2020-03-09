@@ -1,0 +1,19 @@
+---
+    - name: core dumps
+      block:
+        - name: set value in limits.conf file by default
+          pam_limits:
+            domain: '*'
+            limit_type: hard
+            limit_item: core
+            value: '0'
+            comment: Prevent core dumps for all users. These are usually not needed and may contain sensitive information
+
+        - name: set limits.conf permission to 0400 and root ownership
+          file:
+            path: /etc/security/limits.conf
+            owner: 'root'
+            group: 'root'
+            mode: '0440'
+
+      when: not os_kernel_enable_core_dump | bool

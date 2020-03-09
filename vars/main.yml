@@ -1,0 +1,5 @@
+---
+# Services needs to be disable
+os_services_name: ['avahi-daemon', 'dhcpd', 'slapd', 'named']
+audit_max_log_file: '5'
+os_audit_max_log_file_action: keep_logs
