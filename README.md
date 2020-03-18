@@ -9,7 +9,7 @@ This Ansible roles deals with auditing of Ubuntu according to CIS benchmark.
 |2.  |Service Client                     |Ensure rsh, telnet, LDAP client is not installed|
 |3.  |inetd Services                     |Ensure telnet server, discarded services,rsh server is not installed|
 |4.  |Logging and Auditing               |auditd is installed and enabled, audit log storage size, system is disabled when audit logs are full, audit logs are not automatically deleted, login and logout events are collected, session initiation information is collected|
-|5.  |Filesystem Configuration           |Disable unused filesystems, Ensure /tmp, /var/tmp is configured|
+|5.  |Filesystem Configuration           |Disable unused filesystems, Ensure /tmp, /var/tmp is configured. If one needs to install others services which needs /tmp directory then comment this task and use the role.|
 |6.  |System File Permissions            |Ensure passwd, passwd-, group, group-, shadow, shadow-, gshadow, gshadow- are configured|
 |7.  |Filesystem Integrity Check         |Ensure filesystem integrity is regularly checked|
 |8.  |Additional Process Hardening       |Ensure core dumps are restricted and prelink is disabled|

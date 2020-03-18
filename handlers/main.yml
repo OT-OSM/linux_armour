@@ -1,9 +1,10 @@
 ---
-- name: Reload service aidecheck
+- name: Reload the services
   service:
     name: '{{ item }}'
     state: restarted
+    daemon_reload: yes
   with_items:
-    - aidecheck
     - aidecheck.timer
+    - aidecheck
     - auditd
