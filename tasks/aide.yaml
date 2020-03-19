@@ -16,6 +16,7 @@
 
 - name: "Configure aide"
   shell: aideinit && update-aide.conf
+  changed_when: false
 
 - name: "copy the newly generated database"
   copy:
