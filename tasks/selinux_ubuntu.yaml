@@ -1,0 +1,23 @@
+---
+- name: Install the package to check the status
+  apt:
+    name: selinux-utils
+    state: present
+
+- name: Check the state of SELinux
+  command: "getenforce"
+  register: selinux_state
+  changed_when: false
+
+- debug:
+    msg: "{{ selinux_state.stdout }}"
+
+- name: Ensure SETroubleshoot is not installed
+  apt:
+    name: "{{ item }}"
+    state: removed
+  when: selinux_state == "Enforcing"
+  ignore_errors: true
+  with_items:
+    - mcstrans
+    - setroubleshoot

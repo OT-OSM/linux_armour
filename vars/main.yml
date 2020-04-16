@@ -1,5 +1,49 @@
 ---
+System_File_Permissions:
+  - host.conf
+  - hostname
+  - hosts
+  - hosts.allow
+  - hosts.deny
+  - passwd
+  - passwd-
+  - shadow
+  - shadow-
+  - gshadow
+  - gshadow-
+  - group
+  - group-
+
+#Additional process hardening
+cis_security_limits_filename: /etc/security/limits.conf
+
+# remove packages with known issues
+os_packages_clean: true
+os_packages_list:
+  - xinetd
+  - inetd
+  - ypserv
+  - telnet-server
+  - telnet-client
+  - rsh-server
+  - rsh-client
+  - prelink
+  - openldap-clients
+  - openldap2-client
+  - ldap-utils
+
+# Audit
+audit_package: 'auditd'
+audit_package_centos: 'audit'
+audit_rules_filename: "/etc/audit/audit.rules"
+
+# Secure boot
+sysconfig_init_filename: "/etc/sysconfig/init"
+grub_bootloader_filename: "/boot/grub/menu.lst"
+
 # Services needs to be disable
-os_services_name: ['avahi-daemon', 'dhcpd', 'slapd', 'named']
-audit_max_log_file: '5'
-os_audit_max_log_file_action: keep_logs
+os_services_name: ['avahi-daemon', 'dhcpd', 'slapd', 'named', 'cups', 'telnet', 'discard-dgram', 'discard-stream']
+
+#aide cronjob configuration
+minute_aide_cronjob: '0'
+hour_aide_cronjob: '5'

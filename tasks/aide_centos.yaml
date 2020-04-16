@@ -1,0 +1,32 @@
+---
+- name: "Ensure aide is installed"
+  yum:
+    name: "aide"
+    state: "present"
+  register: "aide_installed"
+  until: "aide_installed is succeeded"
+
+- name: "Ensure aide directories exists"
+  file:
+    path: "/var/lib/aide"
+    state: "directory"
+    owner: "root"
+    group: "root"
+    mode: "0700"
+
+- name: "Configure aide"
+  command: aide --init
+  changed_when: false
+
+- name: "copy the newly generated database"
+  copy:
+    remote_src: yes
+    src: "/var/lib/aide/aide.db.new.gz"
+    dest: "/var/lib/aide/aide.db.gz"
+
+- name: "Cronjob for aide runs at 5:00 AM everyday"
+  cron:
+    name: "aide check"
+    minute: '{{ minute_aide_cronjob }}'
+    hour: '{{ hour_aide_cronjob }}'
+    job: "/usr/sbin/aide --check"

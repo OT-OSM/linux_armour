@@ -1,0 +1,32 @@
+---
+- name: Check if hosts.allow file exist
+  stat:
+    path: /etc/hosts.allow
+  register: host_allow_file
+
+- name: create file if hosts.allow doesn't exist
+  file:
+    path: /etc/hosts.allow
+    state: touch
+  when: not host_allow_file.stat.exists
+
+- name: Confiure hosts.allow
+  lineinfile:
+    dest: /etc/hosts.allow
+    line: sshd:ALL
+
+- name: Check if hosts.deny file exist
+  stat:
+    path: /etc/hosts.deny
+  register: host_deny_file
+
+- name: create file if hosts.deny doesn't exist
+  file:
+    path: /etc/hosts.deny
+    state: touch
+  when: not host_deny_file.stat.exists
+
+- name: Confiure hosts.deny
+  lineinfile:
+    dest: /etc/hosts.deny
+    line: ALL:ALL

@@ -1,0 +1,30 @@
+---
+#Ensure permissions on bootloader config are configured
+
+- name: Check if grub bootloader file exists
+  stat:
+    path: "{{ grub_bootloader_filename }}"
+  register: grub_result
+
+- name: Set permissions on grub configuration
+  file:
+    path: "{{ grub_bootloader_filename }}"
+    owner: root
+    group: root
+    mode:  "og-rwx"
+    state: file
+  when: grub_result.stat.exists
+
+# Ensure authentication is required for single user mode
+
+- name: Require Authentication for Single-User Mode
+  shell: 'grep "^root:[*\!]:" /etc/shadow'
+  register: root_password_set
+  changed_when: False
+
+- name: Require Authentication for Single-User
+  user:
+    name: root
+    state: present
+    password: '{{ root_password }}'
+  when: root_password_set.rc == 1

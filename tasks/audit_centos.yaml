@@ -1,0 +1,90 @@
+---
+- name: install auditd package
+  package:
+    name: '{{ audit_package_centos }}'
+    state: 'present'
+
+- name: check if audit.rules file exist
+  stat:
+    path: /etc/audit/audit.rules
+  register: file_result
+
+- name: create file if doesn't exist
+  file:
+    path: /etc/audit/audit.rules
+    state: touch
+  when: not file_result.stat.exists
+
+- name: Ensure login and logout events are collected
+  command: "grep logins {{ audit_rules_filename }}"
+  register: logins
+  changed_when: False
+  ignore_errors: true
+
+- name: Ensure audit.rules has an entry for login and logout events collection
+  lineinfile:
+    dest: "{{ audit_rules_filename }}"
+    line: "{{ item }}"
+  with_items:
+    - '-w /var/log/faillog -p wa -k logins'
+    - '-w /var/log/lastlog -p wa -k logins'
+    - '-w /var/run/faillock/ -p wa -k logins'
+    - '-w /var/log/wtmp -p wa -k logins'
+    - '-w /var/log/btmp -p wa -k logins'
+  when:
+       ("'-w /var/log/faillog -p wa -k logins' not in logins.stdout") or
+       ("'-w /var/run/faillock/ -p wa -k logins' not in logins.stdout") or
+       ("'-w /var/log/lastlog -p wa -k logins' not in logins.stdout") or
+       ("'-w /var/log/wtmp -p wa -k logins' not in logins.stdout") or
+       ("'-w /var/log/btmp -p wa -k logins' not in logins.stdout")
+
+- name: Ensure session initiation information is collected
+  command: "grep session {{ audit_rules_filename }}"
+  register: session
+  changed_when: False
+  ignore_errors: true
+
+- name: Ensure audit.rules file has an entry of session initiation information
+  lineinfile:
+    dest: "{{ audit_rules_filename }}"
+    line: "{{ item }}"
+  with_items:
+    - '-w /var/run/utmp -p wa -k session'
+    - '-w /var/log/wtmp -p wa -k session'
+    - '-w /var/log/btmp -p wa -k session'
+  when:
+    ("'-w /var/run/utmp -p wa -k session' not in session.stdout") or
+    ("'-w /var/log/wtmp -p wa -k session' not in session.stdout") or
+    ("'-w /var/log/btmp -p wa -k session' not in session.stdout")
+
+- name: Ensure events that modify the system's Mandatory Access Controls are collected
+  command: "grep MAC-policy {{ audit_rules_filename }}"
+  register: policy
+  changed_when: False
+  ignore_errors: true
+
+- name: Ensure audit.rules file has an entry of events that modify the system's Mandatory Access Controls
+  lineinfile:
+    dest: "{{ audit_rules_filename }}"
+    line: "{{ item }}"
+  with_items:
+    - '-w /etc/selinux/ -p wa -k MAC-policy'
+  when:
+    ("'-w /etc/selinux/ -p wa -k policy' not in policy.stdout")
+
+- name: Ensure changes to system administration scope (sudoers) is collected
+  command: "grep scope {{ audit_rules_filename }}"
+  register: scope
+  changed_when: False
+  ignore_errors: true
+
+- name: Ensure audit.rules file has an entry of system administration scope (sudoers) information
+  lineinfile:
+    dest: "{{ audit_rules_filename }}"
+    line: "{{ item }}"
+  with_items:
+    - '-w /etc/sudoers -p wa -k scope'
+    - '-w /etc/sudoers.d/ -p wa -k scope'
+  when:
+    ("'-w /etc/sudoers -p wa -k scope' not in session.stdout") or
+    ("'-w /etc/sudoers.d/ -p wa -k scope' not in session.stdout")

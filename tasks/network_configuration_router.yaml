@@ -1,34 +1,36 @@
 ---
-    - name: Ensure bogus ICMP responses are ignored
-      sysctl:
-        name: '{{ item }}'
-        value: '0'
-        sysctl_set: yes
-        reload: false
-        state: present
-      with_items:
-        - net.ipv4.conf.all.accept_redirects
-        - net.ipv4.conf.default.accept_redirects
-        - net.ipv6.conf.all.accept_redirects
-        - net.ipv6.conf.default.accept_redirects
-    - name: Ensure Reverse Path Filtering is enabled
-      sysctl:
-        name: '{{ item }}'
-        value: '1'
-        sysctl_set: yes
-        reload: false
-        state: present
-      with_items:
-        - net.ipv4.conf.all.rp_filter
-        - net.ipv4.conf.default.rp_filter
-    - name: Ensure TCP SYN Cookies is enabled
-      sysctl:
-        name: '{{ item }}'
-        value: '1'
-        sysctl_set: yes
-        reload: true
-        state: present
-      with_items:
-        - net.ipv4.tcp_syncookies
-        - net.ipv4.route.flush
-        - net.ipv6.route.flush
+- name: Ensure bogus ICMP responses are ignored
+  sysctl:
+    name: '{{ item }}'
+    value: '0'
+    sysctl_set: yes
+    reload: false
+    state: present
+  with_items:
+    - net.ipv4.conf.all.accept_redirects
+    - net.ipv4.conf.default.accept_redirects
+    - net.ipv6.conf.all.accept_redirects
+    - net.ipv6.conf.default.accept_redirects
+
+- name: Ensure Reverse Path Filtering is enabled
+  sysctl:
+    name: '{{ item }}'
+    value: '1'
+    sysctl_set: yes
+    reload: false
+    state: present
+  with_items:
+    - net.ipv4.conf.all.rp_filter
+    - net.ipv4.conf.default.rp_filter
+
+- name: Ensure TCP SYN Cookies is enabled
+  sysctl:
+    name: '{{ item }}'
+    value: '1'
+    sysctl_set: yes
+    reload: true
+    state: present
+  with_items:
+    - net.ipv4.tcp_syncookies
+    - net.ipv4.route.flush
+    - net.ipv6.route.flush

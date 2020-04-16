@@ -1,0 +1,42 @@
+---
+- name: Check if security limits file exists
+  stat:
+    path: "{{ cis_security_limits_filename }}"
+  register: security_limits
+
+- name: Ensure core dumps are restricted
+  copy:
+    dest: "{{ cis_security_limits_filename }}"
+    content: "* hard core 0\n"
+  when: security_limits.stat.exists is not defined or not security_limits.stat.exists
+
+- name: Ensure core dumps are restricted
+  pam_limits:
+    dest: "{{ cis_security_limits_filename }}"
+    limit_item: "core"
+    limit_type: "hard"
+    domain: "*"
+    value: "0"
+  when: security_limits.stat.exists is defined and security_limits.stat.exists
+
+- name: set limits.conf permission to 0400 and root ownership
+  file:
+    path: "{{ cis_security_limits_filename }}"
+    owner: 'root'
+    group: 'root'
+    mode: '0440'
+
+- name: Check if prelink binary exists
+  command: which prelink
+  ignore_errors: true
+  register: binary
+  changed_when: false
+
+- name: disable prelinked binaries
+  command: prelink -ua
+  when: binary.rc is defined and binary.rc == 0
+
+- name: Ensure prelink is disabled
+  yum:
+    name: prelink
+    state: absent
