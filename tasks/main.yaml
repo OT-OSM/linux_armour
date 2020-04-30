@@ -12,6 +12,12 @@
 - name: Special purpose services
   include_tasks: services.yaml
 
+- name: Logging and monitoring
+  include_tasks: audit.yaml
+
+- name: Additional Process Hardening
+  include_tasks: pam_limit.yaml
+
 - name: Tcp Wrapper and System File Permissions
   include_tasks: file_permissions.yaml
 

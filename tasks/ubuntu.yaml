@@ -2,14 +2,8 @@
 - name: inetd Services
   include_tasks: apt.yaml
 
-- name: Logging and Auditing
-  include_tasks: audit_ubuntu.yaml
-
 - name: Ensure filesystem integrity is regularly checked
   include_tasks: aide_ubuntu.yaml
-
-- name: Additional Process Hardening
-  include_tasks: pam_limits_ubuntu.yaml
 
 - name: Secure Boot Settings
   include_tasks: secure_boot_ubuntu.yaml

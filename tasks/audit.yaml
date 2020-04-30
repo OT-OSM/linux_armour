@@ -1,8 +1,15 @@
 ---
-- name: install auditd package
+- name: install auditd package for Redhat System
+  package:
+    name: '{{ audit_package_centos }}'
+    state: 'present'
+  when: ansible_os_family == "RedHat"
+
+- name: install auditd package for Debian System
   package:
     name: '{{ audit_package }}'
     state: 'present'
+  when: ansible_os_family == "Debian"
 
 - name: check if audit.rules file exist
   stat:
