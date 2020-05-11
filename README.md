@@ -23,9 +23,10 @@ This Ansible roles deals with auditing of Ubuntu according to CIS benchmark.
 
 Version History
 ---------------
-|**Date**| **Version**| **Description**| **Changed By** |
-|----------|---------|---------------|-----------------|
-|**Feb 27** | v.1.0 | Initial Draft | Anjali Singh |
+|**Date**   | **Version**| **Description**                   | **Changed By** |
+|---------- |------------|-----------------------------------|----------------|
+|**Feb 27** | v.1.0.1 | To harden OS(ubuntu) based on important(scored) CIS benchmarks | Anjali Singh |
+|**May 11** | v.2.0.1 | Added support for Centos                      | Anjali Singh |
 
 Salient Features
 ----------------

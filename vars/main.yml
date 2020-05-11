@@ -42,7 +42,7 @@ sysconfig_init_filename: "/etc/sysconfig/init"
 grub_bootloader_filename: "/boot/grub/menu.lst"
 
 # Services needs to be disable
-os_services_name: ['avahi-daemon', 'dhcpd', 'slapd', 'named', 'cups', 'telnet', 'discard-dgram', 'discard-stream']
+os_services_name: ['avahi-daemon', 'slapd', 'named', 'cups', 'telnet', 'discard-dgram', 'discard-stream']
 
 #aide cronjob configuration
 minute_aide_cronjob: '0'
