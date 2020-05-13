@@ -1,0 +1,5 @@
+---
+- name: Verify that repositories are configured correctly
+  yum:
+    list: repolist
+  ignore_errors: yes

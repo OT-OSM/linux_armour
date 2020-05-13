@@ -1,33 +1,33 @@
 ---
-    - name: Ensure IP forwarding is disabled
-      sysctl:
-        name: '{{ item}}'
-        value: '0'
-        sysctl_set: yes
-        reload: false
-        state: present
-      with_items:
-        - net.ipv4.ip_forward
-        - net.ipv6.conf.all.forwarding
+- name: Ensure IP forwarding is disabled
+  sysctl:
+    name: '{{ item }}'
+    value: '0'
+    sysctl_set: yes
+    reload: false
+    state: present
+  with_items:
+    - net.ipv4.ip_forward
+    - net.ipv6.conf.all.forwarding
 
-    - name: Ensure packet redirect sending is disabled
-      sysctl:
-        name: '{{ item }}'
-        value: '0'
-        sysctl_set: yes
-        reload: false
-        state: present
-      with_items:
-        - net.ipv4.conf.all.send_redirects
-        - net.ipv4.conf.default.send_redirects
+- name: Ensure packet redirect sending is disabled
+  sysctl:
+    name: '{{ item }}'
+    value: '0'
+    sysctl_set: yes
+    reload: false
+    state: present
+  with_items:
+    - net.ipv4.conf.all.send_redirects
+    - net.ipv4.conf.default.send_redirects
 
-    - name: Ensure suspicious packets are logged
-      sysctl:
-        name: '{{ item }}'
-        value: '1'
-        sysctl_set: yes
-        reload: false
-        state: present
-      with_items:
-        - net.ipv4.conf.all.log_martians
-        - net.ipv4.conf.default.log_martians
+- name: Ensure suspicious packets are logged
+  sysctl:
+    name: '{{ item }}'
+    value: '1'
+    sysctl_set: yes
+    reload: false
+    state: present
+  with_items:
+    - net.ipv4.conf.all.log_martians
+    - net.ipv4.conf.default.log_martians

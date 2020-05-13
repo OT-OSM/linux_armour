@@ -1,9 +1,28 @@
 ---
+- name: Ubuntu realted Specification
+  include_tasks: ubuntu.yaml
+  when:
+    ansible_os_family == 'Debian'
+
+- name: Centos realted Specification
+  include_tasks: centos.yaml
+  when:
+    ansible_os_family == 'RedHat'
+
 - name: Special purpose services
   include_tasks: services.yaml
 
+- name: Logging and monitoring
+  include_tasks: audit.yaml
+
+- name: Additional Process Hardening
+  include_tasks: pam_limit.yaml
+
 - name: Tcp Wrapper and System File Permissions
   include_tasks: file_permissions.yaml
+
+- name: Filesystem Configuration
+  include_tasks: filesystem_configuration.yaml
 
 - name: Network Configuration Host
   include_tasks: network_configuration_host.yaml
@@ -11,25 +30,5 @@
 - name: Ensure bogus ICMP responses are ignored
   include_tasks: network_configuration_router.yaml
 
-- name: inetd Services
-  include_tasks: apt.yaml
-
-- name: Logging and Auditing
-  include_tasks: audit.yaml
-
 - name: Ensure dccp and sctp is disabled
   include_tasks: network_protocol_and_unusedFilesystem.yaml
-
-- name: Filesystem Configuration
-  include_tasks: filesystem_configuration.yaml
-
-- name: Ensure filesystem integrity is regularly checked
-  template:
-    src: '{{ item.src }}'
-    dest: '{{ item.dest }}'
-    owner: root
-    group: root
-    mode: '0644'
-  with_items:
-    - { src: aidecheck.service, dest: /etc/systemd/system/aidecheck.service }
-    - { src: aidecheck.timer, dest: /etc/systemd/system/aidecheck.timer }

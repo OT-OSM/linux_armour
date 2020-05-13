@@ -1,15 +1,15 @@
 Ansible Role: osm_linux_armour
-=========
+==============================
 
 This Ansible roles deals with auditing of Ubuntu according to CIS benchmark.
 
-|  **S. No.**    |**Services**           |**Checks that should be in place**|
+|  **S. No.**    |**Services**           |**Checks covered**|
 |----------------|-----------------------|----------------------------------|
 |1.  |Special Purpose Services           |Ensure Avahi, DHCP, LDAP Server is not enabled|
 |2.  |Service Client                     |Ensure rsh, telnet, LDAP client is not installed|
 |3.  |inetd Services                     |Ensure telnet server, discarded services,rsh server is not installed|
 |4.  |Logging and Auditing               |auditd is installed and enabled, audit log storage size, system is disabled when audit logs are full, audit logs are not automatically deleted, login and logout events are collected, session initiation information is collected|
-|5.  |Filesystem Configuration           |Disable unused filesystems, Ensure /tmp, /var/tmp is configured|
+|5.  |Filesystem Configuration           |Disable unused filesystems, Ensures sticky bit is set on all world-writable directories (Use an argument executable: /bin/bash in case of an error), Disable Automounting.|
 |6.  |System File Permissions            |Ensure passwd, passwd-, group, group-, shadow, shadow-, gshadow, gshadow- are configured|
 |7.  |Filesystem Integrity Check         |Ensure filesystem integrity is regularly checked|
 |8.  |Additional Process Hardening       |Ensure core dumps are restricted and prelink is disabled|
@@ -17,20 +17,25 @@ This Ansible roles deals with auditing of Ubuntu according to CIS benchmark.
 |10. |Network Configuration Host and Router|Ensure bogus ICMP responses are ignored, Reverse Path Filtering is enabled, TCP SYN Cookies is enabled|
 |11. |TCP Wrapper                        |Ensure permissions on /etc/hosts.allow and /etc/hosts.deny are configured|
 |12. |Uncommon Network Protocols         |Ensure DCCP and SCTP are disabled|
+|13. |Secure Boot Settings               |Ensure permissions on bootloader config are configured and authentication required for single user mode|
+|14. |Mandatory Access Control           |Checks the state and ensures SETroubleshoot is not installed if enabled|
+
 
 Version History
 ---------------
-|**Date**| **Version**| **Description**| **Changed By** |
-|----------|---------|---------------|-----------------|
-|**Feb 27** | v.1.0 | Initial Draft | Anjali Singh |
+|**Date**   | **Version**| **Description**                   | **Changed By** |
+|---------- |------------|-----------------------------------|----------------|
+|**Feb 27** | 1.0.1 | To harden OS(ubuntu) based on important(scored) CIS benchmarks | Anjali Singh |
+|**May 11** | 2.0.1 | Added support for Centos                      | Anjali Singh |
 
 Salient Features
 ----------------
-* This role will configure the OS on the basis of the CIS benchmark.
+* This role will configure the OS on the basis of the essential CIS benchmark.
 
 Supported OS
 ------------
   * Ubuntu:bionic
+  * Centos:8
 
 Dependencies
 ------------
@@ -45,9 +50,8 @@ There are two types of variables i.e Mandatory and optional. Mandatory variables
 |**Variables**| **Default Values**| **Description**|
 |-------------|-------------------|----------------|
 | System_File_Permissions | host.conf, hostname, hosts, hosts.allow, hosts.deny, passwd, passwd-, shadow, shadow-, gshadow, gshadow-, group, group- | Special files whose permissions will change. |
-|os_kernel_enable_core_dump| false|core dump value which is set to 0|
 |os_packages_clean| true |deprecated packages are removed|
-|os_packages_list|xinetd, inetd, ypserv, telnet-server, telnet-client, rsh-server, rsh-client, prelink, openldap-clients, openldap2-client, ldap-utils| Disbale these sevices if not required|
+|os_packages_list| xinetd, inetd, ypserv, telnet-server, telnet-client, rsh-server, rsh-client, prelink, openldap-clients, openldap2-client, ldap-utils| Disbale these sevices if not required |
 |audit_package |auditd     |This is used to keep record of every logs|
 
 ### Optional Variables
@@ -73,16 +77,16 @@ Example Playbook
 
 ```sh
 ---
-- name: Ubuntu audit
+- name: OS audit
   hosts: osconfig
   become: true
   roles:
-    - role: ubuntu_hardening
+    - role: osm_linux_armour
 ```
 
 Future Proposed Changes
 -----------------------
-Will add support for other os as well.
+Will be updated as per 2020 cis benchmarks.
 
 References
 ----------
@@ -91,4 +95,4 @@ References
 Author Information
 ------------------
 
-- **[Anjali Singh](mailto:anjali.singh@opstree.com)*
+- **[Anjali Singh](mailto:anjali.singh@opstree.com)**

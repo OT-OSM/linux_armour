@@ -12,6 +12,9 @@ galaxy_info:
     - name: Ubuntu
       versions:
         - bionic
+    - name: Centos
+      versions:
+        - 8
 
   galaxy_tags:
     - opstree

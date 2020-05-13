@@ -1,0 +1,36 @@
+---
+#Ensure permissions on bootloader config are configured
+
+- name: Check if grub bootloader file exists
+  stat:
+    path: "{{ grub_bootloader_filename }}"
+  register: grub_result
+
+- name: Set permissions on grub configuration
+  file:
+    path: "{{ grub_bootloader_filename }}"
+    owner: root
+    group: root
+    mode:  "og-rwx"
+    state: file
+  when: grub_result.stat.exists
+
+# Ensure authentication is required for single user mode
+
+- name: Check if sysconfig init file exists
+  stat:
+    path: "{{ sysconfig_init_filename }}"
+  register: sysconfig_result
+
+- name: Ensure authentication is required for single-user mode
+  copy:
+    dest: "{{ sysconfig_init_filename }}"
+    content: "SINGLE=/sbin/sulogin\n"
+  when: sysconfig_result.stat.exists is not defined or not sysconfig_result.stat.exists
+
+- name: Ensure authentication is required for single-user mode
+  lineinfile:
+    dest: "{{ sysconfig_init_filename }}"
+    regexp: "^SINGLE="
+    line: "SINGLE=/sbin/sulogin"
+  when: sysconfig_result.stat.exists is defined and sysconfig_result.stat.exists

@@ -1,0 +1,18 @@
+---
+- name: Service client uninstall
+  include_tasks: yum.yaml
+
+- name: Ensure filesystem integrity is regularly checked
+  include_tasks: aide_centos.yaml
+
+- name: Verify that software packages are configured
+  include_tasks: software-updates.yaml
+
+- name: TCP wrappers
+  include_tasks: tcp_wrapper.yaml
+
+- name: Secure Boot Setting
+  include_tasks: secure_boot_centos.yaml
+
+- name: SELinux Configuration
+  include_tasks: selinux_centos.yaml
