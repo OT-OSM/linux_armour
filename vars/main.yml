@@ -14,7 +14,7 @@ System_File_Permissions:
   - group
   - group-
 
-#Additional process hardening
+# Additional process hardening
 cis_security_limits_filename: /etc/security/limits.conf
 
 # remove packages with known issues
@@ -44,6 +44,6 @@ grub_bootloader_filename: "/boot/grub/menu.lst"
 # Services needs to be disable
 os_services_name: ['avahi-daemon', 'slapd', 'named', 'cups', 'telnet', 'discard-dgram', 'discard-stream']
 
-#aide cronjob configuration
+# aide cronjob configuration
 minute_aide_cronjob: '0'
 hour_aide_cronjob: '5'

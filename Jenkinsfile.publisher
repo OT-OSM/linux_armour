@@ -1,0 +1,7 @@
+@Library('opstree-library@feature') _ 
+ 
+node {
+    githubpromoterworkflow.call(
+        configFilePath: "config.properties"
+    )
+}

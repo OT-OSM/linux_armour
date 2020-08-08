@@ -25,7 +25,7 @@
 - name: Ensure login and logout events are collected
   command: "grep logins {{ audit_rules_filename }}"
   register: logins
-  changed_when: False
+  changed_when: false
   ignore_errors: true
 
 - name: Ensure audit.rules has an entry for login and logout events collection
@@ -39,16 +39,16 @@
     - '-w /var/log/wtmp -p wa -k logins'
     - '-w /var/log/btmp -p wa -k logins'
   when:
-       ("'-w /var/log/faillog -p wa -k logins' not in logins.stdout") or
-       ("'-w /var/run/faillock/ -p wa -k logins' not in logins.stdout") or
-       ("'-w /var/log/lastlog -p wa -k logins' not in logins.stdout") or
-       ("'-w /var/log/wtmp -p wa -k logins' not in logins.stdout") or
-       ("'-w /var/log/btmp -p wa -k logins' not in logins.stdout")
+    ("'-w /var/log/faillog -p wa -k logins' not in logins.stdout") or
+    ("'-w /var/run/faillock/ -p wa -k logins' not in logins.stdout") or
+    ("'-w /var/log/lastlog -p wa -k logins' not in logins.stdout") or
+    ("'-w /var/log/wtmp -p wa -k logins' not in logins.stdout") or
+    ("'-w /var/log/btmp -p wa -k logins' not in logins.stdout")
 
 - name: Ensure session initiation information is collected
   command: "grep session {{ audit_rules_filename }}"
   register: session
-  changed_when: False
+  changed_when: false
   ignore_errors: true
 
 - name: Ensure audit.rules file has an entry of session initiation information
@@ -67,7 +67,7 @@
 - name: Ensure events that modify the system's Mandatory Access Controls are collected
   command: "grep MAC-policy {{ audit_rules_filename }}"
   register: policy
-  changed_when: False
+  changed_when: false
   ignore_errors: true
 
 - name: Ensure audit.rules file has an entry of events that modify the system's Mandatory Access Controls
@@ -82,7 +82,7 @@
 - name: Ensure changes to system administration scope (sudoers) is collected
   command: "grep scope {{ audit_rules_filename }}"
   register: scope
-  changed_when: False
+  changed_when: false
   ignore_errors: true
 
 - name: Ensure audit.rules file has an entry of system administration scope (sudoers) information

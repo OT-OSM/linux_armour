@@ -3,7 +3,7 @@
   service:
     name: '{{ item }}'
     state: restarted
-    daemon_reload: yes
+    daemon_reload: true
   with_items:
     - aidecheck.timer
     - aidecheck
