@@ -1,5 +1,5 @@
 ---
-#Ensure permissions on bootloader config are configured
+# Ensure permissions on bootloader config are configured
 
 - name: Check if grub bootloader file exists
   stat:
@@ -11,7 +11,7 @@
     path: "{{ grub_bootloader_filename }}"
     owner: root
     group: root
-    mode:  "og-rwx"
+    mode: "og-rwx"
     state: file
   when: grub_result.stat.exists
 

@@ -2,10 +2,10 @@
 - name: Special purpose services should be disabled
   service:
     name: '{{ item }}'
-    enabled: no
+    enabled: false
     state: stopped
-    daemon_reload: yes
-    no_block: no
+    daemon_reload: true
+    no_block: false
   with_items:
     - '{{ os_services_name }}'
-  ignore_errors: True
+  ignore_errors: true
