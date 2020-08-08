@@ -25,8 +25,8 @@ Version History
 ---------------
 |**Date**   | **Version**| **Description**                   | **Changed By** |
 |---------- |------------|-----------------------------------|----------------|
-|**Feb 27** | 1.0.1 | To harden OS(ubuntu) based on important(scored) CIS benchmarks | Anjali Singh |
-|**May 11** | 2.0.1 | Added support for Centos                      | Anjali Singh |
+|**Feb 27** | v0.0.1 | To harden OS(ubuntu) based on important(scored) CIS benchmarks | Anjali Singh |
+|**May 11** | v0.0.2 | Added support for Centos                      | Anjali Singh |
 
 Salient Features
 ----------------
