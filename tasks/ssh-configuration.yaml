@@ -1,0 +1,20 @@
+---
+- include: stat_sshd_config.yml
+
+- name: Ensure SSH X11 forwarding is disabled
+  lineinfile:
+    regexp: "^X11Forwarding\\s+"
+    line: "X11Forwarding no"
+    dest: "/etc/ssh/sshd_config"
+  when: sshd_config.stat.exists
+  notify:
+    - Restart sshd
+
+- name: Ensure SSH AllowTcpForwarding is disabled
+  lineinfile:
+    regexp: "^AllowTcpForwarding\\s+"
+    line: "AllowTcpForwarding no"
+    dest: "/etc/ssh/sshd_config"
+  when: sshd_config.stat.exists
+  notify:
+    - Restart sshd
