@@ -1,5 +1,5 @@
 ---
-- include: stat_sshd_config.yml
+- include: sshd_config_check.yml
 
 - name: Ensure SSH X11 forwarding is disabled
   lineinfile:
