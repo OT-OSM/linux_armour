@@ -8,3 +8,8 @@
     - aidecheck.timer
     - aidecheck
     - auditd
+
+- name: Restart sshd
+  service:
+    name: sshd
+    state: restarted
