@@ -1,4 +1,8 @@
 ---
+- name: update cache
+  apt:
+    update_cache: true
+
 - name: inetd Services
   include_tasks: apt.yaml
 
