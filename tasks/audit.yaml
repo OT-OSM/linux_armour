@@ -1,13 +1,9 @@
 ---
-- name: install auditd package for Redhat System
-  package:
-    name: '{{ audit_package_centos }}'
-    state: 'present'
-  when: ansible_os_family == "RedHat"
-
 - name: install auditd package for Debian System
   package:
-    name: '{{ audit_package }}'
+    name:
+      - auditd
+      - audispd-plugins
     state: 'present'
   when: ansible_os_family == "Debian"
 

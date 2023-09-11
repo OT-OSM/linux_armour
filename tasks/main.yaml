@@ -1,34 +1,20 @@
 ---
 - name: Ubuntu realted Specification
-  include_tasks: ubuntu.yaml
+  include_tasks: configure_Debian.yaml
   when:
     ansible_os_family == 'Debian'
 
-- name: Centos realted Specification
-  include_tasks: centos.yaml
-  when:
-    ansible_os_family == 'RedHat'
+# - name: Tcp Wrapper and System File Permissions
+#   include_tasks: file_permissions.yaml
 
-- name: Special purpose services
-  include_tasks: services.yaml
+# - name: Filesystem Configuration
+#   include_tasks: filesystem_configuration.yaml
 
-- name: Logging and monitoring
-  include_tasks: audit.yaml
+# - name: Network Configuration Host
+#   include_tasks: network_configuration_host.yaml
 
-- name: Additional Process Hardening
-  include_tasks: pam_limit.yaml
+# - name: Ensure bogus ICMP responses are ignored
+#   include_tasks: network_configuration_router.yaml
 
-- name: Tcp Wrapper and System File Permissions
-  include_tasks: file_permissions.yaml
-
-- name: Filesystem Configuration
-  include_tasks: filesystem_configuration.yaml
-
-- name: Network Configuration Host
-  include_tasks: network_configuration_host.yaml
-
-- name: Ensure bogus ICMP responses are ignored
-  include_tasks: network_configuration_router.yaml
-
-- name: Ensure dccp and sctp is disabled
-  include_tasks: network_protocol_and_unusedFilesystem.yaml
+# - name: Ensure dccp and sctp is disabled
+#   include_tasks: network_protocol_and_unusedFilesystem.yaml

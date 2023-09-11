@@ -1,6 +1,6 @@
 ---
 - name: "Ensure aide is installed"
-  yum:
+  dnf:
     name: "aide"
     state: "present"
   register: "aide_installed"

@@ -1,0 +1,7 @@
+---
+# 2.3 Service Clients
+- name: remove deprecated or insecure packages
+  apt:
+    name: "{{ item }}"
+    state: absent
+  loop: "{{ serviceClinetPackagesList }}"

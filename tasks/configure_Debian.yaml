@@ -1,0 +1,48 @@
+---
+- name: update cache
+  apt:
+    update_cache: true
+
+# 1.1 Disable unused filesystems
+- name: Disable unused filesystem disabled
+  blockinfile:
+    path: "/etc/modprobe.d/{{ item }}.conf"
+    block: |
+      install {{ item }} /bin/false
+      blacklist {{ item }}
+    create: yes
+  with_items:
+    - cramfs
+    - squashfs
+    - udf
+
+# 1.3 Filesystem Integrity Checking
+- name: Ensure filesystem integrity is regularly checked
+  include_tasks: aide_ubuntu.yaml
+  when: cis_Stage >=2
+
+# 1.4 Secure Boot Settings
+- name: Secure Boot Settings
+  include_tasks: secure_boot_ubuntu.yaml
+
+# 1.5 Secure Boot Settings
+- name: Secure Boot Settings
+  include_tasks: pam_limit.yaml
+
+# 2.2 Special Purpose Services
+- name: Remove Special Purpose Services
+  apt:
+    name: "{{ item }}"
+    state: absent
+  loop: "{{ specialPurposeServices }}"
+
+# 2.3 Service Clients
+- name: Remove Service Clients
+  apt:
+    name: "{{ item }}"
+    state: absent
+  loop: "{{ serviceClinetPackagesList }}"
+
+# 4.1 Configure System Accounting (auditd)
+- name: Configure System Accounting (auditd)
+  include_tasks: audit.yaml

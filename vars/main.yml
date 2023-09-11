@@ -1,4 +1,21 @@
 ---
+cis_Stage: 1
+
+# 2.2 Services needs to be disable
+specialPurposeServices: ['avahi-daemon', 'cups', 'isc-dhcp-server', 'slapd', 'nfs-kernel-server', 'bind9', 'vsftpd', 'apache2', 'dovecot-imapd dovecot-pop3d', 'samba', 'squid', 'snmp', 'nis']
+
+# 2.3 Service Clients
+serviceClinetPackagesList: |
+  {% set items = [] %}
+  {% if cis_Stage >= 2 %}
+    {% set _ = items.extend(['nis','ldap-utils', 'rsh-client', 'rpcbind', 'talk', 'telnet']) %}
+  {% endif %}
+  {% if cis_Stage == 3 %}
+    {% set _ = items.extend([ 'prelink']) %}
+  {% endif %}
+  {{ items }}
+
+
 System_File_Permissions:
   - host.conf
   - hostname
@@ -19,30 +36,15 @@ cis_security_limits_filename: /etc/security/limits.conf
 
 # remove packages with known issues
 os_packages_clean: true
-os_packages_list:
-  - xinetd
-  - inetd
-  - ypserv
-  - telnet-server
-  - telnet-client
-  - rsh-server
-  - rsh-client
-  - prelink
-  - openldap-clients
-  - openldap2-client
-  - ldap-utils
 
 # Audit
-audit_package: 'auditd'
 audit_package_centos: 'audit'
 audit_rules_filename: "/etc/audit/audit.rules"
 
 # Secure boot
 sysconfig_init_filename: "/etc/sysconfig/init"
-grub_bootloader_filename: "/boot/grub/menu.lst"
+grub_bootloader_filename: "/boot/grub/grub.cfg"
 
-# Services needs to be disable
-os_services_name: ['avahi-daemon', 'slapd', 'named', 'cups', 'telnet', 'discard-dgram', 'discard-stream']
 
 # aide cronjob configuration
 minute_aide_cronjob: '0'

@@ -36,14 +36,10 @@
   command: prelink -ua
   when: binary.rc is defined and binary.rc == 0
 
-- name: Ensure prelink is disabled for Redhat System
-  yum:
-    name: prelink
-    state: absent
-  when: ansible_os_family == "RedHat"
-
 - name: Ensure prelink is disabled for Debian System
   apt:
-    name: prelink
+    name: 
+     - prelink
+     - apport
     state: absent
   when: ansible_os_family == "Debian"
