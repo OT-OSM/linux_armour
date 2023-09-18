@@ -1,0 +1,49 @@
+---
+# 1.4.1 Ensure bootloader password is set (Automated)
+- name: Generate PBKDF2 password hash
+  expect:
+    command: grub2-mkpasswd-pbkdf2
+    responses:
+      Enter password: '{{ root_password }}'
+      Reenter password: '{{ root_password }}'
+  register: password_hash
+  no_log: true
+
+- name: Update bootloader configuration
+  lineinfile:
+    path: /etc/grub.d/40_custom
+    line: 'set superusers="root" && password_pbkdf2 root {{ password_hash.stdout }}'
+    insertbefore: '^exit 0'
+    create: yes
+  notify: Update Grub Configuration
+
+- name: Update Grub Configuration
+  command: update-grub
+
+# 1.4.2 Ensure permissions on bootloader config are configured
+- name: Check if grub bootloader file exists
+  stat:
+    path: "/boot/grub/grub.cfg"
+  register: grub_result
+
+- name: Set permissions on grub configuration
+  file:
+    path: "/boot/grub/grub.cfg"
+    owner: root
+    group: root
+    mode: "og-rwx"
+    state: file
+  when: grub_result.stat.exists
+
+# 1.4.3 Ensure authentication required for single user mode
+- name: Require Authentication for Single-User Mode
+  shell: 'grep "^root:[*\!]:" /etc/shadow'
+  register: root_password_set
+  changed_when: false
+
+- name: Require Authentication for Single-User
+  user:
+    name: root
+    state: present
+    password: '{{ root_password }}'
+  when: root_password_set.rc == 1

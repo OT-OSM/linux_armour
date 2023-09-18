@@ -1,0 +1,84 @@
+---
+# 1.1.1 Disable unused filesystems
+- name: Disable unused filesystem disabled
+  blockinfile:
+    path: "/etc/modprobe.d/{{ item }}.conf"
+    block: |
+      install {{ item }} /bin/true
+      blacklist {{ item }}
+    create: yes
+  with_items:
+    - cramfs
+    - squashfs
+    - udf
+
+# 1.1.2 Configure /tmp
+- name: Unmask and enable tmp.mount
+  systemd:
+    name: tmp.mount
+    state: started
+    enabled: yes
+
+- name: Configure /tmp and set options 
+  copy:
+    src: /usr/share/systemd/tmp.mount
+    dest: /etc/systemd/system/tmp.mount
+    remote_src: yes
+  notify:
+    - Reload systemd units
+
+# 1.1.8 Configure /dev/shm
+- name: Mount /dev/shm with nodev, noexec, and nosuid options
+  mount:
+    path: /dev/shm
+    src: tmpfs
+    fstype: tmpfs
+    opts: nodev,noexec,nosuid,defaults
+    state: mounted
+
+# # Ensure sticky bit is set on all world-writable directories
+# - name: First Part
+#   shell: |
+#     set -o pipefail
+#     df --local -P | awk '{if (NR!=1) print $6}'
+#   args:
+#     executable: /bin/bash
+#   changed_when: true
+#   register: result_1
+
+# - name: Second Part
+#   shell: |
+#     set -o pipefail
+#     echo '{{ result_1.stdout }}' | xargs -I '{}' find '{}' -xdev -type d \( -perm -0002 -a ! -perm -1000 \) 2>/dev/null
+#   changed_when: true
+#   register: result_2
+#   args:
+#     executable: /bin/bash
+
+# - name: Third Part
+#   shell: |
+#     set -o pipefail
+#     echo '{{ result_2.stdout }}' | xargs -I '{}' chmod a+t '{}'
+#   changed_when: true
+#   register: result_3
+#   args:
+#     executable: /bin/bash
+
+# 1.1.9 Disable Automounting
+- name: Disable Automounting
+  service:
+    name: autofs
+    enabled: false
+    state: stopped
+  ignore_errors: true
+  register: autofs_result
+  failed_when: "autofs_result.failed and 'no service or tool found for: autofs' not in autofs_result.msg"
+
+# 1.1.10 Disable USB Storage
+- name: Disable USB Storage
+  blockinfile:
+    path: "/etc/modprobe.d/usb-storage.conf"
+    block: |
+      install usb-storage /bin/false
+      blacklist usb-storage
+    create: yes

@@ -43,7 +43,6 @@ audit_rules_filename: "/etc/audit/audit.rules"
 
 # Secure boot
 sysconfig_init_filename: "/etc/sysconfig/init"
-grub_bootloader_filename: "/boot/grub/grub.cfg"
 
 
 # aide cronjob configuration

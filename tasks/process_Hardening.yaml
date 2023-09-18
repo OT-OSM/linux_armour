@@ -1,0 +1,52 @@
+---
+# 1.5.1 Ensure address space layout randomization (ASLR) is enabled
+- name: Set kernel.randomize_va_space
+  sysctl:
+    name: kernel.randomize_va_space
+    value: 2
+    state: present
+
+# 1.5.2 Ensure prelink is not installed
+- name: Check if prelink binary exists
+  command: which prelink
+  ignore_errors: true
+  register: binary
+  changed_when: false
+
+- name: disable prelinked binaries
+  command: prelink -ua
+  when: binary.rc is defined and binary.rc == 0
+
+- name: Ensure prelink is disabled for Debian System
+  apt:
+    name: prelink
+    state: absent
+  when: ansible_os_family == "Debian"
+
+# 1.5.3 Ensure Automatic Error Reporting is not enabled
+- name: Ensure prelink is disabled for Debian System
+  apt:
+    name: apport
+    state: absent
+  when: ansible_os_family == "Debian"
+
+# 1.5.4 Ensure core dumps are restricted
+- name: Check if security limits file exists
+  stat:
+    path: "{{ cis_security_limits_filename }}"
+  register: security_limits
+
+- name: Ensure core dumps are restricted
+  copy:
+    dest: "{{ cis_security_limits_filename }}"
+    content: "* hard core 0\n"
+  when: security_limits.stat.exists is not defined or not security_limits.stat.exists
+
+- name: Ensure core dumps are restricted
+  pam_limits:
+    dest: "{{ cis_security_limits_filename }}"
+    limit_item: "core"
+    limit_type: "hard"
+    domain: "*"
+    value: "0"
+  when: security_limits.stat.exists is defined and security_limits.stat.exists

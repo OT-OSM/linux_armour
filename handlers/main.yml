@@ -8,3 +8,7 @@
     - aidecheck.timer
     - aidecheck
     - auditd
+
+- name: Reload systemd units
+  systemd:
+    daemon_reload: yes

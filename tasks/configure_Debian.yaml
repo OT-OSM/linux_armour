@@ -3,31 +3,21 @@
   apt:
     update_cache: true
 
-# 1.1 Disable unused filesystems
-- name: Disable unused filesystem disabled
-  blockinfile:
-    path: "/etc/modprobe.d/{{ item }}.conf"
-    block: |
-      install {{ item }} /bin/false
-      blacklist {{ item }}
-    create: yes
-  with_items:
-    - cramfs
-    - squashfs
-    - udf
+# 1.1 Filesystem Configuration
+- name: 1.1 Filesystem Configuration
+  include_tasks: filesystem_Configuration.yaml
 
 # 1.3 Filesystem Integrity Checking
 - name: Ensure filesystem integrity is regularly checked
-  include_tasks: aide_ubuntu.yaml
-  when: cis_Stage >=2
+  include_tasks: filesystem_Integrity.yaml
 
 # 1.4 Secure Boot Settings
 - name: Secure Boot Settings
-  include_tasks: secure_boot_ubuntu.yaml
+  include_tasks: secure_BootSettings.yaml
 
-# 1.5 Secure Boot Settings
-- name: Secure Boot Settings
-  include_tasks: pam_limit.yaml
+# 1.5 Additional Process Hardening
+- name: Process Hardening
+  include_tasks: process_Hardening.yaml
 
 # 2.2 Special Purpose Services
 - name: Remove Special Purpose Services
