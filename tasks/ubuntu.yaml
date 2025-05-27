@@ -8,6 +8,8 @@
 
 - name: Ensure filesystem integrity is regularly checked
   include_tasks: aide_ubuntu.yaml
+  tags:
+    - aide_ubuntu
 
 - name: Secure Boot Settings
   include_tasks: secure_boot_ubuntu.yaml
