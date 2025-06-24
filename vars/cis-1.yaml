@@ -1,0 +1,5 @@
+filesystem_kernel_modules:
+  - usb-storage
+
+os_services_name:
+  - autofs

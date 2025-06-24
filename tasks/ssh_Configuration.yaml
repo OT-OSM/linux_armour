@@ -1,0 +1,82 @@
+- name: Ensure /etc/ssh/sshd_config has correct ownership and permissions
+  file:
+    path: /etc/ssh/sshd_config
+    owner: root
+    group: root
+    mode: '0600'
+
+- name: Ensure permissions on SSH private host key files
+  find:
+    paths: /etc/ssh
+    patterns: "ssh_host_*_key"
+    recurse: no
+  register: ssh_private_keys
+
+- name: Set ownership and permissions on SSH private host key files
+  file:
+    path: "{{ item.path }}"
+    owner: root
+    group: root
+    mode: '0600'
+  loop: "{{ ssh_private_keys.files }}"
+  when: ssh_private_keys.matched > 0
+
+- name: Ensure permissions on SSH public host key files
+  find:
+    paths: /etc/ssh
+    patterns: "ssh_host_*_key.pub"
+    recurse: no
+  register: ssh_public_keys
+
+- name: Set ownership and permissions on SSH public host key files
+  file:
+    path: "{{ item.path }}"
+    owner: root
+    group: root
+    mode: '0644'
+  loop: "{{ ssh_public_keys.files }}"
+  when: ssh_public_keys.matched > 0
+
+- name: Ensure sshd_config has correct ownership and permissions
+  file:
+    path: /etc/ssh/sshd_config
+    owner: root
+    group: root
+    mode: '0600'
+
+- name: Configure sshd settings
+  lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: "{{ item.regexp }}"
+    line: "{{ item.line }}"
+    state: present
+    create: yes
+    backup: yes
+    insertafter: EOF
+  with_items:
+    - { regexp: '^#?AllowUsers', line: 'AllowUsers user1 user2' }
+    - { regexp: '^#?Banner', line: 'Banner /etc/issue.net' }
+    - { regexp: '^#?Ciphers', line: 'Ciphers aes256-ctr,aes192-ctr,aes128-ctr' }
+    - { regexp: '^#?ClientAliveInterval', line: 'ClientAliveInterval 300' }
+    - { regexp: '^#?ClientAliveCountMax', line: 'ClientAliveCountMax 0' }
+    - { regexp: '^#?DisableForwarding', line: 'DisableForwarding yes' }
+    - { regexp: '^#?GSSAPIAuthentication', line: 'GSSAPIAuthentication no' }
+    - { regexp: '^#?HostbasedAuthentication', line: 'HostbasedAuthentication no' }
+    - { regexp: '^#?IgnoreRhosts', line: 'IgnoreRhosts yes' }
+    - { regexp: '^#?KexAlgorithms', line: 'KexAlgorithms -diffie-hellman-group1-sha1,diffie-hellman-group14-sha1,diffie-hellman-group-exchange-sha1' }
+    - { regexp: '^#?LoginGraceTime', line: 'LoginGraceTime 30' }
+    - { regexp: '^#?LogLevel', line: 'LogLevel VERBOSE' }
+    - { regexp: '^#?MACs', line: 'MACs -hmac-md5,hmac-md5-96,hmac-ripemd160,hmac-sha1-96' }
+    - { regexp: '^#?MaxAuthTries', line: 'MaxAuthTries 3' }
+    - { regexp: '^#?MaxSessions', line: 'MaxSessions 10' }
+    - { regexp: '^#?MaxStartups', line: 'MaxStartups 10:30:60' }
+    - { regexp: '^#?PermitEmptyPasswords', line: 'PermitEmptyPasswords no' }
+    - { regexp: '^#?PermitRootLogin', line: 'PermitRootLogin no' }
+    - { regexp: '^#?PermitUserEnvironment', line: 'PermitUserEnvironment no' }   
+    - { regexp: '^#?UsePAM', line: 'UsePAM yes' }
+
+
+    - { regexp: '^#?PasswordAuthentication', line: 'PasswordAuthentication no' }
+    - { regexp: '^#?ChallengeResponseAuthentication', line: 'ChallengeResponseAuthentication no' }
+    - { regexp: '^#?X11Forwarding', line: 'X11Forwarding no' }
+    - { regexp: '^#?LoginGraceTime', line: 'LoginGraceTime 30' }

@@ -1,16 +1,44 @@
 ---
-- name: install auditd package for Redhat System
-  package:
-    name: '{{ audit_package_centos }}'
-    state: 'present'
-  when: ansible_os_family == "RedHat"
-
+# 6.3.1 Ensure auditing is enabled
 - name: install auditd package for Debian System
   package:
-    name: '{{ audit_package }}'
+    name:
+      - auditd
+      - audispd-plugins
     state: 'present'
   when: ansible_os_family == "Debian"
 
+- name: Ensure auditd service is enabled and active
+  service:
+    name: auditd
+    state: started
+    enabled: yes
+
+- name: Set kernel boot parameter for auditing
+  lineinfile:
+    path: /etc/default/grub
+    line: {{ item }}
+  with_items:
+    - 'GRUB_CMDLINE_LINUX="audit=1"'
+    - 'GRUB_CMDLINE_LINUX="audit_backlog_limit=8192"'
+  notify: Update Grub Configuration
+
+# 6.3.2 Configure Audit log Retention
+- name: Ensure audit logs are not automatically deleted
+  lineinfile:
+    path: /etc/audit/auditd.conf
+    regexp: '^#?{{ item.key }}='
+    line: '{{ item.key }} = {{ item.value }}'
+    state: present
+  with_items:
+    - { key: 'max_log_file', value: '8' }
+    - { key: 'max_log_file_action', value: 'keep_logs' }
+    - { key: 'disk_full_action', value: 'halt' }
+    - { key: 'disk_error_action', value: 'syslog' }
+    - { key: 'space_left_action', value: 'email' }
+    - { key: 'admin_space_left_action', value: 'single' }
+
+# Configure Audit Rules
 - name: check if audit.rules file exist
   stat:
     path: /etc/audit/audit.rules
@@ -21,6 +49,23 @@
     path: /etc/audit/audit.rules
     state: touch
   when: not file_result.stat.exists
+
+- name: Ensure changes to system administration scope (sudoers) is collected
+  command: "grep scope {{ audit_rules_filename }}"
+  register: scope
+  changed_when: false
+  ignore_errors: true
+
+- name: Ensure audit.rules file has an entry of system administration scope (sudoers) information
+  lineinfile:
+    dest: "{{ audit_rules_filename }}"
+    line: "{{ item }}"
+  with_items:
+    - '-w /etc/sudoers -p wa -k scope'
+    - '-w /etc/sudoers.d/ -p wa -k scope'
+  when:
+    ("'-w /etc/sudoers -p wa -k scope' not in scope.stdout") or
+    ("'-w /etc/sudoers.d/ -p wa -k scope' not in scope.stdout")
 
 - name: Ensure login and logout events are collected
   command: "grep logins {{ audit_rules_filename }}"
@@ -78,20 +123,3 @@
     - '-w /etc/selinux/ -p wa -k MAC-policy'
   when:
     ("'-w /etc/selinux/ -p wa -k policy' not in policy.stdout")
-
-- name: Ensure changes to system administration scope (sudoers) is collected
-  command: "grep scope {{ audit_rules_filename }}"
-  register: scope
-  changed_when: false
-  ignore_errors: true
-
-- name: Ensure audit.rules file has an entry of system administration scope (sudoers) information
-  lineinfile:
-    dest: "{{ audit_rules_filename }}"
-    line: "{{ item }}"
-  with_items:
-    - '-w /etc/sudoers -p wa -k scope'
-    - '-w /etc/sudoers.d/ -p wa -k scope'
-  when:
-    ("'-w /etc/sudoers -p wa -k scope' not in session.stdout") or
-    ("'-w /etc/sudoers.d/ -p wa -k scope' not in session.stdout")

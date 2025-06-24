@@ -1,0 +1,135 @@
+---
+# 3.2 Uncommon Network Protocols
+- name: Disable Uncommon Network Protocols
+  blockinfile:
+    path: "/etc/modprobe.d/{{ item }}.conf"
+    block: |
+      install {{ item }} /bin/true
+      blacklist {{ item }}
+    create: yes
+  with_items:
+    - dccp
+    - sctp
+    - rds
+    - tipc
+
+# 3.3.1 Ensure IP forwarding is disabled
+- name: Ensure IP forwarding is disabled
+  sysctl:
+    name: '{{ item }}'
+    value: '0'
+    sysctl_set: true
+    reload: false
+    state: present
+  with_items:
+    - net.ipv4.ip_forward
+    - net.ipv6.conf.all.forwarding
+
+# 3.3.2 Ensure packet redirect sending is disabled
+- name: Ensure packet redirect sending is disabled
+  sysctl:
+    name: '{{ item }}'
+    value: '0'
+    sysctl_set: true
+    reload: false
+    state: present
+  with_items:
+    - net.ipv4.conf.all.send_redirects
+    - net.ipv4.conf.default.send_redirects
+
+# 3.3.3 - 3.3.4 Ensure broadcast ICMP requests/response are ignored
+- name: Ensure broadcast ICMP requests are ignored
+  sysctl:
+    name: '{{ item }}'
+    value: '1'
+    sysctl_set: true
+    reload: false
+    state: present
+  with_items:
+    - net.ipv4.icmp_ignore_bogus_error_responses
+    - net.ipv4.icmp_echo_ignore_broadcasts
+
+# 3.3.5 Ensure ICMP redirects are not accepted
+- name: Ensure bogus ICMP responses are ignored
+  sysctl:
+    name: '{{ item }}'
+    value: '0'
+    sysctl_set: true
+    reload: false
+    state: present
+  with_items:
+    - net.ipv4.conf.all.accept_redirects
+    - net.ipv4.conf.default.accept_redirects
+    - net.ipv6.conf.all.accept_redirects
+    - net.ipv6.conf.default.accept_redirects
+
+# 3.3.6 Ensure secure ICMP redirects are not accepted
+- name: Ensure secure ICMP redirects are not accepted
+  sysctl:
+    name: '{{ item }}'
+    value: '0'
+    sysctl_set: true
+    reload: false
+    state: present
+  with_items:
+    - net.ipv4.conf.default.secure_redirects
+    - net.ipv4.conf.all.secure_redirects = 0
+
+# 3.3.7 Ensure Reverse Path Filtering is enabled
+- name: Ensure Reverse Path Filtering is enabled
+  sysctl:
+    name: '{{ item }}'
+    value: '1'
+    sysctl_set: true
+    reload: false
+    state: present
+  with_items:
+    - net.ipv4.conf.all.rp_filter
+    - net.ipv4.conf.default.rp_filter
+
+# 3.3.8 Ensure source routed packets are not accepted
+- name: Ensure source routed packets are not accepted
+  sysctl:
+    name: '{{ item }}'
+    value: '0'
+    sysctl_set: true
+    reload: false
+    state: present
+  with_items:
+    - net.ipv4.conf.all.accept_source_route
+    - net.ipv4.conf.default.accept_source_route
+    - net.ipv6.conf.all.accept_source_route
+    - net.ipv6.conf.default.accept_source_route
+
+# 3.3.9 Ensure suspicious packets are logged
+- name: Ensure suspicious packets are logged
+  sysctl:
+    name: '{{ item }}'
+    value: '1'
+    sysctl_set: true
+    reload: false
+    state: present
+  with_items:
+    - net.ipv4.conf.all.log_martians
+    - net.ipv4.conf.default.log_martians
+
+# 3.3.10 Ensure TCP SYN Cookies is enabled
+- name: Ensure TCP SYN Cookies is enabled
+  sysctl:
+    name: net.ipv4.tcp_syncookies
+    value: '1'
+    sysctl_set: true
+    reload: true
+    state: present
+
+# 3.3.11 Ensure IPv6 router advertisements are not accepted
+- name: Ensure IPv6 router advertisements are not accepted
+  sysctl:
+    name: '{{ item }}'
+    value: '1'
+    sysctl_set: true
+    reload: false
+    state: present
+  with_items:
+    - net.ipv6.conf.all.accept_ra
+    - net.ipv6.conf.default.accept_ra

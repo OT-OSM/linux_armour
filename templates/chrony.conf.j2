@@ -1,0 +1,30 @@
+# Use public servers from the pool.ntp.org project.
+# Please consider joining the pool (http://www.pool.ntp.org/join.html).
+server 0.centos.pool.ntp.org iburst
+server 1.centos.pool.ntp.org iburst
+server 2.centos.pool.ntp.org iburst
+server 3.centos.pool.ntp.org iburst
+
+# Specify the user for Chrony
+user _chrony
+
+# Allow NTP clients to access this server.
+# Replace the subnet with your network or specify individual hosts.
+# For example:
+# allow 192.168.1.0/24
+# allow 10.0.0.1
+allow all
+
+# Ignore stratum in source selection (recommended for public NTP servers).
+stratumweight 0
+
+# Record the rate at which the system clock gains/losses time.
+driftfile /var/lib/chrony/chrony.drift
+
+# Enable kernel synchronization of the real-time clock (RTC).
+rtcsync
+
+# Define the locations of Chrony's log files.
+logdir /var/log/chrony
+
+# Additional Chrony configuration options can be added here.

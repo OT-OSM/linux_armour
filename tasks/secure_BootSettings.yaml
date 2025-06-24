@@ -1,0 +1,92 @@
+############################
+# 1.3 Configure AppArmor #
+############################
+
+- name: Ensure aide is installed
+  apt:
+    name: "{{ item }}"
+    state: "present"
+  register: "apparmor_installed"
+  with_items:
+    - apparmor
+    - apparmor-utils
+  until: "apparmor_installed is succeeded"
+  when: ansible_os_family == "Debian"
+
+- name: Add AppArmor to GRUB_CMDLINE_LINUX
+  lineinfile:
+    path: /etc/default/grub
+    line: 'GRUB_CMDLINE_LINUX="apparmor=1 security=apparmor"'
+    backup: yes
+  register: grub_updated
+    # Creates a backup of the original file
+
+- name: Update GRUB configuration
+  command: update-grub
+  when: grub_updated.changed
+
+- name: Ensure all AppArmor Profiles are enforcing"
+  shell: "aa-enforce /etc/apparmor.d/*"
+  ignore_errors: true
+
+############################
+# 1.4 Configure BootLoader #
+############################
+
+# 1.4.1 Ensure bootloader password is set (Automated)
+- name: Generate PBKDF2 password hash
+  expect:
+    command: grub-mkpasswd-pbkdf2
+    responses:
+      Enter password: '{{ root_password }}'
+      Reenter password: '{{ root_password }}'
+  register: password_hash
+
+- name: Extract PBKDF2 hash
+  set_fact:
+    pbkdf2_hash: "{{ password_hash.stdout | regex_search('PBKDF2 hash of your password is (.*)', '\\1') | first }}"
+
+- name: Debug PBKDF2 hash
+  debug:
+    var: pbkdf2_hash
+
+- name: Update bootloader configuration
+  blockinfile:
+    path: /etc/grub.d/40_custom
+    block: |
+      set superusers="root"
+      password_pbkdf2 root {{ pbkdf2_hash }}
+    insertbefore: '^exit 0'
+    create: yes
+  notify: Update Grub Configuration
+
+- name: Update Grub Configuration
+  command: update-grub
+
+# 1.4.2 Ensure permissions on bootloader config are configured
+- name: Check if grub bootloader file exists
+  stat:
+    path: "/boot/grub/grub.cfg"
+  register: grub_result
+
+- name: Set permissions on grub configuration
+  file:
+    path: "/boot/grub/grub.cfg"
+    owner: root
+    group: root
+    mode: "og-rwx"
+    state: file
+  when: grub_result.stat.exists
+
+# # 1.4.3 Ensure authentication required for single user mode
+# - name: Require Authentication for Single-User Mode
+#   shell: 'grep "^root:[*\!]:" /etc/shadow'
+#   register: root_password_set
+#   changed_when: false
+
+# - name: Require Authentication for Single-User
+#   user:
+#     name: root
+#     state: present
+#     password: '{{ root_password }}'
+#   when: root_password_set.rc == 1

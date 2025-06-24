@@ -1,0 +1,46 @@
+---
+# 2.3.1 Ensure a single time synchronization daemon is in use
+- name: Install the selected Time Synchronization Daemon
+  package:
+    name: "{{ time_sync_daemon }}"
+    state: present
+
+- name: Ensure the selected Time Synchronization Daemon service is started and enabled
+  service:
+    name: "{{ time_sync_daemon }}"
+    state: started
+    enabled: yes
+
+- name: Uninstall non-selected Time Synchronization Daemons
+  package:
+    name: "{{ item }}"
+    state: absent
+  loop:
+    - ntp
+    - chrony
+    - systemd-timesyncd
+  when: item != time_sync_daemon
+
+# 2.3.2 Configure chrony
+- name: Create Chrony configuration file
+  template:
+    src: chrony.conf.j2
+    dest: /etc/chrony/chrony.conf
+  notify: Restart Chrony
+  when: time_sync_daemon == chrony
+
+# 2.3.3 Configure systemd-timesyncd
+- name: Create systemd-timesyncd configuration file
+  template:
+    src: systemd-timesyncd.conf.j2
+    dest: /etc/systemd/timesyncd.conf
+  notify: Restart systemd-timesyncd
+  when: time_sync_daemon == systemd-timesyncd
+
+# 2.3.4 Configure ntp
+- name: Create NTP configuration file
+  template:
+    src: ntp.conf.j2
+    dest: /etc/ntp.conf
+  notify: Restart NTP
+  when: time_sync_daemon == ntp

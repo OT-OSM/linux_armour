@@ -1,0 +1,77 @@
+---
+- name: Update cache
+  apt:
+    update_cache: true
+
+# 1.1 Confige Filesystem 
+- name: Filesystem Configuration
+  include_tasks: filesystem_Configuration.yaml
+
+# 1.3 AppArmor Configuration
+# 1.4 Secure Boot Configuration
+- name: Secure Boot Settings
+  include_tasks: secure_BootSettings.yaml
+
+# 1.5 Additional Process Hardening
+- name: Process Hardening
+  include_tasks: process_Hardening.yaml
+  when: cis_Stage > 1
+
+# # 1.6 Command Line Warning Banners
+# - name: Command Line Warning Banners
+#   include_tasks: command_Warning.yaml
+
+# # 1.7 GNOME Display Manager
+# - name: Ensure GNOME Display Manager is removed
+#   apt:
+#     name: gdm3
+#     state: absent
+#   when: ansible_os_family == "Debian" && cis_Stage > 1
+
+# # 2.1 Special Purpose Services
+# - name: Remove Special Purpose Services
+#   include_tasks: services.yaml
+
+# # 2.3 Configure Time Synchronization
+# - name: Configure Time Synchronization
+#   include_tasks: time_Synchronize.yaml
+#   when: cis_Stage > 1
+
+# # 2.4 Configure job Schedulers
+# - name: Configure job Schedulers
+#   include_tasks: job_Schedulers.yaml
+
+# # 3.2 Uncommon Network Protocols
+# # 3.3 Network Configuration
+# - name: Network Parameters For Host
+#   include_tasks: network_Configuration.yaml
+#   when: cis_Stage > 1
+
+# # 4 Firewall Configuration
+# - name: Network Parameters For Host
+#   include_tasks: firewall_Configuration.yaml
+
+# # 5.1 SSH Control Configuration
+# - name: Access Control Configuration
+#   include_tasks: ssh_Configuration.yaml
+
+# # 5.2 Control Configuration
+# - name: Access Control Configuration
+#   include_tasks: access_Control.yaml
+
+# # 6.1 Filesystem Integrity Checking
+# - name: Ensure filesystem integrity is regularly checked
+#   include_tasks: filesystem_Integrity.yaml
+#   when: cis_Stage > 2
+
+# # 6.2 System Logging Configuration
+# - name: Ensure filesystem integrity is regularly checked
+#   include_tasks: system_Logging.yaml
+
+# # 6.3 Configure System Accounting
+# - name: Configure System Accounting
+#   include_tasks: audit.yaml
+
+# # 7.1 Set System File Permission
+# - name: Configure System files
+#   include_tasks: system_file_permission.yaml

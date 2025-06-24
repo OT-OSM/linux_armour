@@ -1,0 +1,43 @@
+table inet {{ nftable_name }} {
+    chain input {
+        type filter hook input priority 0; policy drop;
+        # Accept all traffic from loopback interface
+        iif lo accept
+
+        # Allow established and related connections
+        ct state established,related accept
+
+        # Drop invalid packets from localhost addresses
+        ip saddr 127.0.0.0/8 counter packets 0 bytes 0 drop
+        ip6 saddr ::1 counter packets 0 bytes 0 drop
+
+        # Log and drop other packets
+        counter packets 0 bytes 0 log prefix "Dropped by nftables: " drop
+
+        # Accept established TCP connections
+        ip protocol tcp ct state established accept
+
+        # Accept established UDP connections
+        ip protocol udp ct state established accept
+
+        # Accept established ICMP connections
+        ip protocol icmp ct state established accept
+    }
+    chain forward {
+        type filter hook forward priority 0; policy drop;
+    }
+    chain output {
+        type filter hook output priority 0; policy accept;
+
+        # Allow new, related, and established TCP connections
+        ip protocol tcp ct state new,related,established accept
+
+        # Allow new, related, and established UDP connections
+        ip protocol udp ct state new,related,established accept
+
+        # Allow new, related, and established ICMP connections
+        ip protocol icmp ct state new,related,established accept
+    }
+}
+
+

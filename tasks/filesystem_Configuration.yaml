@@ -1,0 +1,40 @@
+---
+###################################################
+# 1.1.1 Configure Filesystems kernel modules #
+###################################################
+- name: Disable filesystem kernel modules
+  blockinfile:
+    path: "/etc/modprobe.d/{{ item }}.conf"
+    block: |
+      install {{ item }} /bin/true
+      blacklist {{ item }}
+    create: yes
+  with_items: "{{ filesystem_kernel_modules }}"
+
+########################################
+# 1.1.2 Configure Filesystem Partition #
+########################################
+
+# Configure partitions for tmp directors
+- name: Mount directories as tmpfs with nodev, noexec, and nosuid options
+  mount:
+    path: "{{ item }}"
+    src: tmpfs
+    fstype: tmpfs
+    opts: nodev,noexec,nosuid
+    state: mounted
+  changed_when: false
+  with_items: 
+    - "/tmp"
+    - "/dev/shm"
+
+# Configure /home & /var partitions
+- name: Mount directories with nodev and nosuid options
+  mount:
+    path: "{{ item.path }}"
+    src: "{{ item.device }}"
+    fstype: ext4
+    opts: "{{ item.opts }}"
+    state: mounted
+  changed_when: false
+  loop: "{{ dir_partition }}"

@@ -1,0 +1,219 @@
+# 4 Ensure a single firewall is configured
+- name: Install selected firewall package
+  package:
+    name: "{{ firewall_package }}"
+    state: present
+
+- name: Uninstall non-selected firewall packages
+  package:
+    name: "{{ item }}"
+    state: absent
+  loop:
+    - ufw
+    - nftables
+    - iptables
+  when: item != firewall_package
+
+- name: Ensure iptables-persistent is not installed with ufw
+  apt:
+    name: iptables-persistent
+    state: absent
+  when: firewall_package != "iptables"
+
+- name: Ensure firewall_package service is enabled and started
+  systemd:
+    name: '{{ firewall_package }}'
+    enabled: yes
+    state: started
+  
+# 4.1 Cofigure ufw
+- name: Configure ufw
+  block:
+    - name: Ensure ufw loopback traffic is configured
+      command: '{{ item }}'
+      with_items:
+      - ufw allow in on lo
+      - ufw allow out on lo
+      - ufw deny in from 127.0.0.0/8
+      - ufw deny in from ::1
+
+    - name: Ensure ufw outbound connections are configured
+      command: ufw allow out on all
+
+    - name: Ensure ufw rules for specific ports
+      ufw:
+        rule: allow
+        port: "{{ item.port }}"
+        proto: "{{ item.proto }}"
+      with_items:
+        - { port: "22", proto: "tcp" }
+        - { port: "53", proto: "tcp" }
+        - { port: "53", proto: "udp" }
+        - { port: "80", proto: "tcp" }
+        - { port: "443", proto: "tcp" }
+
+    - name: Set default deny incoming policy
+      ufw:
+        policy: deny
+        direction: incoming
+
+    - name: Set default deny outgoing policy
+      ufw:
+        policy: deny
+        direction: outgoing
+  when: firewall_package == "ufw"
+
+
+# 4.2 Cofigure nftables
+- name: Configure nftables
+  block:
+    - name: Check if nftables table exists
+      command: nft list table inet nf_table
+      register: nft_table_check
+      changed_when: false
+      failed_when: false
+
+    - name: Create nftables ruleset from template
+      template:
+        src: nftables.conf.j2
+        dest: /etc/nftables.conf
+      notify: Apply nftables ruleset
+
+  when: firewall_package == "nftables"
+
+# 4.3 Cofigure iptables
+- name: Configure iptables
+  block:
+    - name: Ensure iptables-persistent is installed
+      apt:
+        name: iptables-persistent
+        state: present
+    
+    - name: Set default policies to DROP
+      iptables:
+        chain: '{{ item }}'
+        policy: DROP
+        table: filter
+      with_items: 
+        - INPUT
+        - FORWARD
+        - OUTPUT
+    
+    - name: Allow all traffic on the loopback interface for INPUT chain
+      iptables:
+        chain: INPUT
+        in_interface: lo
+        jump: ACCEPT
+
+    - name: Allow all outgoing traffic on the loopback interface for OUTPUT chain
+      iptables:
+        chain: OUTPUT
+        out_interface: lo
+        jump: ACCEPT
+
+    - name: Drop all traffic to loopback addresses not coming from loopback interface
+      iptables:
+        chain: INPUT
+        source: 127.0.0.0/8
+        jump: DROP
+
+    - name: Accept incoming established specific protocol
+      iptables:
+        chain: INPUT
+        protocol: '{{ item }}'
+        state: ESTABLISHED
+        jump: ACCEPT
+      with_items: 
+        - tcp
+        - udp
+        - icmp
+
+    - name: Allow outgoing specific protocol traffic
+      iptables:
+        chain: OUTPUT
+        protocol: '{{ item }}'
+        state: NEW,ESTABLISHED
+        jump: ACCEPT
+      with_items:
+        - tcp
+        - udp
+        - icmp
+
+    - name: Allow rules for specific ports
+      iptables:
+        chain: INPUT
+        protocol: "{{ item.proto }}"
+        port: "{{ item.port }}"
+        jump: ACCEPT
+      with_items:
+        - { port: "22", proto: "tcp" }
+        - { port: "53", proto: "tcp" }
+        - { port: "53", proto: "udp" }
+        - { port: "80", proto: "tcp" }
+        - { port: "443", proto: "tcp" }
+
+    - name: Set default policies to DROP
+      ip6tables:
+        chain: '{{ item }}'
+        policy: DROP
+        table: filter
+      with_items: 
+        - INPUT
+        - FORWARD
+        - OUTPUT
+
+    - name: Allow all traffic on the loopback interface for INPUT chain
+      ip6tables:
+        chain: INPUT
+        in_interface: lo
+        jump: ACCEPT
+
+    - name: Allow all outgoing traffic on the loopback interface for OUTPUT chain
+      ip6tables:
+        chain: OUTPUT
+        out_interface: lo
+        jump: ACCEPT
+
+    - name: Drop all traffic to loopback addresses not coming from loopback interface
+      ip6tables:
+        chain: INPUT
+        source: 127.0.0.0/8
+        jump: DROP
+
+
+    - name: Accept incoming established specific protocol
+      ip6tables:
+        chain: INPUT
+        protocol: '{{ item }}'
+        state: ESTABLISHED
+        jump: ACCEPT
+      with_items: 
+        - tcp
+        - udp
+        - icmp
+
+    - name: Allow outgoing specific protocol traffic
+      ip6tables:
+        chain: OUTPUT
+        protocol: '{{ item }}'
+        state: NEW,ESTABLISHED
+        jump: ACCEPT
+      with_items:
+        - tcp
+        - udp
+        - icmp
+
+    - name: Allow rules for specific ports
+      ip6tables:
+        chain: INPUT
+        protocol: "{{ item.proto }}"
+        port: "{{ item.port }}"
+        jump: ACCEPT
+      with_items:
+        - { port: "22", proto: "tcp" }
+        - { port: "53", proto: "tcp" }
+        - { port: "53", proto: "udp" }
+        - { port: "80", proto: "tcp" }
+        - { port: "443", proto: "tcp" }
+      notify: Save iptables rules
+  when: firewall_package == "iptables"

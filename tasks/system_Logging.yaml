@@ -1,0 +1,31 @@
+# 6.2.1 Configure journald
+- name: Ensure systemd-journald service is enabled
+  systemd:
+    name: systemd-journald
+    enabled: yes
+    state: started
+
+- name: Copy systemd.conf to /etc/tmpfiles.d
+  copy:
+    src: /usr/lib/tmpfiles.d/systemd.conf
+    dest: /etc/tmpfiles.d/systemd.conf
+    owner: root
+    group: root
+    mode: '0640'
+
+- name: Configure journald log rotation settings
+  lineinfile:
+    path: /etc/systemd/journald.conf
+    regexp: '^#?{{ item.key }}='
+    line: '{{ item.key }}={{ item.value }}'
+    state: present
+  with_items:
+    - { key: 'SystemMaxUse', value: '500M' }
+    - { key: 'SystemKeepFree', value: '100M' }
+    - { key: 'RuntimeMaxUse', value: '10M' }
+    - { key: 'RuntimeKeepFree', value: '200M' }
+    - { key: 'MaxFileSec', value: '1month' }
+    - { key: 'ForwardToSyslog', value: 'no' }
+    - { key: 'Storage', value: 'persistent' }
+    - { key: 'Compress', value: 'yes' }
+  notify: Restart systemd-journald

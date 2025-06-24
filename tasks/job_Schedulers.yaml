@@ -1,0 +1,49 @@
+########################
+# 2.4.1 Configure cron #
+########################
+- name: Ensure cron daemon is enabled and running
+  service:
+    name: "{{ cron_service_name }}"
+    enabled: yes
+    state: started
+
+- name: Set permissions on /etc/crontab configuration
+  file:
+    path: "/etc/crontab"
+    owner: root
+    group: root
+    mode: "og-rwx"
+    state: file
+
+- name: Set permissions for cron configuration
+  file:
+    path: {{ item }}
+    owner: root
+    group: root
+    mode: "og-rwx"
+    state: directory
+  with_items: 
+    - "/etc/cron.d"
+    - "/etc/cron.hourly"
+    - "/etc/cron.daily"
+    - "/etc/cron.weekly"
+    - "/etc/cron.monthly"
+
+- name: Create /etc/cron.allow and set authorized users
+  copy:
+    content: root
+    dest: {{ item }}
+    owner: root
+    group: root
+    mode: '0640'
+  with_items:
+    - /etc/cron.allow
+    - /etc/at.allow
+
+- name: Ensure /etc/cron.deny does not exist
+  file:
+    path: {{ item }}
+    state: absent
+  with_items:
+    - /etc/cron.deny
+    - /etc/at.deny

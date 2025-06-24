@@ -1,0 +1,61 @@
+- name: Ensure sudo is installed
+  apt:
+    name: sudo
+    state: present
+
+- name: Ensure sudo log directory exists
+  file:
+    path: /var/log/sudo
+    state: directory
+    owner: root
+    group: root
+    mode: '0750'
+
+- name: Ensure sudo log file exists
+  file:
+    path: /var/log/sudo/sudo.log
+    state: touch
+    owner: root
+    group: root
+    mode: '0640'
+
+- name: Ensure sudo commands use pty
+  lineinfile:
+    path: /etc/sudoers
+    state: present
+    regexp: "{{ item.regexp }}"
+    line: "{{ item.line }}"
+  with_items:
+    - { regexp: '^#?Defaults\s+use_pty', line: 'Defaults use_pty' }
+    - { regexp: '^#?Defaults\s+logfile', line: 'Defaults logfile="/var/log/sudo/sudo.log"' }
+    - { regexp: '^Defaults\s+timestamp_timeout=', line: 'Defaults timestamp_timeout={{ sudo_timeout }}' }
+
+- name: Remove lines with NOPASSWD tags in sudoers file
+  lineinfile:
+    path: /etc/sudoers
+    state: absent
+    regexp: "{{ item.regexp }}"
+  with_items:
+    - { regexp: '^.*NOPASSWD.*$'}
+    - { regexp: '^Defaults\s+!authenticate'}
+
+- name: Restrict su command to wheel group
+  lineinfile:
+    path: /etc/pam.d/su
+    state: present
+    regexp: '^#?auth\s+required\s+pam_wheel.so\s+use_uid'
+    line: 'auth required pam_wheel.so use_uid group=sugroup'
+
+- name: Ensure PAM packages are installed
+  apt:
+    name: "{{ item }}"
+    state: latest
+  with_items: 
+    - libpam-runtime
+    - libpam-modules
+    - libpam-pwquality
+
+- name: Enable pam_unix module using pam-auth-update
+  command: pam-auth-update --enable unix
+
+        
