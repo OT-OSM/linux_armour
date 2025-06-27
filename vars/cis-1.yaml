@@ -1,5 +1,11 @@
 filesystem_kernel_modules:
   - usb-storage
+  - cramfs
+  - freevxfs
+  - hfs
+  - hfsplus
+  - jffs2
+  - usb-storage
 
 os_services_name:
   - autofs
