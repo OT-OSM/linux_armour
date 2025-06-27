@@ -7,7 +7,7 @@
     state: present
 
 ## 1.5.2  Ensure ptrace_scope is restricted 
-- name: Set kernel.randomize_va_space
+- name: kernel.yama.ptrace_scope
   sysctl:
     name: kernel.yama.ptrace_scope
     value: 2
