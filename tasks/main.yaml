@@ -2,15 +2,15 @@
 - name: Include CIS Stage Specific vars
   include_vars: cis-{{ cis_Stage }}.yaml
 
-- name: Debian realted Specification
+- name: Debian related Specification
   include_tasks: configure_Debian.yaml
   when:
     ansible_os_family == 'Debian'
 
-- name: Centos realted Specification
-  include_tasks: configure_RedHat.yaml
-  when:
-    ansible_os_family == 'RedHat'
+# - name: Centos realted Specification
+#   include_tasks: configure_RedHat.yaml
+#   when:
+#     ansible_os_family == 'RedHat'
 
 # - name: Special purpose services
 #   include_tasks: services.yaml
