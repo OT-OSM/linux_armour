@@ -15,7 +15,7 @@
 # 1.5 Additional Process Hardening
 - name: Process Hardening
   include_tasks: process_Hardening.yaml
-  when: cis_Stage > 1
+  #when: cis_Stage > 1
 
 # # 1.6 Command Line Warning Banners
 # - name: Command Line Warning Banners
