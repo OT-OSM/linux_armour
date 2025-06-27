@@ -3,19 +3,19 @@
   apt:
     update_cache: true
 
-# 1.1 Confige Filesystem 
+#  # 1.1 Confige Filesystem 
 # - name: Filesystem Configuration
-#  include_tasks: filesystem_Configuration.yaml
+#   include_tasks: filesystem_Configuration.yaml
 
-# # 1.3 AppArmor Configuration
-# # 1.4 Secure Boot Configuration
- - name: Secure Boot Settings
-   include_tasks: secure_BootSettings.yaml
+# 1.3 AppArmor Configuration
+# 1.4 Secure Boot Configuration
+# - name: Secure Boot Settings
+#   include_tasks: secure_BootSettings.yaml
 
 # # 1.5 Additional Process Hardening
-# - name: Process Hardening
-#   include_tasks: process_Hardening.yaml
-#   when: cis_Stage > 1
+- name: Process Hardening
+  include_tasks: process_Hardening.yaml
+  #when: cis_Stage > 1
 
 # # 1.6 Command Line Warning Banners
 # - name: Command Line Warning Banners
