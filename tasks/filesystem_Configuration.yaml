@@ -16,17 +16,47 @@
 ########################################
 
 # Configure partitions for tmp directors
+
+# -----------------------------------------------------------------------------
+# 1. Check whether each path is **already** mounted as tmpfs with nodev,noexec,nosuid
+# -----------------------------------------------------------------------------
+- name: Check current mount options for secure tmpfs mounts
+  shell: |
+    mount | grep -E '^tmpfs on {{ item }} type tmpfs .*nodev.*noexec.*nosuid'
+  loop:
+    - /tmp
+    - /dev/shm
+  register: tmpfs_mount_check
+  ignore_errors: true          # don't fail the play if grep doesn't match
+  changed_when: false          # this is only an information-gathering step
+  failed_when: false           # treat “no match” as success (rc != 0)
+
+# -----------------------------------------------------------------------------
+# 2. Mount only the directories that **failed** the check above
+# -----------------------------------------------------------------------------
 - name: Mount directories as tmpfs with nodev, noexec, and nosuid options
   mount:
     path: "{{ item }}"
-    src: tmpfs
+    src:  tmpfs
     fstype: tmpfs
     opts: nodev,noexec,nosuid
     state: mounted
-  changed_when: false
-  with_items: 
-    - "/tmp"
-    - "/dev/shm"
+  loop:
+    - /tmp
+    - /dev/shm
+  loop_control:
+    index_var: idx             # exposes the loop index as “idx”
+  when: tmpfs_mount_check.results[idx].rc != 0
+  changed_when: false          # will still report “changed: false” if already correct
+
+- name: Bind mount directories with secure options
+  mount:
+    path: "{{ item.path }}"
+    src: "{{ item.device }}"
+    fstype: none
+    opts: "{{ item.opts }}"
+    state: mounted
+  loop: "{{ dir_partition }}"
 
 # Configure /home & /var partitions
 - name: Mount directories with nodev and nosuid options
