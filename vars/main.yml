@@ -3,9 +3,9 @@ cis_Stage: 1
 
 # FileSystem Directory Partition Location
 dir_partition:
-  - {path: "/var/tmp", device: "/dev/xvda1",opts: "nodev,noexec,nosuid,remount"}
-  - {path: "/var/log", device: "/dev/xvda1",opts: "nodev,noexec,nosuid,remount"}
-  - {path: "/var/log/audit", device: "/dev/xvda1",opts: "nodev,noexec,nosuid,remount"}
+  - {path: "/var/tmp", device: "/var/tmp",opts: "nodev,noexec,nosuid,remount"}
+  - {path: "/var/log", device: "/var/log",opts: "nodev,noexec,nosuid,remount"}
+  - {path: "/var/log/audit", device: "/var/log/audit",opts: "nodev,noexec,nosuid,remount"}
   # - {path: "/home", device: "/dev/xvda1",opts: "nodev,nosuid"}
   # - {path: "/var", device: "/dev/xvda1", opts: "nodev,nosuid"}
 
