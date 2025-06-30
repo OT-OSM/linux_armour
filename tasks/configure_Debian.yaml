@@ -1,67 +1,37 @@
 ---
-- name: Update cache
-  apt:
-    update_cache: true
-    
-- name: Process Hardening
-  include_tasks: process_Hardening.yaml
-  #when: cis_Stage > 1
+- name: Include CIS Stage Specific vars
+  include_vars: cis-{{ cis_Stage }}.yaml
 
-# # 1.6 Command Line Warning Banners
-# - name: Command Line Warning Banners
-#   include_tasks: command_Warning.yaml
+- name: Debian realted Specification
+  include_tasks: configure_Debian.yaml
+  when:
+    ansible_os_family == 'Debian'
 
-# # 1.7 GNOME Display Manager
-# - name: Ensure GNOME Display Manager is removed
-#   apt:
-#     name: gdm3
-#     state: absent
-#   when: ansible_os_family == "Debian" && cis_Stage > 1
+# - name: Centos realted Specification
+#   include_tasks: configure_RedHat.yaml
+#   when:
+#     ansible_os_family == 'RedHat'
 
-# # 2.1 Special Purpose Services
-# - name: Remove Special Purpose Services
+# - name: Special purpose services
 #   include_tasks: services.yaml
 
-# # 2.3 Configure Time Synchronization
-# - name: Configure Time Synchronization
-#   include_tasks: time_Synchronize.yaml
-#   when: cis_Stage > 1
-
-# # 2.4 Configure job Schedulers
-# - name: Configure job Schedulers
-#   include_tasks: job_Schedulers.yaml
-
-# # 3.2 Uncommon Network Protocols
-# # 3.3 Network Configuration
-# - name: Network Parameters For Host
-#   include_tasks: network_Configuration.yaml
-#   when: cis_Stage > 1
-
-# # 4 Firewall Configuration
-# - name: Network Parameters For Host
-#   include_tasks: firewall_Configuration.yaml
-
-# # 5.1 SSH Control Configuration
-# - name: Access Control Configuration
-#   include_tasks: ssh_Configuration.yaml
-
-# # 5.2 Control Configuration
-# - name: Access Control Configuration
-#   include_tasks: access_Control.yaml
-
-# # 6.1 Filesystem Integrity Checking
-# - name: Ensure filesystem integrity is regularly checked
-#   include_tasks: filesystem_Integrity.yaml
-#   when: cis_Stage > 2
-
-# # 6.2 System Logging Configuration
-# - name: Ensure filesystem integrity is regularly checked
-#   include_tasks: system_Logging.yaml
-
-# # 6.3 Configure System Accounting
-# - name: Configure System Accounting
+# - name: Logging and monitoring
 #   include_tasks: audit.yaml
 
-# # 7.1 Set System File Permission
-# - name: Configure System files
-#   include_tasks: system_file_permission.yaml
+# - name: Additional Process Hardening
+#   include_tasks: pam_limit.yaml
+
+# - name: Tcp Wrapper and System File Permissions
+#   include_tasks: file_permissions.yaml
+
+# - name: Filesystem Configuration
+#   include_tasks: filesystem_configuration.yaml
+
+# - name: Network Configuration Host
+#   include_tasks: network_configuration_host.yaml
+
+# - name: Ensure bogus ICMP responses are ignored
+#   include_tasks: network_configuration_router.yaml
+
+# - name: Ensure dccp and sctp is disabled
+#   include_tasks: network_protocol_and_unusedFilesystem.yaml
