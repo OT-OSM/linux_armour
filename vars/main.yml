@@ -2,14 +2,22 @@
 cis_Stage: 1
 
 # FileSystem Directory Partition Location
-dir_partition:
-  - {path: "/var/tmp", device: "/dev/xvda1",opts: "nodev,noexec,nosuid,remount"}
-  - {path: "/var/log", device: "/dev/xvda1",opts: "nodev,noexec,nosuid,remount"}
-  - {path: "/var/log/audit", device: "/dev/xvda1",opts: "nodev,noexec,nosuid,remount"}
-  # - {path: "/home", device: "/dev/xvda1",opts: "nodev,nosuid"}
-  # - {path: "/var", device: "/dev/xvda1", opts: "nodev,nosuid"}
+# dir_partition:
+#   - {path: "/var/tmp", device: "/dev/sda3",opts: "nodev,noexec,nosuid,remount"}
+#   - {path: "/var/log", device: "/dev/sda",opts: "nodev,noexec,nosuid,remount"}
+#   - {path: "/var/log/audit", device: "/dev/sda3",opts: "nodev,noexec,nosuid,remount"}
+# #   # - {path: "/home", device: "/dev/xvda1",opts: "nodev,nosuid"}
+# #   # - {path: "/var", device: "/dev/xvda1", opts: "nodev,nosuid"}
 
-root_password: "Ops@123456"
+dir_partition:
+  # - { path: "/home",           device: "/home",        opts: "bind,nodev,nosuid" }
+  # - { path: "/var",           device: "/home",        opts: "bind,nodev,nosuid" }
+  - { path: "/var/tmp",        device: "/var/tmp",        opts: "bind,nodev,noexec,nosuid" }
+  - { path: "/var/log",        device: "/var/log",        opts: "bind,nodev,noexec,nosuid" }
+  - { path: "/var/log/audit",  device: "/var/log/audit",  opts: "bind,nodev,noexec,nosuid" }
+
+
+root_password: "Cis@123#"
 
 # Set the default time synchronization daemon
 time_sync_daemon: ntp  # Replace with one of in list ('ntp', 'chrony', 'systemd-timesyncd')
