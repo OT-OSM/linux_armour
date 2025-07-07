@@ -1,17 +1,17 @@
 ---
-# 3.2 Uncommon Network Protocols
-- name: Disable Uncommon Network Protocols
-  blockinfile:
-    path: "/etc/modprobe.d/{{ item }}.conf"
-    block: |
-      install {{ item }} /bin/true
-      blacklist {{ item }}
-    create: yes
-  with_items:
-    - dccp
-    - sctp
-    - rds
-    - tipc
+# 3.2 Uncommon Network Protocols # Includes Level 2 benchmarks
+# - name: Disable Uncommon Network Protocols
+#   blockinfile:
+#     path: "/etc/modprobe.d/{{ item }}.conf"
+#     block: |
+#       install {{ item }} /bin/true
+#       blacklist {{ item }}
+#     create: yes
+#   with_items:
+#     - dccp
+#     - sctp
+#     - rds
+#     - tipc
 
 # 3.3.1 Ensure IP forwarding is disabled
 - name: Ensure IP forwarding is disabled
@@ -37,7 +37,7 @@
     - net.ipv4.conf.all.send_redirects
     - net.ipv4.conf.default.send_redirects
 
-# 3.3.3 - 3.3.4 Ensure broadcast ICMP requests/response are ignored
+# # 3.3.3 - 3.3.4 Ensure broadcast ICMP requests/response are ignored
 - name: Ensure broadcast ICMP requests are ignored
   sysctl:
     name: '{{ item }}'
@@ -49,7 +49,7 @@
     - net.ipv4.icmp_ignore_bogus_error_responses
     - net.ipv4.icmp_echo_ignore_broadcasts
 
-# 3.3.5 Ensure ICMP redirects are not accepted
+# # 3.3.5 Ensure ICMP redirects are not accepted
 - name: Ensure bogus ICMP responses are ignored
   sysctl:
     name: '{{ item }}'
@@ -63,7 +63,7 @@
     - net.ipv6.conf.all.accept_redirects
     - net.ipv6.conf.default.accept_redirects
 
-# 3.3.6 Ensure secure ICMP redirects are not accepted
+# # 3.3.6 Ensure secure ICMP redirects are not accepted
 - name: Ensure secure ICMP redirects are not accepted
   sysctl:
     name: '{{ item }}'
@@ -73,9 +73,9 @@
     state: present
   with_items:
     - net.ipv4.conf.default.secure_redirects
-    - net.ipv4.conf.all.secure_redirects = 0
+    - net.ipv4.conf.all.secure_redirects 
 
-# 3.3.7 Ensure Reverse Path Filtering is enabled
+# # 3.3.7 Ensure Reverse Path Filtering is enabled
 - name: Ensure Reverse Path Filtering is enabled
   sysctl:
     name: '{{ item }}'
@@ -87,7 +87,7 @@
     - net.ipv4.conf.all.rp_filter
     - net.ipv4.conf.default.rp_filter
 
-# 3.3.8 Ensure source routed packets are not accepted
+# # 3.3.8 Ensure source routed packets are not accepted
 - name: Ensure source routed packets are not accepted
   sysctl:
     name: '{{ item }}'
@@ -101,19 +101,37 @@
     - net.ipv6.conf.all.accept_source_route
     - net.ipv6.conf.default.accept_source_route
 
-# 3.3.9 Ensure suspicious packets are logged
-- name: Ensure suspicious packets are logged
-  sysctl:
-    name: '{{ item }}'
-    value: '1'
-    sysctl_set: true
-    reload: false
-    state: present
-  with_items:
-    - net.ipv4.conf.all.log_martians
-    - net.ipv4.conf.default.log_martians
+# # 3.3.9 Ensure suspicious packets are logged
+- name: Ensure log_martians settings are correct in both UFW and sysctl
+  block:
+    - name: Ensure correct log_martians settings in UFW config
+      lineinfile:
+        path: /etc/ufw/sysctl.conf
+        regexp: "^{{ item }}="
+        line: "{{ item }}=1"
+        create: yes
+        state: present
+      loop: "{{ log_martians_params }}"
+      loop_control:
+        loop_var: item
 
-# 3.3.10 Ensure TCP SYN Cookies is enabled
+    - name: Ensure suspicious packets are logged (log_martians)
+      sysctl:
+        name: "{{ item }}"
+        value: "1"
+        sysctl_set: true
+        state: present
+        reload: yes
+        sysctl_file: /etc/sysctl.d/99-cis.conf
+      loop: "{{ log_martians_params }}"
+      loop_control:
+        loop_var: item
+  vars:
+    log_martians_params:
+      - net.ipv4.conf.all.log_martians
+      - net.ipv4.conf.default.log_martians
+
+# # 3.3.10 Ensure TCP SYN Cookies is enabled
 - name: Ensure TCP SYN Cookies is enabled
   sysctl:
     name: net.ipv4.tcp_syncookies
@@ -122,11 +140,11 @@
     reload: true
     state: present
 
-# 3.3.11 Ensure IPv6 router advertisements are not accepted
+# # 3.3.11 Ensure IPv6 router advertisements are not accepted
 - name: Ensure IPv6 router advertisements are not accepted
   sysctl:
     name: '{{ item }}'
-    value: '1'
+    value: '0'
     sysctl_set: true
     reload: false
     state: present
