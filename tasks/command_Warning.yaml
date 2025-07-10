@@ -1,16 +1,23 @@
+# 1.6.1 
+- name: Remove /etc/motd file (skip if not present)
+  ansible.builtin.file:
+    path: /etc/motd
+    state: absent
+  ignore_errors: yes
+
 # 1.6.2 Ensure local login warning banner is configured properly
 - name: Ensure local login warning banner is configured properly
-  shell: echo "Authorized uses only. All activity may be monitored and reported." > /etc/issue
-  when: cis_Stage > 1
+  ansible.builtin.shell: echo "Authorized uses only. All activity may be monitored and reported." > /etc/issue
+  #when: cis_Stage > 1
 
 # 1.6.3 Ensure remote login warning banner is configured properly
 - name: Ensure remote login warning banner is configured properly
-  shell: echo "Authorized uses only. All activity may be monitored and reported." > /etc/issue.net
-  when: cis_Stage > 1
+  ansible.builtin.shell: echo "Authorized uses only. All activity may be monitored and reported." > /etc/issue.net
+  #when: cis_Stage > 1
 
 # 1.6.4 Ensure permissions on /etc/motd are configured
 - name: Ensure permissions on /etc/motd are configured
-  file:
+  ansible.builtin.file:
     dest: /etc/motd
     owner: root
     group: root
@@ -19,16 +26,16 @@
 
 # 1.6.5 Ensure permissions on /etc/issue are configured
 - name: Ensure permissions on /etc/issue are configured
-  file:
+  ansible.builtin.file:
     dest: /etc/issue
     owner: root
     group: root
     mode: "u-x,go-wx"
 
 # 1.6.6 Ensure permissions on /etc/issue.net are configured
-- name: Ensure permissions on /etc/issue.net are configured"
-  file:
-      dest: /etc/issue.net
-      owner: root
-      group: root
-      mode: "u-x,go-wx"
+- name: Ensure permissions on /etc/issue.net are configured
+  ansible.builtin.file:
+    dest: /etc/issue.net
+    owner: root
+    group: root
+    mode: "u-x,go-wx"
