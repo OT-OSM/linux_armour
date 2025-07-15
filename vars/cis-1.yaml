@@ -1,10 +1,63 @@
 filesystem_kernel_modules:
-  - cramfs
-  - freevxfs
-  - hfs
-  - hfsplus
-  - jffs2
   - usb-storage
 
 os_services_name:
   - autofs
+  - avahi-daemon
+  - isc-dhcp-server
+  - isc-dhcp-server6                 
+  - dnsmasq                 
+  - slapd
+  - ldap-utils
+  - dovecot
+  - nfs-server.service
+  - ypserv.service 
+  - cups.service
+  - vsftpd.service
+  - dovecot.service
+  - nfs-server.service
+  - ypserv.service
+  - cups.service
+  - rpcbind.service
+  - rsync.service
+  - smbd.service 
+  - snmpd.service
+  - tftpd-hpa.service
+  - squid.service
+  - xinetd.service
+  - ypbind.service
+  - rsh.socket
+  - talkd.service
+  - telnet.socket
+  - systemd-timesyncd.service
+clients_services_name:
+  - autofs
+  - telnet
+  - avahi-daemon
+  - dnsmasq
+  - slapd
+  - ldap-utils
+  - isc-dhcp-server
+  - dovecot-core
+  - dovecot-imapd
+  - dovecot-pop3d
+  - nfs-server.service
+  - ypserv.service
+  - cups.service
+  - vsftpd.service
+  - dovecot.service
+  - nfs-server.service
+  - ypserv.service
+  - cups.service
+  - rpcbind.service 
+  - rsync.service  
+  - smbd.service
+  - snmpd.service
+  - tftpd-hpa.service
+  - squid.service
+  - xinetd.servicei
+  - ypbind.service
+  - rsh.socket
+  - talkd.service
+  - telnet.socket
+  - systemd-timesyncd.service
