@@ -42,6 +42,6 @@
   command: /sbin/iptables-save > /etc/iptables/rules.v4
 
 - name: Restart systemd-journald
-  systemd:
+  ansible.builtin.systemd:
     name: systemd-journald
     state: restarted
