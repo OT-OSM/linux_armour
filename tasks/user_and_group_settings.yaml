@@ -1,0 +1,162 @@
+# 7.2.1 Ensure accounts in /etc/passwd use shadowed passwords
+- name: Check for accounts not using shadowed passwords
+  ansible.builtin.shell: "awk -F':' '$2 != \"x\" && $2 != \"*\" { print $1 }' /etc/passwd"
+  register: non_shadowed_accounts
+  changed_when: false
+
+- name: Display accounts not using shadow passwords
+  ansible.builtin.debug:
+    msg: "Accounts not using shadow passwords: {{ non_shadowed_accounts.stdout_lines }}"
+
+- name: Run pwconv to migrate to shadow passwords (if needed)
+  ansible.builtin.command: pwconv
+  when: non_shadowed_accounts.stdout != ""
+  become: true
+
+# 7.2.2 Ensure /etc/shadow password fields are not empty
+- name: Get list of accounts without a password in /etc/shadow
+  ansible.builtin.shell: "awk -F':' 'length($2) == 0 { print $1 }' /etc/shadow"
+  register: accounts_without_password
+  changed_when: false
+
+- name: Display accounts with no password set
+  ansible.builtin.debug:
+    var: accounts_without_password.stdout_lines
+
+- name: Lock accounts without a password
+  ansible.builtin.command: passwd -l "{{ item }}"
+  loop: "{{ accounts_without_password.stdout_lines }}"
+  when: item != ""
+  become: true
+
+# 7.2.3 Ensure all groups in /etc/passwd exist in /etc/group
+- name: Get all GIDs used in /etc/passwd
+  ansible.builtin.shell: "awk -F':' '{print $4}' /etc/passwd | sort -u"
+  register: passwd_gids
+  changed_when: false
+
+- name: Get all GIDs from /etc/group
+  ansible.builtin.shell: "awk -F':' '{print $3}' /etc/group | sort -u"
+  register: group_gids
+  changed_when: false
+
+- name: Identify missing GIDs (in passwd but not in group)
+  ansible.builtin.set_fact:
+    missing_gids: >-
+      {{ passwd_gids.stdout_lines | difference(group_gids.stdout_lines) }}
+
+- name: Remediate - Create missing groups with GID only
+  ansible.builtin.group:
+    gid: "{{ item }}"
+    name: "gid_{{ item }}"
+    state: present
+  loop: "{{ missing_gids }}"
+  when: missing_gids | length > 0
+  become: true
+
+# 7.2.4 Ensure shadow group is empty
+- name: Remove all users from the shadow group in /etc/group
+  ansible.builtin.replace:
+    path: /etc/group
+    regexp: '^shadow:([^:]*):([^:]*):[^:]+$'
+    replace: 'shadow:\1:\2:'
+    backup: yes
+  become: true
+
+# 7.2.5 Ensure no duplicate UIDs exist
+- name: Get list of duplicate UIDs
+  ansible.builtin.shell: |
+    cut -d: -f3 /etc/passwd | sort -n | uniq -d
+  register: duplicate_uids
+  changed_when: false
+
+- name: Get users for each duplicate UID
+  ansible.builtin.shell: |
+    awk -F: -v uid="{{ item }}" '($3 == uid) { print $1 }' /etc/passwd
+  loop: "{{ duplicate_uids.stdout_lines }}"
+  register: users_with_duplicate_uids
+  when: duplicate_uids.stdout_lines | length > 0
+  changed_when: false
+
+- name: Change duplicate user UIDs to unique values starting from 20000
+  ansible.builtin.user:
+    name: "{{ item }}"
+    uid: "{{ 20000 + index }}"
+    move_home: yes
+  loop: "{{ users_with_duplicate_uids.results | map(attribute='stdout_lines') | list | flatten }}"
+  loop_control:
+    index_var: index
+  when: users_with_duplicate_uids.results is defined
+  notify: "Review file ownership changes"
+
+# 7.2.6 Ensure no duplicate GIDs exist [Not automatable]
+
+# 7.2.7 Ensure no duplicate user names exist [Optional]
+
+# 7.2.8 Ensure no duplicate group names exist [Optional]
+
+# 7.2.9 Ensure local interactive user home directories are configured
+- name: Get local interactive users and their home directories
+  ansible.builtin.shell: "awk -F: '$7 !~ /nologin/ && $7 !~ /false/ { print $1 \":\" $6 }' /etc/passwd"
+  register: interactive_users
+  changed_when: false
+
+- name: Parse interactive users into user_homes and gather groups
+  ansible.builtin.set_fact:
+    user_homes: "{{ interactive_users.stdout_lines | map('split', ':') | list }}"
+    all_group_names: "{{ lookup('ansible.builtin.pipe', 'getent group | cut -d\":\" -f1') | split('\n') }}"
+
+- name: Ensure home directory exists, owned properly, and secured
+  ansible.builtin.file:
+    path: "{{ item.1 }}"
+    state: directory
+    owner: "{{ item.0 }}"
+    group: "{{ item.0 }}"
+    mode: '0750'
+  loop: "{{ user_homes }}"
+  when:
+    - item.1 != ''
+    - item.0 in all_group_names
+
+# 7.2.10 Ensure local interactive user dot files access is configured
+- name: Get list of interactive users and their home directories
+  ansible.builtin.command: >
+    awk -F: '($7 !~ /nologin|false/) { print $1 ":" $6 }' /etc/passwd
+  register: interactive_users_raw
+
+- name: Parse interactive user list into user_home_map
+  ansible.builtin.set_fact:
+    user_home_map: "{{ interactive_users_raw.stdout_lines | map('split', ':') | list }}"
+
+- name: Find dotfiles in user home directories (depth = 2)
+  ansible.builtin.find:
+    paths: "{{ item.1 }}"
+    hidden: yes
+    file_type: file
+    recurse: yes
+    depth: 2
+  loop: "{{ user_home_map }}"
+  loop_control:
+    label: "{{ item.1 }}"
+  register: found_dotfiles
+
+- name: Ensure proper permissions and ownership of dotfiles
+  ansible.builtin.file:
+    path: "{{ file_item.path }}"
+    owner: "{{ user_home_map[idx][0] }}"
+    group: "{{ user_home_map[idx][0] }}"
+    mode: "{{ dotfile_mode }}"
+  loop: "{{ found_dotfiles.results | subelements('files', skip_missing=True) }}"
+  loop_control:
+    label: "{{ file_item.path }}"
+  vars:
+    file_item: "{{ item[1] }}"
+    idx: "{{ item[0] }}"
+    dotfile_name: "{{ file_item.path | basename }}"
+    dotfile_mode: >-
+      {% if dotfile_name in ['.netrc', '.bash_history', '.forward', '.rhost'] %}
+      0600
+      {% else %}
+      0644
+      {% endif %}
+  when: file_item.path is defined
