@@ -34,13 +34,20 @@ System_File_Permissions:
   - hosts.allow
   - hosts.deny
   - passwd
-  - passwd-
+  - passwd-  
+  - group
+  - group-
+  - shells
+
+File_Permissions:
   - shadow
   - shadow-
   - gshadow
   - gshadow-
-  - group
-  - group-
+
+# opasswd file path
+opasswd_file: /etc/security/opasswd
+opasswd_old_file: /etc/security/opasswd.old
 
 # Additional process hardening
 cis_security_limits_filename: /etc/security/limits.conf
