@@ -1,0 +1,8 @@
+{{ all_paths.files
+  | selectattr('mode', 'search', '.......2$')
+  | rejectattr('path', 'search', '^/proc|^/sys|^/run/user|containerd|kubelet|/snap')
+  | selectattr('state', 'equalto', 'directory')
+  | rejectattr('mode', 'match', '^1')
+  | list
+  | to_json
+}}
