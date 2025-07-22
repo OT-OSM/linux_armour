@@ -1,7 +1,7 @@
 ---
-# 6.1.1 Ensure AIDE is installed
+# 6.3.1 Ensure AIDE is installed
 - name: Install & Configure aide
-  apt:
+  ansible.builtin.apt:
     name:
       - aide
       - aide-common
@@ -11,18 +11,18 @@
   when: ansible_os_family == "Debian"
 
 - name: "Configure aide"
-  shell: aideinit
+  ansible.builtin.shell: aideinit
   changed_when: false
 
 - name: "copy the newly generated database"
-  copy:
+  ansible.builtin.copy:
     remote_src: true
     src: "/var/lib/aide/aide.db.new"
     dest: "/var/lib/aide/aide.db"
 
-# 6.1.2 Ensure filesystem integrity is regularly checked
+# 6.3.2 Ensure filesystem integrity is regularly checked
 - name: "Service files are copied"
-  template:
+  ansible.builtin.template:
     src: '{{ item.src }}'
     dest: '{{ item.dest }}'
     owner: root
