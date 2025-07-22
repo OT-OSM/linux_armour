@@ -1,0 +1,97 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+chmod_and_chown_if_needed() {
+  local file="$1"
+  local perms="$2"
+  local owner="$3"
+  local group="$4"
+
+  cur_perms=$(stat -c "%a" "$file")
+  cur_owner=$(stat -c "%U" "$file")
+  cur_group=$(stat -c "%G" "$file")
+
+  if [[ "$cur_perms" != "$perms" ]]; then
+    echo "[FIX] $file: Changing permissions to $perms"
+    chmod "$perms" "$file"
+  fi
+
+  if [[ "$cur_owner" != "$owner" ]]; then
+    echo "[FIX] $file: Changing owner to $owner"
+    chown "$owner" "$file"
+  fi
+
+  if [[ "$cur_group" != "$group" ]]; then
+    echo "[FIX] $file: Changing group to $group"
+    chgrp "$group" "$file"
+  fi
+}
+
+while IFS= read -r -d '' file; do
+  # Special case: /var/log/README may be a symlink
+  if [[ "$file" == "/var/log/README" ]]; then
+    if [[ -L "$file" ]]; then
+      echo "[INFO] $file is a symlink"
+      target=$(readlink -f "$file")
+    else
+      target="$file"
+    fi
+
+    if [[ -f "$target" ]]; then
+      cur_owner=$(stat -c "%U" "$target")
+      cur_group=$(stat -c "%G" "$target")
+      cur_perms=$(stat -c "%a" "$target")
+
+      echo "[DEBUG] README target: $target - Current: $cur_perms $cur_owner:$cur_group"
+
+      if [[ "$cur_owner" != "root" ]]; then
+        echo "[FIX] Changing owner to root"
+        chown root "$target"
+      fi
+
+      if [[ "$cur_group" != "root" && "$cur_group" != "utmp" ]]; then
+        echo "[FIX] Changing group to root"
+        chgrp root "$target"
+      fi
+
+      if [[ "$cur_perms" != "644" ]]; then
+        echo "[FIX] Changing permissions to 0644"
+        chmod 0644 "$target"
+      fi
+    fi
+    continue
+  fi
+
+  # Special case: /var/log/apt/*
+  if [[ "$file" == /var/log/apt/* ]]; then
+    chmod_and_chown_if_needed "$file" "0644" "root" "root"
+    continue
+  fi
+
+  base=$(basename "$file")
+  case "$base" in
+    lastlog*|wtmp*|btmp*)
+      chmod_and_chown_if_needed "$file" "0660" "root" "utmp"
+      ;;
+    cloud-init.log*|localmessages*|waagent.log*)
+      chmod_and_chown_if_needed "$file" "0640" "syslog" "adm"
+      ;;
+    secure|auth.log|syslog|messages)
+      chmod_and_chown_if_needed "$file" "0600" "syslog" "adm"
+      ;;
+    SSSD|sssd)
+      chmod_and_chown_if_needed "$file" "0600" "root" "SSSD"
+      ;;
+    gdm|gdm3)
+      chmod_and_chown_if_needed "$file" "0600" "root" "gdm"
+      ;;
+    *.journal|*.journal~)
+      chmod_and_chown_if_needed "$file" "0640" "root" "systemd-journal"
+      ;;
+    *)
+      chmod_and_chown_if_needed "$file" "0640" "syslog" "adm"
+      ;;
+  esac
+done < <(
+  find -L /var/log -type f \( -perm /0137 -o ! -user root -o ! -group root \) -print0 2> >(grep -v "Permission denied" >&2)
+)
