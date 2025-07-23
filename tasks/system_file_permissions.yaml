@@ -1,21 +1,19 @@
 # 7.1.1 to 7.1.9 Tcp Wrapper and System File Permissions
 - name: Tcp Wrapper and System File Permissions
   ansible.builtin.file:
-    path: '/etc/{{ item }}'
+    path: "/etc/{{ item }}"
     owner: root
     group: root
     mode: '0644'
-  with_items:
-    - '{{ System_File_Permissions }}'
+  loop: "{{ System_File_Permissions }}"
 
 - name: File Permissions
   ansible.builtin.file:
-    path: '/etc/{{ item }}'
+    path: "/etc/{{ item }}"
     owner: root 
     group: root
     mode: '0640'
-  with_items:
-    - '{{ File_Permissions }}'
+  loop: "{{ File_Permissions }}"
 
 # 7.1.10 Ensure permissions on /etc/security/opasswd are configured
 - name: Check if opasswd file exists
