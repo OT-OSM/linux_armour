@@ -1,43 +1,48 @@
-# # 6.1.1.1 Configure journald
-- name: Ensure systemd-journald service is enabled
+# 6.1.1.1, 6.1.1.4 Configure journald
+- name: Install selected logger package(s)
+  ansible.builtin.package:
+    name: "{{ item }}"
+    state: present
+  loop: "{{ logger_packages[preferred_logger] }}"
+  when: logger_packages[preferred_logger] | length > 0
+
+- name: Uninstall non-selected logger package(s)
+  ansible.builtin.package:
+    name: "{{ item }}"
+    state: absent
+  loop: "{{ logger_packages | dict2items | selectattr('key', 'ne', preferred_logger) | map(attribute='value') | list | flatten }}"
+  when: logger_packages[preferred_logger] | length > 0
+
+- name: Enable and start journald if selected
   ansible.builtin.systemd:
     name: systemd-journald
     enabled: yes
     state: started
+  when: preferred_logger == "journald"
 
-- name: Copy systemd.conf to /etc/tmpfiles.d
-  ansible.builtin.copy:
-    src: /usr/lib/tmpfiles.d/systemd.conf
-    dest: /etc/tmpfiles.d/systemd.conf
-    owner: root
-    group: root
-    mode: '0640'
-
-
-# # 6.1.1.4 Ensure only one logging system is in use
 - name: Disable and stop rsyslog if journald is preferred
   ansible.builtin.systemd:
     name: rsyslog
     enabled: false
     state: stopped
+  when: preferred_logger == "journald"
 
-- name: Ensure ForwardToSyslog is set to no in journald.conf
-  ansible.builtin.lineinfile:
-    path: /etc/systemd/journald.conf
-    regexp: '^#?ForwardToSyslog='
-    line: 'ForwardToSyslog=no'
-    state: present
-  notify: Restart systemd-journald
+- name: Enable and start rsyslog if selected
+  ansible.builtin.systemd:
+    name: rsyslog
+    enabled: yes
+    state: started
+  when: preferred_logger == "rsyslog"
   
 # # 6.1.2.1.1 Ensure systemd-journal-remote is installed
- - name: Ensure systemd-journal-remote is installed
-   ansible.builtin.apt:
+- name: Ensure systemd-journal-remote is installed
+  ansible.builtin.apt:
     name: systemd-journal-remote
     state: present
     update_cache: yes
-   when: ansible_facts['os_family'] == "Debian"
+  when: ansible_facts['os_family'] == "Debian"
 
-# # 6.1.2.1.3 Ensure systemd-journal-upload is enabled and active
+# # # 6.1.2.1.3 Ensure systemd-journal-upload is enabled and active
 - name: Unmask systemd-journal-upload.service
   ansible.builtin.command: systemctl unmask systemd-journal-upload.service
   changed_when: true
@@ -48,7 +53,7 @@
     enabled: yes
     state: started
 
-# # 6.1.2.1.4 Ensure systemd-journal-remote service is not in use
+# # # 6.1.2.1.4 Ensure systemd-journal-remote service is not in use
 - name: Stop systemd-journal-remote.socket and service
   ansible.builtin.systemd:
     name: "{{ item }}"
@@ -65,27 +70,24 @@
     - systemd-journal-remote.socket
     - systemd-journal-remote.service
 
-# # 6.1.2.2 Ensure journald ForwardToSyslog is disabled
-- name: Ensure override directory exists
-  ansible.builtin.file:
-    path: /etc/systemd/journald.conf.d
-    state: directory
-    mode: '0755'
+# # # 6.1.2.2 Ensure journald ForwardToSyslog is disabled
+- name: Ensure ForwardToSyslog is set to no in journald.conf
+  ansible.builtin.lineinfile:
+    path: /etc/systemd/journald.conf
+    regexp: '^#?ForwardToSyslog='
+    line: 'ForwardToSyslog=no'
+    state: present
+  notify: Restart systemd-journald
+  when: preferred_logger == "journald"
 
-- name: Set ForwardToSyslog=no in drop-in journald override
+- name: Copy systemd.conf to /etc/tmpfiles.d if journald is preferred
   ansible.builtin.copy:
-    dest: /etc/systemd/journald.conf.d/60-journald.conf
-    content: |
-      [Journal]
-      ForwardToSyslog=no
+    src: /usr/lib/tmpfiles.d/systemd.conf
+    dest: /etc/tmpfiles.d/systemd.conf
     owner: root
     group: root
-    mode: '0644'
-
-- name: Disable conflicting vendor config (optional)
-  ansible.builtin.command: mv /usr/lib/systemd/journald.conf.d/syslog.conf /usr/lib/systemd/journald.conf.d/syslog.conf.disabled
-  args:
-    creates: /usr/lib/systemd/journald.conf.d/syslog.conf.disabled
+    mode: '0640'
+  when: preferred_logger == "journald"
 
 - name: Restart systemd-journald
   ansible.builtin.systemd:
@@ -93,7 +95,7 @@
     state: restarted
 
 
-# # 6.1.2.3 Configure journald log compression
+# # # 6.1.2.3 Configure journald log compression
 - name: Configure journald log rotation settings
   ansible.builtin.lineinfile:
     path: /etc/systemd/journald.conf
@@ -112,7 +114,7 @@
   notify: Restart systemd-journald
 
 
-# # 6.1.2.4 Ensure journald Storage is configured
+# # # 6.1.2.4 Ensure journald Storage is configured
 - name: Ensure journald drop-in directory exists
   ansible.builtin.file:
     path: /etc/systemd/journald.conf.d/
@@ -128,30 +130,14 @@
       Storage=persistent
   notify: Restart systemd-journald
 
-# # 6.1.3.1 Ensure rsyslog is installed
+# # # 6.1.3.1 Ensure rsyslog is installed
 - name: Ensure rsyslog is installed
   ansible.builtin.apt:
     name: rsyslog
     state: present
     update_cache: yes
 
-
-# # 6.1.3.2 Ensure rsyslog service is enabled and active
-- name: Unmask rsyslog service
-  ansible.builtin.command: systemctl unmask rsyslog.service
-  when: ansible_facts.services['rsyslog.service'] is defined and ansible_facts.services['rsyslog.service'].status == 'masked'
-
-- name: Enable rsyslog service
-  ansible.builtin.systemd:
-    name: rsyslog
-    enabled: yes
-
-- name: Start rsyslog service
-  ansible.builtin.systemd:
-    name: rsyslog
-    state: started
-
-# # 6.1.3.3 - Ensure journald forwards logs to rsyslog
+# # # 6.1.3.3 - Ensure journald forwards logs to rsyslog
 - name: Ensure journald forwards logs to rsyslog
   block:
 
@@ -174,7 +160,7 @@
         name: systemd-journald
         state: restarted
 
-# # 6.1.3.4 - Ensure rsyslog log file creation mode is configured
+# # # 6.1.3.4 - Ensure rsyslog log file creation mode is configured
 - name: Ensure rsyslog uses restrictive file creation mode
   block:
 
@@ -196,7 +182,7 @@
         name: rsyslog
         state: restarted
 
-# # 6.1.3.7 - Ensure rsyslog is not configured to receive logs from remote clients
+# # # 6.1.3.7 - Ensure rsyslog is not configured to receive logs from remote clients
 - name: Get rsyslog config files
   ansible.builtin.find:
     paths:
@@ -228,7 +214,7 @@
     name: rsyslog
     state: restarted
 
-# # 6.1.4.1 - Ensure access to all logfiles has been configured
+# # # 6.1.4.1 - Ensure access to all logfiles has been configured
 - name: Copy log permission check script from template
   ansible.builtin.template:
     src: check_log_permissions.sh.j2
@@ -243,10 +229,3 @@
   register: log_check_result
   changed_when: log_check_result.stdout != ""
   failed_when: false
-
-
-
-
-
-
-
