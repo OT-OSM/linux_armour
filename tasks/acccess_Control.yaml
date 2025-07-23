@@ -1,10 +1,10 @@
 - name: Ensure sudo is installed
-  apt:
+  ansible.builtin.apt:
     name: sudo
     state: present
 
 - name: Ensure sudo log directory exists
-  file:
+  ansible.builtin.file:
     path: /var/log/sudo
     state: directory
     owner: root
@@ -12,7 +12,7 @@
     mode: '0750'
 
 - name: Ensure sudo log file exists
-  file:
+  ansible.builtin.file:
     path: /var/log/sudo/sudo.log
     state: touch
     owner: root
@@ -20,7 +20,7 @@
     mode: '0640'
 
 - name: Ensure sudo commands use pty
-  lineinfile:
+  ansible.builtin.lineinfile:
     path: /etc/sudoers
     state: present
     regexp: "{{ item.regexp }}"
@@ -31,7 +31,7 @@
     - { regexp: '^Defaults\s+timestamp_timeout=', line: 'Defaults timestamp_timeout={{ sudo_timeout }}' }
 
 - name: Remove lines with NOPASSWD tags in sudoers file
-  lineinfile:
+  ansible.builtin.lineinfile:
     path: /etc/sudoers
     state: absent
     regexp: "{{ item.regexp }}"
@@ -40,14 +40,14 @@
     - { regexp: '^Defaults\s+!authenticate'}
 
 - name: Restrict su command to wheel group
-  lineinfile:
+  ansible.builtin.lineinfile:
     path: /etc/pam.d/su
     state: present
     regexp: '^#?auth\s+required\s+pam_wheel.so\s+use_uid'
     line: 'auth required pam_wheel.so use_uid group=sugroup'
 
 - name: Ensure PAM packages are installed
-  apt:
+  ansible.builtin.apt:
     name: "{{ item }}"
     state: latest
   with_items: 
@@ -56,6 +56,4 @@
     - libpam-pwquality
 
 - name: Enable pam_unix module using pam-auth-update
-  command: pam-auth-update --enable unix
-
-        
+  ansible.builtin.command: pam-auth-update --enable unix
