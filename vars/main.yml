@@ -26,12 +26,9 @@ cron_service_name: "{{ 'crond' if ansible_os_family == 'RedHat' else 'cron' }}"
 
 firewall_package: 'ufw'
 
-preferred_logger: journald
-
-logger_packages:
-  journald: []
-  rsyslog:
-    - rsyslog
+# Ensure only one logging system is used.
+preferred_logger: systemd-journald
+# preferred_logger: rsyslog
 
 System_File_Permissions:
   - host.conf
