@@ -46,6 +46,6 @@
 
 
 - name: Restart systemd-journald
-  systemd:
+  ansible.builtin.systemd:
     name: systemd-journald
     state: restarted
