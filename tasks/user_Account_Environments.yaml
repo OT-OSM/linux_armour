@@ -1,0 +1,386 @@
+##5.4.1.1 
+
+- name: "Ensure PASS_MAX_DAYS is set to 365 in /etc/login.defs"
+  lineinfile:
+    path: /etc/login.defs
+    regexp: '^PASS_MAX_DAYS'
+    line: 'PASS_MAX_DAYS 365'
+    state: present
+    create: yes
+    backup: yes
+
+- name: "Get list of users with invalid PASS_MAX_DAYS (>365 or <1)"
+  shell: |
+    awk -F: '($2 ~ /^\$.+\$/ && ($5 > 365 || $5 < 1)) { print $1 }' /etc/shadow
+  register: users_with_invalid_maxdays
+  changed_when: false
+
+- name: "Fix PASS_MAX_DAYS for users with invalid values"
+  command: chage --maxdays 365 {{ item }}
+  loop: "{{ users_with_invalid_maxdays.stdout_lines }}"
+  when: users_with_invalid_maxdays.stdout_lines | length > 0
+
+- name: "Get users with empty last change date (field 3 in /etc/shadow)"
+  shell: |
+    awk -F: '($2 ~ /^\$.+\$/ && $3 == "") { print $1 }' /etc/shadow
+  register: users_with_empty_last_change
+  changed_when: false
+
+- name: "Set last password change date for users with empty value"
+  command: chage -d "$(date +%Y-%m-%d)" {{ item }}
+  loop: "{{ users_with_empty_last_change.stdout_lines }}"
+  when: users_with_empty_last_change.stdout_lines | length > 0
+
+##5.4.1.2
+
+- name: "Ensure PASS_MIN_DAYS is set to 1 in /etc/login.defs"
+  lineinfile:
+    path: /etc/login.defs
+    regexp: '^PASS_MIN_DAYS'
+    line: 'PASS_MIN_DAYS 1'
+    state: present
+    create: yes
+    backup: yes
+
+- name: "Get list of users with PASS_MIN_DAYS < 1"
+  shell: |
+    awk -F: '($2 ~ /^\$.+\$/ && $4 < 1) { print $1 }' /etc/shadow
+  register: users_with_invalid_mindays
+  changed_when: false
+
+- name: "Set PASS_MIN_DAYS to 1 for users with invalid values"
+  command: chage --mindays 1 {{ item }}
+  loop: "{{ users_with_invalid_mindays.stdout_lines }}"
+  when: users_with_invalid_mindays.stdout_lines | length > 0
+
+#####5.4.1.3
+- name: "Ensure PASS_WARN_AGE is set to 7 in /etc/login.defs"
+  lineinfile:
+    path: /etc/login.defs
+    regexp: '^PASS_WARN_AGE'
+    line: 'PASS_WARN_AGE 7'
+    state: present
+    create: yes
+    backup: yes
+
+- name: "Find users with password set and PASS_WARN_AGE < 7"
+  shell: |
+    awk -F: '($2 ~ /^\$.+\$/ && $6 < 7) { print $1 }' /etc/shadow
+  register: users_with_low_warndays
+  changed_when: false
+
+- name: "Set PASS_WARN_AGE (warndays) to 7 for users with lower value"
+  command: chage --warndays 7 {{ item }}
+  loop: "{{ users_with_low_warndays.stdout_lines }}"
+  when: users_with_low_warndays.stdout_lines | length > 0
+
+###5.4.1.4
+
+- name: "Ensure ENCRYPT_METHOD is set to SHA512 in /etc/login.defs"
+  lineinfile:
+    path: /etc/login.defs
+    regexp: '^ENCRYPT_METHOD'
+    line: 'ENCRYPT_METHOD SHA512'
+    state: present
+    create: yes
+    backup: yes
+
+###5.4.1.5
+- name: "Set default password inactivity period to 45 days"
+  command: useradd -D -f 45
+
+- name: "Find users with password set and inactivity period not in [0–45]"
+  shell: |
+    awk -F: '($2 ~ /^\$.+\$/ && ($7 > 45 || $7 < 0)) { print $1 }' /etc/shadow
+  register: users_with_invalid_inactive_days
+  changed_when: false
+
+- name: "Debug: Print users with invalid inactivity days"
+  debug:
+    var: users_with_invalid_inactive_days.stdout_lines
+
+- name: "Set password inactivity period to 45 days for non-compliant users"
+  command: chage --inactive 45 {{ item }}
+  loop: "{{ users_with_invalid_inactive_days.stdout_lines }}"
+  when: users_with_invalid_inactive_days.stdout_lines | length > 0
+
+
+###5.4.2.1
+
+- name: Get root user's UID using getent
+  ansible.builtin.command: getent passwd root
+  register: root_passwd_entry
+  changed_when: false
+  become: true
+
+- name: Ensure root user has UID 0
+  ansible.builtin.command: usermod -u 0 root
+  when: root_passwd_entry.stdout.split(':')[2] | int != 0
+  become: true
+
+- name: Get all users with UID 0 (excluding root)
+  ansible.builtin.command: >
+    awk -F: '($3 == 0 && $1 != "root") { print $1 }' /etc/passwd
+  register: non_root_uid0_users
+  changed_when: false
+  become: true
+
+- name: Change UID of non-root UID 0 users
+  ansible.builtin.shell: |
+    usermod -u {{ 9999 + item.0 }} {{ item.1 }}
+  with_indexed_items: "{{ non_root_uid0_users.stdout_lines }}"
+  when: non_root_uid0_users.stdout_lines | length > 0
+  become: true
+
+####5.4.2.2
+
+- name: Get current GID of root user
+  ansible.builtin.command: getent passwd root
+  register: root_user_entry
+  changed_when: false
+  become: true
+
+- name: Change root user's GID to 0 if not already
+  ansible.builtin.command: usermod -g 0 root
+  when: root_user_entry.stdout.split(':')[3] | int != 0
+  become: true
+
+- name: Get current GID of root group
+  ansible.builtin.command: getent group root
+  register: root_group_entry
+  changed_when: false
+  become: true
+
+- name: Change root group's GID to 0 if not already
+  ansible.builtin.command: groupmod -g 0 root
+  when: root_group_entry.stdout.split(':')[2] | int != 0
+  become: true
+
+- name: Get users with GID 0 other than root
+  ansible.builtin.shell: "awk -F: '($1 != \"root\" && $4 == 0) { print $1 }' /etc/passwd"
+  register: non_root_gid0_users
+  changed_when: false
+  become: true
+
+- name: Debug users with GID 0 other than root
+  ansible.builtin.debug:
+    msg: "User {{ item }} has GID 0 (should be changed)"
+  loop: "{{ non_root_gid0_users.stdout_lines }}"
+  when: non_root_gid0_users.stdout_lines | length > 0
+
+####5.4.2.3
+
+- name: "Ensure 'root' group has GID 0"
+  command: groupmod -g 0 root
+  when: >
+    ansible_facts.getent_group.root is defined and
+    (ansible_facts.getent_group.root[1] | int != 0)
+  become: true
+
+- name: "Get list of groups (excluding 'root') with GID 0"
+  shell: "awk -F: '($3 == 0 && $1 != \"root\") { print $1 }' /etc/group"
+  register: groups_with_gid_0
+  changed_when: false
+
+- name: "Change GID for non-root groups with GID 0"
+  shell: "groupmod -g $((1000 + {{ index }})) {{ item }}"
+  loop: "{{ groups_with_gid_0.stdout_lines }}"
+  loop_control:
+    index_var: index
+  when: groups_with_gid_0.stdout_lines | length > 0
+  become: true
+
+####5.4.2.4
+- name: "Lock the root user account"
+  ansible.builtin.command: usermod -L root
+  when: >
+    ansible_facts.getent_passwd.root is defined and
+    (ansible_facts.getent_shadow.root[1] is defined and
+     not ansible_facts.getent_shadow.root[1] is search('^!'))
+  become: true
+
+### ###5.4.2.5 
+
+- name: "5.4.2.5 | Fix non-root-owned directories in root's PATH"
+  block:
+    - name: "Get root's PATH variable"
+      ansible.builtin.shell: "sudo -Hiu root env | grep '^PATH=' | cut -d= -f2"
+      register: root_path
+      changed_when: false
+
+    - name: "Split PATH into list"
+      set_fact:
+        root_path_dirs: "{{ root_path.stdout.split(':') }}"
+
+    - name: "Stat each directory in PATH"
+      ansible.builtin.stat:
+        path: "{{ item }}"
+      loop: "{{ root_path_dirs }}"
+      register: path_stats
+
+    - name: "Fix ownership to root if not already"
+      ansible.builtin.file:
+        path: "{{ item.stat.path }}"
+        owner: root
+      when:
+        - item.stat.exists
+        - item.stat.isdir
+        - item.stat.pw_name is defined
+        - item.stat.pw_name != "root"
+      loop: "{{ path_stats.results }}"
+      loop_control:
+        label: "{{ item.stat.path }}"
+
+####5.4.2.6
+
+- name: "Check if /root/.bash_profile and /root/.bashrc exist"
+  stat:
+    path: "{{ item }}"
+  register: umask_files
+  loop:
+    - /root/.bash_profile
+    - /root/.bashrc
+
+- name: "Find and comment out existing umask lines if present"
+  replace:
+    path: "{{ item.stat.path }}"
+    regexp: '^(?!#).*umask\s+[0-7]{3,4}'
+    replace: '# \g<0>'
+    backup: yes
+  loop: "{{ umask_files.results }}"
+  when: item.stat.exists
+
+- name: "Ensure umask 0027 is set if file exists"
+  lineinfile:
+    path: "{{ item.stat.path }}"
+    line: 'umask 0027'
+    state: present
+    create: yes
+    insertafter: EOF
+  loop: "{{ umask_files.results }}"
+  when: item.stat.exists
+
+##5.4.2.7
+
+- name: Set shell to nologin for service accounts with interactive shells
+  shell: |
+    VALID_SHELLS="^($( awk -F/ '$NF != "nologin" {print}' /etc/shells | sed -rn '/^\//{s,/,\\\\/,g;p}' | paste -s -d '|' - ))$"
+    UID_MIN=$(awk '/^\s*UID_MIN/{print $2}' /etc/login.defs)
+    awk -v pat="$VALID_SHELLS" -F: -v nologin_path="$(command -v nologin)" -v uid_min="$UID_MIN" '
+      ($1 !~ /^(root|halt|sync|shutdown|nfsnobody)$/ &&
+       ($3 < uid_min || $3 == 65534) && $(NF) ~ pat) {
+         system("usermod -s " nologin_path " " $1)
+      }
+    ' /etc/passwd
+  args:
+    executable: /bin/bash
+  become: true
+  changed_when: true
+  name: "Remediate service accounts to use nologin shell"
+
+##5.4.2.8     ### USE ONLY IF NEEDED , THIS WILL LOCK LOGIN SHELL
+
+# - name: Lock non-root accounts without valid login shells
+#   ansible.builtin.shell: |
+#     l_valid_shells="^($(awk -F/ '$NF != \"nologin\" {print}' /etc/shells | \
+#     sed -rn '/^\//{s,/,\\\\/,g;p}' | paste -s -d '|' -))$"
+#     while IFS= read -r l_user; do
+#       passwd -S "$l_user" | awk '$2 !~ /^L/ { system("usermod -L " $1) }'
+#     done < <(awk -v pat="$l_valid_shells" -F: '($1 != "root" && $(NF) !~ pat) {print $1}' /etc/passwd)
+#   args:
+#     executable: /bin/bash
+#   become: true
+#   when: ansible_user_id == 'root'
+
+# ##5.4.3.1       #DO NOT RUN
+
+# - name: Backup original /etc/shells
+#   copy:
+#     src: /etc/shells
+#     dest: /etc/shells.bak
+#     remote_src: true
+#     owner: root
+#     group: root
+#     mode: '0644'
+
+# - name: Remove lines containing 'nologin' from /etc/shells
+#   lineinfile:
+#     path: /etc/shells
+#     regexp: '.*nologin.*'
+#     state: absent
+#     backup: no
+
+
+
+##5.4.3.2
+
+- name: Remove or correct invalid TMOUT entries
+  find:
+    paths:
+      - /etc/profile
+      - /etc/bashrc
+      - /etc/profile.d/
+    patterns: '*.sh'
+    file_type: file
+  register: tmout_files
+
+- name: Remove invalid TMOUT settings (TMOUT > 900 or TMOUT=0)
+  lineinfile:
+    path: "{{ item.path }}"
+    regexp: '^\s*(readonly\s+)?TMOUT\s*=\s*(0|9[0-9]{3,}|[1-9][0-9]{3,})'
+    state: absent
+    backup: yes
+  loop: "{{ tmout_files.files }}"
+  when: item.path is file
+
+- name: Configure TMOUT only for non-root users in /etc/profile.d/tmout.sh
+  copy:
+    dest: /etc/profile.d/tmout.sh
+    content: |
+      # Skip TMOUT for UID 0 (root)
+      if [ "$(id -u)" -ge 1000 ]; then
+        TMOUT=900
+        readonly TMOUT
+        export TMOUT
+      fi
+    owner: root
+    group: root
+    mode: '0644'
+
+# 5.4.3.3
+
+- name: Check and remediate insecure UMASK values
+  block:
+    - name: Create secure UMASK configuration in /etc/profile.d
+      copy:
+        dest: /etc/profile.d/50-systemwide_umask.sh
+        content: |
+          # Set secure default UMASK
+          umask 027
+        owner: root
+        group: root
+        mode: '0644'
+
+    - name: Ensure umask line is commented out or set correctly in other critical files
+      lineinfile:
+        path: "{{ item }}"
+        regexp: '^\s*umask\s+'
+        line: '# umask (disabled by automation - see /etc/profile.d/50-systemwide_umask.sh)'
+        state: present
+        backrefs: yes
+        create: no
+      loop:
+        - /etc/profile
+        - /etc/bashrc
+        - /etc/bash.bashrc
+        - /etc/login.defs
+        - /etc/default/login
+      when: ansible_facts['os_family'] != 'Debian' or ansible_facts['distribution_file_variety'] != 'Debian'
+
+    - name: Comment insecure pam_umask lines in /etc/pam.d/postlogin if present
+      lineinfile:
+        path: /etc/pam.d/postlogin
+        regexp: '^\s*session\s+.*pam_umask\.so.*umask='
+        state: absent
+      when: ansible_facts['os_family'] != 'Debian' or ansible_facts['distribution_file_variety'] != 'Debian'
+
