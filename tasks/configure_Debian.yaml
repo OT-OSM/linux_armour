@@ -59,6 +59,10 @@
 # - name: Access Control Configuration
 #   include_tasks: access_Control.yaml
 
+# # 5.3 Control Configuration
+# - name: pluggable_Notification Access Control Configuration
+#   include_tasks: pluggable_Authentication.yaml
+
 # # 6.1 Filesystem Integrity Checking
 # - name: Ensure filesystem integrity is regularly checked
 #   include_tasks: filesystem_Integrity.yaml

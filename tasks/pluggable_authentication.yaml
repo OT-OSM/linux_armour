@@ -1,0 +1,437 @@
+- name: "Ensure libpam-runtime is upgraded to the latest version"
+  apt:
+    name: libpam-runtime
+    state: latest
+
+- name: "Ensure libpam-modules is upgraded to the latest version"
+  apt:
+    name: libpam-modules
+    state: latest
+
+- name: "Ensure libpam-pwquality is installed"
+  apt:
+    name: libpam-pwquality
+    state: present
+
+- name: "Enable 'unix' PAM profile using pam-auth-update (ignore errors)"
+  shell: pam-auth-update --enable unix --force
+  register: pam_unix_enable
+  changed_when: pam_unix_enable.rc == 0
+  failed_when: false
+  ignore_errors: yes
+
+#####
+
+- name: "Create 'faillock' PAM profile"
+  copy:
+    dest: /usr/share/pam-configs/faillock
+    content: |
+      Name: Enable pam_faillock to deny access
+      Default: yes
+      Priority: 0
+      Auth-Type: Primary
+      Auth:
+       [default=die] pam_faillock.so authfail
+    owner: root
+    group: root
+    mode: '0644'
+
+- name: "Create 'faillock_notify' PAM profile"
+  copy:
+    dest: /usr/share/pam-configs/faillock_notify
+    content: |
+      Name: Notify of failed login attempts and reset count upon success
+      Default: yes
+      Priority: 1024
+      Auth-Type: Primary
+      Auth:
+       requisite pam_faillock.so preauth
+      Account-Type: Primary
+      Account:
+       required pam_faillock.so
+    owner: root
+    group: root
+    mode: '0644'
+
+- name: "Enable 'faillock' PAM profile"
+  shell: pam-auth-update --enable faillock --force
+  register: faillock_enable
+  changed_when: faillock_enable.rc == 0
+  failed_when: false
+  ignore_errors: yes
+
+- name: "Enable 'faillock_notify' PAM profile"
+  shell: pam-auth-update --enable faillock_notify --force
+  register: faillock_notify_enable
+  changed_when: faillock_notify_enable.rc == 0
+  failed_when: false
+  ignore_errors: yes
+
+#####
+
+- name: "Check if any PAM profile includes pam_pwquality.so"
+  shell: grep -P -- '\bpam_pwquality\.so\b' /usr/share/pam-configs/* || true
+  register: pwquality_check
+  changed_when: false
+
+- name: "Create pwquality PAM profile if it does not exist"
+  copy:
+    dest: /usr/share/pam-configs/pwquality
+    content: |
+      Name: Pwquality password strength checking
+      Default: yes
+      Priority: 1024
+      Conflicts: cracklib
+      Password-Type: Primary
+      Password:
+       requisite pam_pwquality.so retry=3
+    owner: root
+    group: root
+    mode: '0644'
+  when: pwquality_check.stdout.find('pam_pwquality.so') == -1
+
+- name: "Enable pwquality PAM profile via pam-auth-update"
+  shell: pam-auth-update --enable pwquality --force
+  register: pwquality_enable
+  changed_when: pwquality_enable.rc == 0
+  failed_when: false
+  ignore_errors: yes
+
+##############################5.3.2.4
+- name: "Check if any PAM profile includes pam_pwhistory.so"
+  shell: grep -P -- '\bpam_pwhistory\.so\b' /usr/share/pam-configs/* || true
+  register: pwhistory_check
+  changed_when: false
+
+- name: "Create 'pwhistory' PAM profile if it does not exist"
+  copy:
+    dest: /usr/share/pam-configs/pwhistory
+    content: |
+      Name: pwhistory password history checking
+      Default: yes
+      Priority: 1024
+      Password-Type: Primary
+      Password:
+       requisite pam_pwhistory.so remember=24 enforce_for_root try_first_pass use_authtok
+    owner: root
+    group: root
+    mode: '0644'
+  when: pwhistory_check.stdout.find('pam_pwhistory.so') == -1
+
+- name: "Enable pwhistory PAM profile via pam-auth-update"
+  shell: pam-auth-update --enable pwhistory --force
+  register: pwhistory_enable
+  changed_when: pwhistory_enable.rc == 0
+  failed_when: false
+  ignore_errors: yes
+#####5.3.3.1
+
+- name: "Ensure 'deny = 5' is set in /etc/security/faillock.conf"
+  lineinfile:
+    path: /etc/security/faillock.conf
+    regexp: '^\s*deny\s*='
+    line: 'deny = 5'
+    create: yes
+    state: present
+    backup: yes
+
+- name: "Find PAM config files under /usr/share/pamconfigs/ containing 'pam_faillock.so ... deny'"
+  shell: |
+    grep -Pl -- '\bpam_faillock\.so\h+([^#\n\r]+\h+)?deny\b' /usr/share/pamconfigs/*
+  register: pam_faillock_deny_files
+  changed_when: false
+  failed_when: false
+
+- name: "Remove 'deny=<N>' argument from pam_faillock.so lines"
+  replace:
+    path: "{{ item }}"
+    regexp: '(?<=pam_faillock\.so.*?)\s+deny=\d+'
+    replace: ''
+    backup: yes
+  with_items: "{{ pam_faillock_deny_files.stdout_lines }}"
+  when: pam_faillock_deny_files.stdout != ''
+
+# 5.3.3.1.2
+- name: "Ensure unlock_time is set to 900 or more in /etc/security/faillock.conf"
+  lineinfile:
+    path: /etc/security/faillock.conf
+    regexp: '^\s*unlock_time\s*='
+    line: 'unlock_time = 900'
+    create: yes
+    backup: yes
+
+- name: "Find PAM config files with pam_faillock.so using unlock_time"
+  command: grep -Pl -- '\bpam_faillock\.so\h+([^#\n\r]+\h+)?unlock_time\b' /usr/share/pam-configs/*
+  register: pam_unlock_files
+  changed_when: false
+  failed_when: false
+
+- name: "Remove unlock_time argument from pam_faillock.so lines"
+  replace:
+    path: "{{ item }}"
+    regexp: '(\bpam_faillock\.so[^\n\r#]*?)\sunlock_time=\S+'
+    replace: '\1'
+    backup: yes
+  with_items: "{{ pam_unlock_files.stdout_lines }}"
+  when: pam_unlock_files.stdout_lines | length > 0
+
+###5.3.3.1.3
+- name: "Ensure even_deny_root is present in /etc/security/faillock.conf"
+  lineinfile:
+    path: /etc/security/faillock.conf
+    regexp: '^\s*even_deny_root\b'
+    line: 'even_deny_root'
+    create: yes
+    backup: yes
+
+- name: "Ensure root_unlock_time is set to 60 or more in /etc/security/faillock.conf"
+  lineinfile:
+    path: /etc/security/faillock.conf
+    regexp: '^\s*root_unlock_time\s*='
+    line: 'root_unlock_time = 60'
+    create: yes
+    backup: yes
+
+- name: "Find PAM config files with pam_faillock.so using even_deny_root or root_unlock_time"
+  command: grep -Pl -- '\bpam_faillock\.so\h+([^#\n\r]+\h+)?(even_deny_root|root_unlock_time)\b' /usr/share/pam-configs/*
+  register: pam_faillock_root_flags
+  changed_when: false
+  failed_when: false
+
+- name: "Remove even_deny_root and root_unlock_time from pam_faillock.so lines"
+  replace:
+    path: "{{ item }}"
+    regexp: '(\bpam_faillock\.so[^\n\r#]*?)\s+(even_deny_root|root_unlock_time=\S+)\b'
+    replace: '\1'
+    backup: yes
+  with_items: "{{ pam_faillock_root_flags.stdout_lines }}"
+  when: pam_faillock_root_flags.stdout_lines | length > 0
+################################################################################
+
+##5.3.3.2.1
+- name: Ensure difok is set to 2 securely
+  block:
+    - name: Comment out existing difok in /etc/security/pwquality.conf
+      ansible.builtin.replace:
+        path: /etc/security/pwquality.conf
+        regexp: '^\s*difok\s*='
+        replace: '# difok ='
+      ignore_errors: true  # In case file doesn't exist
+
+    - name: Ensure pwquality.conf.d directory exists
+      ansible.builtin.file:
+        path: /etc/security/pwquality.conf.d
+        state: directory
+        mode: '0755'
+
+    - name: Set difok = 2 in a dedicated .conf file
+      ansible.builtin.copy:
+        dest: /etc/security/pwquality.conf.d/50-pwdifok.conf
+        content: |
+          difok = 2
+        owner: root
+        group: root
+        mode: '0644'
+
+    - name: Remove difok from pam_pwquality.so lines in /usr/share/pamconfigs/*
+      ansible.builtin.shell: |
+        for f in $(grep -Pl -- '\bpam_pwquality\.so\b.*\bdifok=' /usr/share/pamconfigs/* 2>/dev/null); do
+          sed -ri 's/(\bpam_pwquality\.so\b[^#\n\r]*)\bdifok=[0-9]+\b\s*//g' "$f"
+        done
+      args:
+        executable: /bin/bash
+      changed_when: false
+      ignore_errors: true  # Safe fallback
+
+###################################################5.3.3.2.2
+
+- name: Check if /usr/share/pam-configs directory exists
+  ansible.builtin.stat:
+    path: /usr/share/pam-configs
+  register: pam_configs_dir
+
+- name: Find PAM config files using pam_pwhistory.so in Password-Type section
+  ansible.builtin.shell: |
+    awk '/Password-Type:/{ f = 1; next }
+         /-Type:/{ f = 0 }
+         f { if (/pam_pwhistory\.so/) print FILENAME }' /usr/share/pam-configs/*
+  register: pam_pwhistory_files
+  when: pam_configs_dir.stat.exists
+  changed_when: false
+  failed_when: pam_pwhistory_files.rc != 0 and pam_pwhistory_files.rc != 1
+
+
+- name: Ensure 'enforce_for_root' is present in pam_pwhistory line
+  ansible.builtin.lineinfile:
+    path: "{{ item }}"
+    regexp: '^(.*pam_pwhistory\.so.*)(?<!enforce_for_root)(.*)$'
+    line: '\1 enforce_for_root\2'
+    backrefs: yes
+  loop: "{{ pam_pwhistory_files.stdout_lines }}"
+  when: pam_pwhistory_files.stdout_lines | length > 0
+
+- name: Enable updated PAM profile using pam-auth-update
+  ansible.builtin.command: pam-auth-update --enable "{{ item | basename }}"
+  loop: "{{ pam_pwhistory_files.stdout_lines | map('basename') | list }}"
+  when: pam_pwhistory_files.stdout_lines | length > 0
+
+############ 5.3.3.3.3
+
+- name: Check if /usr/share/pam-configs directory exists
+  ansible.builtin.stat:
+    path: /usr/share/pam-configs
+  register: pam_configs_dir
+
+- name: Find PAM config files using pam_pwhistory.so in Password-Type section
+  ansible.builtin.shell: |
+    awk '/Password-Type:/{ f = 1; next }
+         /-Type:/{ f = 0 }
+         f { if (/pam_pwhistory\.so/) print FILENAME }' /usr/share/pam-configs/*
+  register: pam_pwhistory_files
+  when: pam_configs_dir.stat.exists
+  changed_when: false
+  failed_when: pam_pwhistory_files.rc != 0 and pam_pwhistory_files.rc != 1
+
+- name: Ensure 'use_authtok' is present in pam_pwhistory line
+  ansible.builtin.lineinfile:
+    path: "{{ item }}"
+    regexp: '^(.*pam_pwhistory\.so.*)(?<!use_authtok)(.*)$'
+    line: '\1 use_authtok\2'
+    backrefs: yes
+  loop: "{{ pam_pwhistory_files.stdout_lines }}"
+  when: pam_pwhistory_files.stdout_lines | length > 0
+
+- name: Enable updated PAM profile using pam-auth-update
+  ansible.builtin.command: pam-auth-update --enable "{{ item | basename }}"
+  loop: "{{ pam_pwhistory_files.stdout_lines | map('basename') | list }}"
+  when: pam_pwhistory_files.stdout_lines | length > 0
+
+
+# ######5.3.3.4.1   
+- name: Find pam_unix lines with nullok in pam configs
+  ansible.builtin.shell: |
+    grep -lPH -- '^\s*([^#\n\r]+\s+)?pam_unix\.so\s+([^#\n\r]+\s+)?nullok\b' /usr/share/pam-configs/*
+  register: pam_unix_nullok_files
+  changed_when: false
+  failed_when: false
+
+- name: Remove nullok argument from pam_unix lines in config files
+  ansible.builtin.replace:
+    path: "{{ item }}"
+    regexp: '(^\s*\[.*\]\s+pam_unix\.so(?:\s+[^#\n\r]*)?)\s+nullok\b'
+    replace: '\1'
+    backup: yes
+  loop: "{{ pam_unix_nullok_files.stdout_lines }}"
+  when: pam_unix_nullok_files.stdout_lines | length > 0
+
+- name: Get profile names with Default yes
+  ansible.builtin.shell: |
+    awk '/^Name: / {name=$2} /^Default: yes/ {print name}' "{{ item }}"
+  register: pam_profiles_to_enable
+  loop: "{{ pam_unix_nullok_files.stdout_lines }}"
+  when: pam_unix_nullok_files.stdout_lines | length > 0
+  changed_when: false
+  failed_when: false
+
+
+- name: Run pam-auth-update for edited profiles
+  ansible.builtin.shell: "pam-auth-update --enable {{ item.stdout }}"
+  loop: "{{ pam_profiles_to_enable.results }}"
+  when: item.stdout != ""
+
+
+###5.3.3.4.2
+
+- name: Find pam_unix.so lines with remember=<N>
+  ansible.builtin.command: >
+    grep -PH -- '^\s*([^#\n\r]+\s+)?pam_unix\.so\s+([^#\n\r]+\s+)?remember\b'
+    /usr/share/pam-configs/*
+  register: pam_remember_matches
+  changed_when: false
+  failed_when: false
+
+- name: Remove remember argument from pam_unix.so lines
+  ansible.builtin.lineinfile:
+    path: "{{ item.path }}"
+    regexp: '(^\s*[^#\n\r]*pam_unix\.so[^\n\r#]*?)\sremember=\d+(\s|$)'
+    line: '\1\2'
+    backrefs: yes
+  loop: "{{ pam_remember_matches.stdout_lines | map('split', ':', 1) | map('first') | unique | list }}"
+  when: pam_remember_matches.stdout_lines | length > 0
+
+- name: Enable PAM profiles that were modified
+  ansible.builtin.shell: |
+    pam-auth-update --enable {{ item }}
+  args:
+    warn: false
+  loop: >
+    {{ pam_remember_matches.stdout_lines
+      | map('split', ':', 1)
+      | map('first')
+      | map('regex_replace', '^.*/', '')
+      | unique | list }}
+  when: pam_remember_matches.stdout_lines | length > 0
+
+
+######35.3.3.4.3
+- name: Find pam-config files with pam_unix.so under Password-Type section
+  ansible.builtin.shell: |
+    awk '
+      /Password-Type:/ { f = 1; next }
+      /-Type:/ { f = 0 }
+      f && /pam_unix\.so/ { print FILENAME; f = 0 }
+    ' /usr/share/pam-configs/*
+  register: pam_password_files
+  changed_when: false
+  failed_when: false
+
+- name: Get unique PAM config files
+  ansible.builtin.set_fact:
+    unique_pam_files: "{{ pam_password_files.stdout_lines | unique }}"
+
+- name: Ensure pam_unix.so line in Password section contains yescrypt or sha512
+  ansible.builtin.lineinfile:
+    path: "{{ item }}"
+    regexp: '^(.*pam_unix\.so(?!.*\b(sha512|yescrypt)\b).*)$'
+    line: '\1 yescrypt'
+    backrefs: yes
+    backup: yes
+  loop: "{{ unique_pam_files }}"
+  when: unique_pam_files | length > 0
+
+- name: Extract modified profile names from pam config file paths
+  ansible.builtin.set_fact:
+    modified_profiles: "{{ unique_pam_files | map('regex_replace', '^.*/', '') | list }}"
+
+- name: Enable PAM profiles that were modified
+  ansible.builtin.command: pam-auth-update --force --package {{ item }}
+  loop: "{{ modified_profiles }}"
+  when: item is match('^[a-zA-Z0-9_-]+$')
+
+########5.3.3.4.4
+
+- name: "Find PAM profile files with pam_unix.so under Password section but missing use_authtok"
+  shell: |
+    awk '
+    /Password-Type:/ { in_password=1; in_initial=0; next }
+    /Password-Initial:/ { in_password=0; in_initial=1; next }
+    /-Type:/ { in_password=0; in_initial=0 }
+    in_password && /pam_unix\.so/ && !/use_authtok/ { print FILENAME }
+    ' /usr/share/pam-configs/* | sort -u
+  register: pam_profiles_missing_use_authtok
+  changed_when: false
+
+- name: "Ensure pam_unix.so line in Password section includes use_authtok"
+  when: pam_profiles_missing_use_authtok.stdout_lines | length > 0
+  block:
+    - name: "Update pam_unix.so line to include use_authtok in {{ item }}"
+      replace:
+        path: "{{ item }}"
+        regexp: '(^[ \t]*\[.*\] pam_unix\.so\b(?!.*\buse_authtok\b))'
+        replace: '\1 use_authtok'
+      loop: "{{ pam_profiles_missing_use_authtok.stdout_lines }}"
+
+    - name: "Enable updated PAM profile(s) with pam-auth-update"
+      command: pam-auth-update --enable {{ item | basename }}
+      loop: "{{ pam_profiles_missing_use_authtok.stdout_lines }}"
+
