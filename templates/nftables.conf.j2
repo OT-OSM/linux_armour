@@ -7,6 +7,9 @@ table inet {{ nftable_name }} {
         # Allow established and related connections
         ct state established,related accept
 
+        # Allow incoming SSH
+        tcp dport 22 ct state new,established accept
+
         # Drop invalid packets from localhost addresses
         ip saddr 127.0.0.0/8 counter packets 0 bytes 0 drop
         ip6 saddr ::1 counter packets 0 bytes 0 drop

@@ -1,9 +1,4 @@
-# 4 Ensure a single firewall is configured
-- name: Install selected firewall package
-  package:
-    name: "{{ firewall_package }}"
-    state: present
-
+# 4.1.1 Ensure a single firewall configuration utility is in use
 - name: Uninstall non-selected firewall packages
   package:
     name: "{{ item }}"
@@ -13,6 +8,28 @@
     - nftables
     - iptables
   when: item != firewall_package
+
+# 4 Ensure a single firewall is configured
+- name: Install selected firewall package
+  package:
+    name:  "{{ firewall_package }}"
+    state: present
+
+- name: Unmask ufw service (if needed)
+  ansible.builtin.systemd:
+    name: ufw.service
+    masked: false
+  become: true
+
+- name: Allow SSH through UFW
+  ansible.builtin.command: ufw allow ssh
+  become: true
+  when: firewall_package == "ufw"
+
+- name: Allow everything and enable UFW
+  community.general.ufw:
+    state: enabled
+  when: firewall_package == "ufw"
 
 - name: Ensure iptables-persistent is not installed with ufw
   apt:
@@ -26,7 +43,7 @@
     enabled: yes
     state: started
   
-# 4.1 Cofigure ufw
+# # 4.1 Cofigure ufw
 - name: Configure ufw
   block:
     - name: Ensure ufw loopback traffic is configured
@@ -36,31 +53,41 @@
       - ufw allow out on lo
       - ufw deny in from 127.0.0.0/8
       - ufw deny in from ::1
+  when: firewall_package == "ufw"
 
-    - name: Ensure ufw outbound connections are configured
-      command: ufw allow out on all
+# 4.2.5 Ensure ufw outbound connections are configured (Manual)
+# - name: Ensure ufw outbound connections are configured
+#   command: ufw allow out on all
 
-    - name: Ensure ufw rules for specific ports
-      ufw:
-        rule: allow
-        port: "{{ item.port }}"
-        proto: "{{ item.proto }}"
-      with_items:
-        - { port: "22", proto: "tcp" }
-        - { port: "53", proto: "tcp" }
-        - { port: "53", proto: "udp" }
-        - { port: "80", proto: "tcp" }
-        - { port: "443", proto: "tcp" }
+- name: Ensure ufw rules for specific ports
+  ufw:
+    rule: allow
+    port: "{{ item.port }}"
+    proto: "{{ item.proto }}"
+  with_items:
+    - { port: "22", proto: "tcp" }
+    - { port: "53", proto: "tcp" }
+    - { port: "53", proto: "udp" }
+    - { port: "80", proto: "tcp" }
+    - { port: "443", proto: "tcp" }
+  when: firewall_package == "ufw"
 
-    - name: Set default deny incoming policy
-      ufw:
-        policy: deny
-        direction: incoming
+- name: Set default deny incoming policy
+  ufw:
+    policy: deny
+    direction: incoming
+  when: firewall_package == "ufw"
 
-    - name: Set default deny outgoing policy
-      ufw:
-        policy: deny
-        direction: outgoing
+- name: Set default deny outgoing policy
+  ufw:
+    policy: deny
+    direction: outgoing
+  when: firewall_package == "ufw"
+
+- name: Set default deny incoming policy
+  ufw:
+    policy: deny
+    direction: routed
   when: firewall_package == "ufw"
 
 
@@ -88,127 +115,221 @@
       apt:
         name: iptables-persistent
         state: present
-    
-    - name: Set default policies to DROP
-      iptables:
-        chain: '{{ item }}'
-        policy: DROP
-        table: filter
-      with_items: 
-        - INPUT
-        - FORWARD
-        - OUTPUT
-    
-    - name: Allow all traffic on the loopback interface for INPUT chain
+      become: true
+
+    - name: Disabling and stoping NFTables
+      ansible.builtin.service:
+        name: 'nftables.service'
+        state: stopped
+        enabled: false
+
+    - name: Disable UFW
+      community.general.ufw:
+       state: disabled
+      ignore_errors: yes
+  
+
+    - name: Check if nftables service exists
+      ansible.builtin.shell: systemctl status nftables.service
+      register: nftables_status
+      failed_when: false
+      changed_when: false
+      become: yes
+
+    - name: Stop nftables service
+      ansible.builtin.systemd:
+        name: nftables
+        state: stopped
+        enabled: no
+      when: nftables_status.rc == 0
+      become: yes
+      ignore_errors: yes
+
+    - name: Mask nftables service
+      ansible.builtin.systemd:
+        name: nftables
+        masked: yes
+      when: nftables_status.rc == 0
+      become: yes
+      ignore_errors: yes
+
+    - name: Accept already established connections #new
       iptables:
         chain: INPUT
-        in_interface: lo
+        match: state
+        ctstate: ESTABLISHED,RELATED
         jump: ACCEPT
 
-    - name: Allow all outgoing traffic on the loopback interface for OUTPUT chain
-      iptables:
-        chain: OUTPUT
-        out_interface: lo
-        jump: ACCEPT
-
-    - name: Drop all traffic to loopback addresses not coming from loopback interface
-      iptables:
+    - name: Allow SSH
+      ansible.builtin.iptables:
         chain: INPUT
-        source: 127.0.0.0/8
-        jump: DROP
-
-    - name: Accept incoming established specific protocol
-      iptables:
-        chain: INPUT
-        protocol: '{{ item }}'
-        state: ESTABLISHED
+        protocol: tcp
+        destination_port: 22
+        match: state
+        ctstate: NEW
         jump: ACCEPT
-      with_items: 
-        - tcp
-        - udp
-        - icmp
 
-    - name: Allow outgoing specific protocol traffic
-      iptables:
-        chain: OUTPUT
-        protocol: '{{ item }}'
-        state: NEW,ESTABLISHED
-        jump: ACCEPT
-      with_items:
-        - tcp
-        - udp
-        - icmp
-
+    # - name: Allow SSH
+    #   ansible.builtin.iptables:
+    #     chain: OUTPUT
+    #     protocol: tcp
+    #     destination_port: 22
+    #     match: state
+    #     ctstate: NEW
+    #     jump: ACCEPT
+   
     - name: Allow rules for specific ports
-      iptables:
+      ansible.builtin.iptables:
         chain: INPUT
         protocol: "{{ item.proto }}"
-        port: "{{ item.port }}"
+        destination_port: "{{ item.port }}"
         jump: ACCEPT
-      with_items:
-        - { port: "22", proto: "tcp" }
+      loop:
         - { port: "53", proto: "tcp" }
         - { port: "53", proto: "udp" }
         - { port: "80", proto: "tcp" }
         - { port: "443", proto: "tcp" }
 
+    # - name: Allow rules for specific ports
+    #   ansible.builtin.iptables:
+    #     chain: OUTPUT
+    #     protocol: "{{ item.proto }}"
+    #     destination_port: "{{ item.port }}"
+    #     jump: ACCEPT
+    #   loop:
+    #     - { port: "53", proto: "tcp" }
+    #     - { port: "53", proto: "udp" }
+    #     - { port: "80", proto: "tcp" }
+    #     - { port: "443", proto: "tcp" }
+
+    - name: Allow all traffic on the loopback interface for INPUT chain
+      iptables:
+        chain: INPUT
+        in_interface: lo
+        jump: ACCEPT
+
+    - name: Allow all outgoing traffic on the loopback interface for OUTPUT chain
+      iptables:
+        chain: OUTPUT
+        out_interface: lo
+        jump: ACCEPT
+
+    - name: Drop all traffic to loopback addresses not coming from loopback interface
+      iptables:
+        chain: INPUT
+        source: 127.0.0.0/8
+        jump: DROP
+
+    - name: Accept incoming established specific protocols
+      ansible.builtin.iptables:
+        chain: INPUT
+        protocol: "{{ item }}"
+        match: state
+        ctstate: ESTABLISHED,RELATED
+        jump: ACCEPT
+      loop:
+        - tcp
+        - udp
+        - icmp
+
+    
     - name: Set default policies to DROP
-      ip6tables:
+      iptables:
         chain: '{{ item }}'
         policy: DROP
         table: filter
       with_items: 
         - INPUT
         - FORWARD
+        #- OUTPUT
+    
+ 
+    - name: Allow established IPv6 connections
+      ansible.builtin.iptables:
+        chain: INPUT
+        ctstate:
+          - ESTABLISHED
+          - RELATED
+        jump: ACCEPT
+        ip_version: ipv6
+  
+    - name: Allow incoming SSH on IPv6
+      ansible.builtin.iptables:
+        chain: INPUT
+        protocol: tcp
+        destination_port: 22
+        ctstate: NEW
+        syn: match
+        jump: ACCEPT
+        ip_version: ipv6
+    
+    - name: Set default policies to DROP for IPv6
+      ansible.builtin.iptables:
+        chain: "{{ item }}"
+        policy: DROP
+        table: filter
+        ip_version: ipv6
+      with_items:
+        - INPUT
+        - FORWARD
         - OUTPUT
-
-    - name: Allow all traffic on the loopback interface for INPUT chain
-      ip6tables:
+    
+    - name: Allow all traffic on loopback interface for INPUT chain (IPv6)
+      ansible.builtin.iptables:
         chain: INPUT
         in_interface: lo
         jump: ACCEPT
-
-    - name: Allow all outgoing traffic on the loopback interface for OUTPUT chain
-      ip6tables:
+        ip_version: ipv6
+    
+    - name: Allow all traffic on loopback interface for OUTPUT chain (IPv6)
+      ansible.builtin.iptables:
         chain: OUTPUT
         out_interface: lo
         jump: ACCEPT
-
-    - name: Drop all traffic to loopback addresses not coming from loopback interface
-      ip6tables:
+        ip_version: ipv6
+    
+    - name: Drop traffic to loopback addresses not from loopback (IPv6)
+      ansible.builtin.iptables:
         chain: INPUT
-        source: 127.0.0.0/8
+        source: "::1/128"
+        in_interface: "!lo"
         jump: DROP
-
-
-    - name: Accept incoming established specific protocol
-      ip6tables:
+        ip_version: ipv6
+    
+    - name: Accept incoming established specific protocol (IPv6)
+      ansible.builtin.iptables:
         chain: INPUT
-        protocol: '{{ item }}'
-        state: ESTABLISHED
+        protocol: "{{ item }}"
+        ctstate:
+          - ESTABLISHED
         jump: ACCEPT
-      with_items: 
-        - tcp
-        - udp
-        - icmp
-
-    - name: Allow outgoing specific protocol traffic
-      ip6tables:
-        chain: OUTPUT
-        protocol: '{{ item }}'
-        state: NEW,ESTABLISHED
-        jump: ACCEPT
+        ip_version: ipv6
       with_items:
         - tcp
         - udp
-        - icmp
-
-    - name: Allow rules for specific ports
-      ip6tables:
+        - icmpv6
+    
+    - name: Allow outgoing specific protocol traffic (IPv6)
+      ansible.builtin.iptables:
+        chain: OUTPUT
+        protocol: "{{ item }}"
+        ctstate:
+          - NEW
+          - ESTABLISHED
+        jump: ACCEPT
+        ip_version: ipv6
+      with_items:
+        - tcp
+        - udp
+        - icmpv6
+    
+    - name: Allow rules for specific ports (IPv6)
+      ansible.builtin.iptables:
         chain: INPUT
         protocol: "{{ item.proto }}"
-        port: "{{ item.port }}"
+        destination_port: "{{ item.port }}"
         jump: ACCEPT
+        ip_version: ipv6
       with_items:
         - { port: "22", proto: "tcp" }
         - { port: "53", proto: "tcp" }
@@ -217,3 +338,7 @@
         - { port: "443", proto: "tcp" }
       notify: Save iptables rules
   when: firewall_package == "iptables"
+  
+
+
+

@@ -37,9 +37,13 @@
 
 - name: Apply nftables ruleset
   command: nft -f /etc/nftables.conf
-
+  
 - name: Save iptables rules
-  command: /sbin/iptables-save > /etc/iptables/rules.v4
+  ansible.builtin.shell: /sbin/iptables-save > /etc/iptables/rules.v4
+  args:
+    executable: /bin/bash
+  become: yes
+
 
 - name: Restart systemd-journald
   systemd:
