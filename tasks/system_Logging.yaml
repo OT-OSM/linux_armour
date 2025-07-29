@@ -6,7 +6,7 @@
     state: absent
   loop:
     - rsyslog
-    - journald
+    - systemd-journald
   when: item != preferred_logger
 
 - name: Install selected logger package(s)
@@ -23,14 +23,15 @@
     name: systemd-journald
     enabled: yes
     state: started
-  when: preferred_logger == "journald"
+  when: preferred_logger == "systemd-journald"
 
 - name: Disable and stop rsyslog if journald is preferred
   ansible.builtin.systemd:
     name: rsyslog
     enabled: false
     state: stopped
-  when: preferred_logger == "journald"
+  when: preferred_logger == "systemd-journald"
+  ignore_errors: true
 
 - name: Enable and start rsyslog if selected
   ansible.builtin.systemd:
@@ -46,17 +47,20 @@
     state: present
     update_cache: yes
   when: ansible_facts['os_family'] == "Debian"
+  when: preferred_logger == "systemd-journald"
 
 # # # 6.1.2.1.3 Ensure systemd-journal-upload is enabled and active
 - name: Unmask systemd-journal-upload.service
   ansible.builtin.command: systemctl unmask systemd-journal-upload.service
   changed_when: true
+  when: preferred_logger == "systemd-journald"
 
 - name: Enable and start systemd-journal-upload.service
   ansible.builtin.systemd:
     name: systemd-journal-upload.service
     enabled: yes
     state: started
+  when: preferred_logger == "systemd-journald"
 
 # # # 6.1.2.1.4 Ensure systemd-journal-remote service is not in use
 - name: Stop systemd-journal-remote.socket and service
@@ -66,6 +70,7 @@
   loop:
     - systemd-journal-remote.socket
     - systemd-journal-remote.service
+  when: preferred_logger == "systemd-journald"
 
 - name: Mask systemd-journal-remote.socket and service
   ansible.builtin.systemd:
@@ -74,6 +79,7 @@
   loop:
     - systemd-journal-remote.socket
     - systemd-journal-remote.service
+  when: preferred_logger == "systemd-journald"
 
 # # # 6.1.2.2 Ensure journald ForwardToSyslog is disabled
 - name: Ensure ForwardToSyslog is set to no in journald.conf
@@ -83,7 +89,7 @@
     line: 'ForwardToSyslog=no'
     state: present
   notify: Restart systemd-journald
-  when: preferred_logger == "journald"
+  when: preferred_logger == "systemd-journald"
 
 - name: Copy systemd.conf to /etc/tmpfiles.d if journald is preferred
   ansible.builtin.copy:
@@ -92,7 +98,7 @@
     owner: root
     group: root
     mode: '0640'
-  when: preferred_logger == "journald"
+  when: preferred_logger == "systemd-journald"
 
 - name: Restart systemd-journald
   ansible.builtin.systemd:
@@ -117,7 +123,7 @@
     - { key: 'Storage', value: 'persistent' }
     - { key: 'Compress', value: 'yes' }
   notify: Restart systemd-journald
-
+  when: preferred_logger == "systemd-journald"
 
 # # # 6.1.2.4 Ensure journald Storage is configured
 - name: Ensure journald drop-in directory exists
@@ -125,6 +131,7 @@
     path: /etc/systemd/journald.conf.d/
     state: directory
     mode: '0755'
+  when: preferred_logger == "systemd-journald"
 
 - name: Configure Storage=persistent for systemd-journald
   ansible.builtin.blockinfile:
@@ -157,6 +164,7 @@
       ansible.builtin.systemd:
         name: systemd-journald
         state: restarted
+  when: preferred_logger == "systemd-journald"
 
 # # # 6.1.3.4 - Ensure rsyslog log file creation mode is configured
 - name: Ensure rsyslog uses restrictive file creation mode
@@ -179,7 +187,7 @@
       ansible.builtin.systemd:
         name: rsyslog
         state: restarted
-      when: preferred_logger == 'rsyslog'
+  when: preferred_logger == 'rsyslog'
 
 # # # 6.1.3.7 - Ensure rsyslog is not configured to receive logs from remote clients
 - name: Get rsyslog config files
@@ -190,6 +198,7 @@
     patterns: '*.conf'
     recurse: no
   register: rsyslog_conf_files
+  when: preferred_logger == 'rsyslog'
 
 - name: Define list of regex patterns to remove
   ansible.builtin.set_fact:
@@ -198,6 +207,7 @@
       - '^\\s*input\\s*\\(\\s*type\\s*=\\s*\\"imtcp\\".*port\\s*=\\s*\\"?514\\"?.*\\)'
       - '^\\s*\\$ModLoad\\s+imtcp'
       - '^\\s*\\$InputTCPServerRun'
+  when: preferred_logger == 'rsyslog'
 
 - name: Remove insecure rsyslog TCP config lines
   ansible.builtin.lineinfile:
@@ -207,6 +217,7 @@
   loop: "{{ rsyslog_conf_files.files | map(attribute='path') | list | product(rsyslog_remove_patterns) | list }}"
   loop_control:
     label: "{{ item.0 }} => {{ item.1 }}"
+  when: preferred_logger == 'rsyslog'
 
 # # # 6.1.4.1 - Ensure access to all logfiles has been configured
 - name: Copy log permission check script from template
