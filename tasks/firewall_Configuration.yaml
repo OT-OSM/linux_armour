@@ -337,7 +337,7 @@
         - { port: "80", proto: "tcp" }
         - { port: "443", proto: "tcp" }
       notify: Save iptables rules
-      when: firewall_package == "iptables"
+  when: firewall_package == "iptables"
   
 
 
