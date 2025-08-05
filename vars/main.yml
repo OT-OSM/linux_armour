@@ -22,7 +22,7 @@ root_password: "Cis@123#"
 sudo_timeout: 15
 
 # Set the default time synchronization daemon
-time_sync_daemon: ntp  # Replace with one of in list ('ntp', 'chrony', 'systemd-timesyncd')
+time_sync_daemon: systemd-timesyncd # Replace with one of in list ('chrony', 'systemd-timesyncd')
 
 cron_service_name: "{{ 'crond' if ansible_os_family == 'RedHat' else 'cron' }}"
 
