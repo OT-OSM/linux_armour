@@ -1,46 +1,82 @@
 ---
-# 2.3.1 Ensure a single time synchronization daemon is in use
-- name: Install the selected Time Synchronization Daemon
-  package:
-    name: "{{ time_sync_daemon }}"
-    state: present
-
-- name: Ensure the selected Time Synchronization Daemon service is started and enabled
-  service:
-    name: "{{ time_sync_daemon }}"
-    state: started
-    enabled: yes
+# # 2.3.1 Ensure a single time synchronization daemon is in use
 
 - name: Uninstall non-selected Time Synchronization Daemons
-  package:
+  ansible.builtin.package:
     name: "{{ item }}"
     state: absent
   loop:
-    - ntp
     - chrony
     - systemd-timesyncd
   when: item != time_sync_daemon
 
-# 2.3.2 Configure chrony
+- name: Ensure non-selected Time Synchronization is disabled and stopped
+  ansible.builtin.systemd:
+    name: "{{ item }}"
+    enabled: no
+    state: stopped
+  loop:
+    - chrony
+    - systemd-timesyncd
+  when: item != time_sync_daemon
+  ignore_errors: true
+
+
+- name: Install the selected Time Synchronization Daemon
+  ansible.builtin.package:
+    name: "{{ time_sync_daemon }}"
+    state: present
+
+- name: Ensure the selected Time Synchronization Daemon service is started and enabled
+  ansible.builtin.service:
+    name: "{{ time_sync_daemon }}"
+    state: started
+    enabled: true
+
+##########################################################
+
+##2.3.2 Configure chrony   
 - name: Create Chrony configuration file
-  template:
+  ansible.builtin.template:
     src: chrony.conf.j2
     dest: /etc/chrony/chrony.conf
   notify: Restart Chrony
-  when: time_sync_daemon == chrony
+  when: time_sync_daemon == "chrony"
 
-# 2.3.3 Configure systemd-timesyncd
-- name: Create systemd-timesyncd configuration file
-  template:
-    src: systemd-timesyncd.conf.j2
-    dest: /etc/systemd/timesyncd.conf
-  notify: Restart systemd-timesyncd
-  when: time_sync_daemon == systemd-timesyncd
+# # 2.3.3 Configure systemd-timesyncd
+- name: Ensure timesyncd NTP settings are configured
+  block:
+    - name: Ensure timesyncd configuration directory exists
+      ansible.builtin.file:
+        path: /etc/systemd/timesyncd.conf.d
+        state: directory
+        mode: '0755'
 
-# 2.3.4 Configure ntp
-- name: Create NTP configuration file
-  template:
-    src: ntp.conf.j2
-    dest: /etc/ntp.conf
-  notify: Restart NTP
-  when: time_sync_daemon == ntp
+    - name: Check if [Time] section exists in 60-timesyncd.conf
+      ansible.builtin.shell: grep -Psq '^\h*\[Time\]' /etc/systemd/timesyncd.conf.d/60-timesyncd.conf
+      register: time_section_check
+      ignore_errors: true
+
+    - name: Set NTP configuration content
+      ansible.builtin.set_fact:
+        timesyncd_ntp_lines: |
+          [Time]
+          NTP=time.nist.gov
+          FallbackNTP=time-a-g.nist.gov time-bg.nist.gov time-c-g.nist.gov
+
+    - name: Update 60-timesyncd.conf with NTP settings if [Time] section doesn't exist
+      ansible.builtin.blockinfile:
+        path: /etc/systemd/timesyncd.conf.d/60-timesyncd.conf
+        block: "{{ timesyncd_ntp_lines }}"
+        create: yes
+      when: time_section_check.rc != 0
+
+    - name: Append only NTP lines if [Time] section already exists
+      ansible.builtin.lineinfile:
+        path: /etc/systemd/timesyncd.conf.d/60-timesyncd.conf
+        line: "{{ item }}"
+        insertafter: '^\s*\[Time\]'
+      loop:
+        - "NTP=time.nist.gov"
+        - "FallbackNTP=time-a-g.nist.gov time-bg.nist.gov time-c-g.nist.gov"
+      when: time_section_check.rc == 0
