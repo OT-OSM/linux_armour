@@ -1,28 +1,37 @@
 ---
-# 2.1 Disable Special Purpose Services
-- name: Special purpose services should be disabled
-  service:
+##2.1 Disable Special Purpose Services
+
+- name: Gather service facts
+  ansible.builtin.service_facts:
+
+- name: Disable special purpose services if present
+  ansible.builtin.systemd:
     name: '{{ item }}'
     enabled: false
     state: stopped
-    daemon_reload: true
-    no_block: false
-  with_items:
-    - '{{ os_services_name }}'
+  loop: '{{ os_services_name }}'
+  when: item in ansible_facts.services
   ignore_errors: true
+
+
+- name: Check if postfix config file exists
+  stat:
+    path: /etc/postfix/main.cf
+  register: postfix_main_cf
 
 - name: Set Postfix main.cf for local-only mode
   lineinfile:
     path: /etc/postfix/main.cf
     regexp: '^inet_interfaces = '
     line: 'inet_interfaces = loopback-only'
+  when: postfix_main_cf.stat.exists
   notify: Restart Postfix
-  when: cis_Stage > 1
 
-# 2.2 Disable Client Purpose Services
+
+
+# # 2.2 Disable Client Purpose Services
 - name: Remove Clients Special Purpose Services
   apt:
     name: "{{ item }}"
     state: absent
   loop: "{{ clients_services_name }}"
-  when: cis_Stage > 1

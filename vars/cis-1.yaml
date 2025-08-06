@@ -8,3 +8,31 @@ filesystem_kernel_modules:
 
 os_services_name:
   - autofs
+  - avahi-daemon
+  - isc-dhcp-server
+  - bind9
+  - dnsmasq
+  - vsftpd
+  - slapd
+  - dovecot-imapd 
+  - dovecot-pop3d
+  - nfs-kernel-server
+  - ypserv
+  - cups
+  - rpcbind
+  - rsync
+  - samba
+  - snmpd
+  - tftpd-hpa
+  - squid
+  - apache2
+  - nginx
+  - xserver-common
+  
+clients_services_name:
+  - nis
+  - rsh-client
+  - talk
+  - telnet
+  - ldap-utils
+  - ftp
