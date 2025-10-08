@@ -1,0 +1,3 @@
+---
+- name: Amazon Linux 2 | Configure secure boot setting 
+  include_tasks: configure_secure_boot_al2.yaml
