@@ -1,0 +1,4 @@
+---
+- name: Amazon Linux 2 | Disable kernal  module
+  include_tasks: filesystem_kernel_modules_al2
+

@@ -7,7 +7,10 @@
   with_items:
     - aidecheck.timer
     - aidecheck
+    - auditd
 
+- name: Rebuild module dependencies
+  command: depmod -a
 - name: Reload systemd units
   systemd:
     daemon_reload: yes
