@@ -1,0 +1,3 @@
+---
+- name: Amazon Linux 2 | Configure Additional Process handling
+  include_tasks: configure_additional_process_handling_al2.yaml
