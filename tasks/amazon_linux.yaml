@@ -1,0 +1,3 @@
+---
+- name: Amazon Linux 2 | Configure Time Synchronization
+  include_tasks: configure_time_synchronization_al2.yaml

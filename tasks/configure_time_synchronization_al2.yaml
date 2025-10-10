@@ -1,0 +1,69 @@
+---
+# Ensure Chrony is installed for time synchronization
+- name: "Ensure Chrony time synchronization service is installed"
+  ansible.builtin.package:
+    name: chrony
+    state: present
+  become: true
+
+# Ensure Chrony time synchronization is configured properly for Amazon Linux 2
+
+# Step 1: Check if Chrony has any configured NTP servers or pools
+- name: "Ensure chrony is configured"
+  ansible.builtin.shell: grep -Prs -- '^\h*(server|pool)\h+[^#\n\r]+' /etc/chrony.d
+  register: chrony_sources
+  changed_when: false
+  failed_when: false
+  become: true
+
+# Step 2: Add Amazon Time Sync Service configuration if none found
+- name: "Configure Chrony with Amazon Time Sync Service (if missing)"
+  ansible.builtin.blockinfile:
+    path: /etc/chrony.d/amazon_time_sync.conf
+    create: yes
+    block: |
+      # Amazon Linux 2 default Chrony configuration
+      server 169.254.169.123 prefer iburst minpoll 4 maxpoll 4
+      pool 0.amazon.pool.ntp.org iburst maxsources 1
+      pool 1.amazon.pool.ntp.org iburst maxsources 1
+      pool 2.amazon.pool.ntp.org iburst maxsources 2
+  when: chrony_sources.stdout == ""
+  become: true
+
+# Step 3: Restart Chrony only if configuration was added
+- name: "Restart Chrony service to apply configuration (if modified)"
+  ansible.builtin.service:
+    name: chronyd
+    state: restarted
+    enabled: true
+  when: chrony_sources.stdout == ""
+  become: true
+
+# Step 4: Report status clearly
+- name: "Report Chrony configuration status"
+  ansible.builtin.debug:
+    msg: >
+      {% if chrony_sources.stdout != "" %}
+      Chrony is already configured with time sources
+      {% else %}
+      Chrony was missing configuration — Amazon Time Sync Service has been added.
+      {% endif %}
+
+# Ensure Chrony is not run as the root user
+- name: "Ensure Chrony is not configured to run as root"
+  ansible.builtin.lineinfile:
+    path: /etc/sysconfig/chronyd
+    regexp: '^OPTIONS='
+    line: 'OPTIONS="-u chrony"'
+    state: present
+    create: yes
+    backup: yes
+  become: true
+
+- name: "Reload Chrony service to apply user configuration"
+  ansible.builtin.systemd:
+    name: chronyd
+    state: restarted
+    daemon_reload: true
+  become: true
+
