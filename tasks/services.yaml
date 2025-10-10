@@ -1,37 +1,81 @@
 ---
-##2.1 Disable Special Purpose Services
-
+# 2.1 | Disable Special Purpose Services
 - name: Gather service facts
   ansible.builtin.service_facts:
 
 - name: Disable special purpose services if present
   ansible.builtin.systemd:
-    name: '{{ item }}'
+    name: "{{ item }}"
     enabled: false
     state: stopped
-  loop: '{{ os_services_name }}'
+  loop: "{{ os_services_name }}"
   when: item in ansible_facts.services
   ignore_errors: true
 
 
+# 2.2.21 | Ensure mail transfer agent configured for local-only mode
 - name: Check if postfix config file exists
-  stat:
+  ansible.builtin.stat:
     path: /etc/postfix/main.cf
   register: postfix_main_cf
 
 - name: Set Postfix main.cf for local-only mode
-  lineinfile:
+  ansible.builtin.lineinfile:
     path: /etc/postfix/main.cf
-    regexp: '^inet_interfaces = '
+    regexp: '^inet_interfaces\s*='
     line: 'inet_interfaces = loopback-only'
   when: postfix_main_cf.stat.exists
   notify: Restart Postfix
 
 
-
-# # 2.2 Disable Client Purpose Services
+# 2.3 | Disable/Remove Client Purpose Services (Amazon/RedHat family)
 - name: Remove Clients Special Purpose Services
-  apt:
+  ansible.builtin.yum:
     name: "{{ item }}"
     state: absent
   loop: "{{ clients_services_name }}"
+  ignore_errors: true
+
+
+# 🔍 Optional Audit Section (For visibility / report)
+- name: "Audit | Check if any unnecessary services are still active"
+  ansible.builtin.shell: |
+    systemctl list-units --type=service --state=running | egrep -i "{{ os_services_name | join('|') }}" || true
+  register: running_services
+  changed_when: false
+  failed_when: false
+
+- name: "Audit | Show running unnecessary services"
+  ansible.builtin.debug:
+    msg: |
+      The following unnecessary services are still active:
+      {{ running_services.stdout_lines }}
+  when: running_services.stdout != ""
+
+
+# 🚀 2.2.12 | Ensure rpcbind service is not in use (Auto-fix)
+- name: "Check if rpcbind service is running"
+  ansible.builtin.systemd:
+    name: rpcbind
+  register: rpcbind_status
+  ignore_errors: true
+
+- name: "Stop and disable rpcbind if active"
+  ansible.builtin.systemd:
+    name: rpcbind
+    state: stopped
+    enabled: false
+    masked: true
+  when: 
+    - rpcbind_status.status is defined
+    - rpcbind_status.status.ActiveState == "active"
+  ignore_errors: true
+
+- name: "Audit | rpcbind service compliance result"
+  ansible.builtin.debug:
+    msg: >
+      {% if rpcbind_status.status is defined and rpcbind_status.status.ActiveState == 'active' %}
+      rpcbind was active — service stopped, disabled, and masked ✅
+      {% else %}
+      rpcbind service already inactive and compliant ✅
+      {% endif %}

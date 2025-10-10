@@ -12,8 +12,8 @@
   when:
     ansible_os_family == 'RedHat'
 
-# - name: Special purpose services
-#   include_tasks: services.yaml
+- name: Special purpose services
+  include_tasks: services.yaml
 
 # - name: Logging and monitoring
 #   include_tasks: audit.yaml
