@@ -1,0 +1,3 @@
+---
+- name: Amazon Linux 2 | Configure Service Clients
+  include_tasks: configure_service_clients_al2.yaml
