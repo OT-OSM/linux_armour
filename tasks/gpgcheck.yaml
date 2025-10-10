@@ -1,0 +1,15 @@
+- name: Amazon Linux 1 - Ensure all repo files have gpgcheck=1
+  ansible.builtin.replace:
+    path: "{{ item }}"
+    # Regex matches any gpgcheck value not equal to 1
+    regexp: '^gpgcheck\s*=\s*(0|[2-9]|[1-9][0-9]+|[a-zA-Z_]+)'
+    replace: 'gpgcheck=1'
+  with_fileglob:
+    - /etc/yum.repos.d/*.repo
+  register: repo_replace_result
+
+- name: Show which repo files were updated
+  debug:
+    msg: "{{ item.item }} updated to gpgcheck=1"
+  loop: "{{ repo_replace_result.results }}"
+  when: item.changed
