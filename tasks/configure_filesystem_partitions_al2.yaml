@@ -1,0 +1,35 @@
+
+
+---
+# Configure /tmp partition
+- name: Configure /tmp partition security options
+  mount:
+    path: /tmp
+    src: tmpfs
+    fstype: tmpfs
+    opts: "{{ item.opts }}"
+    state: mounted
+  loop:
+    - { name: "Ensure /tmp is a separate partition", opts: "defaults,rw,nosuid,nodev,noexec,relatime" }
+    - { name: "Ensure nodev option set on /tmp", opts: "defaults,rw,nosuid,nodev,noexec,relatime" }
+    - { name: "Ensure nosuid option set on /tmp", opts: "defaults,rw,nosuid,nodev,noexec,relatime" }
+    - { name: "Ensure noexec option set on /tmp", opts: "defaults,rw,nosuid,nodev,noexec,relatime" }
+  loop_control:
+    label: "{{ item.name }}"
+
+# Configure /dev/shm partition
+- name: Configure /dev/shm partition security options
+  mount:
+    path: /dev/shm
+    src: tmpfs
+    fstype: tmpfs
+    opts: "{{ item.opts }}"
+    state: mounted
+  loop:
+    - { name: "Ensure /dev/shm is a separate partition", opts: "defaults,rw,nosuid,nodev,noexec,relatime" }
+    - { name: "Ensure nodev option set on /dev/shm", opts: "defaults,rw,nosuid,nodev,noexec,relatime" }
+    - { name: "Ensure nosuid option set on /dev/shm", opts: "defaults,rw,nosuid,nodev,noexec,relatime" }
+    - { name: "Ensure noexec option set on /dev/shm", opts: "defaults,rw,nosuid,nodev,noexec,relatime" }
+  loop_control:
+    label: "{{ item.name }}"
+
