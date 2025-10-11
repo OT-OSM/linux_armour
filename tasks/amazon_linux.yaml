@@ -1,0 +1,11 @@
+---
+
+
+- name: Configure Special Purpose Services
+  include_tasks: services.yaml
+
+- name: Include CIS variables
+  include_vars: vars/cis-1.yaml
+    
+  
+
