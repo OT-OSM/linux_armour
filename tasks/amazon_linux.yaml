@@ -1,0 +1,3 @@
+---
+- name: Amazon Linux 2 | Configure network kernel parameters 
+  include_tasks: configure_network_kernel_parameters_al2.yaml
