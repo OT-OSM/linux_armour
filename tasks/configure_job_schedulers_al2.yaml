@@ -1,0 +1,53 @@
+---
+# Ensure cron daemon is enabled and active
+- name: Ensure cron daemon is enabled and active
+  ansible.builtin.systemd:
+    name: crond
+    masked: no
+    enabled: true
+    state: started
+
+# Ensure permissions on /etc/cron.hourly, /etc/cron.daily, /etc/cron.weekly, /etc/cron.monthly, and /etc/cron.d are configured
+- name: Ensure permissions on /etc/cron.hourly, /etc/cron.daily, /etc/cron.weekly, /etc/cron.monthly, and /etc/cron.d are configured
+  ansible.builtin.file:
+    path: "{{ item }}"
+    owner: root
+    group: root
+    mode: '0700'
+  loop:
+    - /etc/cron.hourly
+    - /etc/cron.daily
+    - /etc/cron.weekly
+    - /etc/cron.monthly
+    - /etc/cron.d
+
+# Ensure permissions on /etc/crontab are configured
+- name: Ensure permissions on /etc/crontab are configured
+  ansible.builtin.file:
+    path: /etc/crontab
+    owner: root
+    group: root
+    mode: '0600'
+
+# Ensure crontab is restricted to authorized users
+- name: Ensure /etc/cron.allow is configured
+  ansible.builtin.file:
+    path: /etc/cron.allow
+    state: touch
+    owner: root
+    group: root
+    mode: '0640'
+
+- name: Check if /etc/cron.deny exists
+  ansible.builtin.stat:
+    path: /etc/cron.deny
+  register: cron_deny_status
+
+- name: Ensure /etc/cron.deny is configured
+  ansible.builtin.file:
+    path: /etc/cron.deny
+    owner: root
+    group: root
+    mode: '0640'
+  when: cron_deny_status.stat.exists
+

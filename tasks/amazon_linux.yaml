@@ -1,0 +1,3 @@
+---
+- name: Amazon Linux 2 | Configure Job Schedulers
+  include_tasks: configure_job_schedulers_al2.yaml
