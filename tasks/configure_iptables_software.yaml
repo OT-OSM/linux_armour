@@ -1,0 +1,10 @@
+- name: Ensure iptables package is installed
+  ansible.builtin.yum:
+    name: iptables
+    state: present
+
+- name: Ensure iptables-services package is installed
+  ansible.builtin.yum:
+    name: iptables-services
+    state: present
+

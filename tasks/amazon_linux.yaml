@@ -1,0 +1,5 @@
+---
+
+- name: Amazon Linux 2 | IP tables software configuration 
+  include_tasks:  configure_iptables_software.yaml
+
