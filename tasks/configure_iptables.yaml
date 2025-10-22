@@ -1,0 +1,9 @@
+    - name: Allow OUTPUT on loopback interface
+      ansible.builtin.command: iptables -A OUTPUT -o lo -j ACCEPT
+      args:
+        warn: false
+
+    - name: Drop traffic from 127.0.0.0/8 (anti-spoofing)
+      ansible.builtin.command: iptables -A INPUT -s 127.0.0.0/8 -j DROP
+      args:
+        warn: false
