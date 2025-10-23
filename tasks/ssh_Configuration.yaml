@@ -1,4 +1,4 @@
-# 5.1.1
+# 5.1.1 Ensure permissions on /etc/ssh/sshd_config are configured
 - name: Ensure /etc/ssh/sshd_config has correct ownership and permissions
   ansible.builtin.file:
     path: /etc/ssh/sshd_config
@@ -6,7 +6,7 @@
     group: root
     mode: '0600'
 
-# 5.1.2
+# 5.1.2 Ensure permissions on SSH private host key files are configured
 - name: Ensure permissions on SSH private host key files
   ansible.builtin.find:
     paths: /etc/ssh
@@ -23,6 +23,7 @@
   loop: "{{ ssh_private_keys.files }}"
   when: ssh_private_keys.matched > 0
 
+# 5.1.3 Ensure permissions on SSH public host key files are configured
 - name: Ensure permissions on SSH public host key files
   ansible.builtin.find:
     paths: /etc/ssh
@@ -39,12 +40,24 @@
   loop: "{{ ssh_public_keys.files }}"
   when: ssh_public_keys.matched > 0
 
+# 5.1.4 Ensure sshd access is configured
 - name: Ensure sshd_config has correct ownership and permissions
   ansible.builtin.file:
     path: /etc/ssh/sshd_config
     owner: root
     group: root
     mode: '0600'
+
+# Need Fix
+- name: Configure sshd settings
+  ansible.builtin.lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: "^#?AllowUsers"
+    line: "AllowUsers user1 user2"
+    state: present
+    create: yes
+    backup: yes
+    insertafter: EOF
 
 - name: Configure sshd settings
   ansible.builtin.lineinfile:
@@ -56,27 +69,34 @@
     backup: yes
     insertafter: EOF
   loop:
-    - { regexp: '^#?AllowUsers', line: 'AllowUsers user1 user2' }
-    - { regexp: '^#?Banner', line: 'Banner /etc/issue.net' }
-    - { regexp: '^#?Ciphers', line: 'Ciphers aes256-ctr,aes192-ctr,aes128-ctr' }
-    - { regexp: '^#?ClientAliveInterval', line: 'ClientAliveInterval 300' }
-    - { regexp: '^#?ClientAliveCountMax', line: 'ClientAliveCountMax 0' }
-    - { regexp: '^#?DisableForwarding', line: 'DisableForwarding yes' }
     - { regexp: '^#?GSSAPIAuthentication', line: 'GSSAPIAuthentication no' }
-    - { regexp: '^#?HostbasedAuthentication', line: 'HostbasedAuthentication no' }
     - { regexp: '^#?IgnoreRhosts', line: 'IgnoreRhosts yes' }
-    - { regexp: '^#?KexAlgorithms', line: 'KexAlgorithms -diffie-hellman-group1-sha1,diffie-hellman-group14-sha1,diffie-hellman-group-exchange-sha1' }
-    - { regexp: '^#?LoginGraceTime', line: 'LoginGraceTime 30' }
     - { regexp: '^#?LogLevel', line: 'LogLevel VERBOSE' }
-    - { regexp: '^#?MACs', line: 'MACs hmac-sha2-512-etm@openssh.com,hmac-sha2-256-etm@openssh.com' }
-    - { regexp: '^#?MaxAuthTries', line: 'MaxAuthTries 3' }
-    - { regexp: '^#?MaxSessions', line: 'MaxSessions 10' }
-    - { regexp: '^#?MaxStartups', line: 'MaxStartups 10:30:60' }
     - { regexp: '^#?PermitEmptyPasswords', line: 'PermitEmptyPasswords no' }
     - { regexp: '^#?PermitRootLogin', line: 'PermitRootLogin no' }
-    - { regexp: '^#?PermitUserEnvironment', line: 'PermitUserEnvironment no' }
     - { regexp: '^#?UsePAM', line: 'UsePAM yes' }
-    - { regexp: '^#?PasswordAuthentication', line: 'PasswordAuthentication no' }
-    - { regexp: '^#?ChallengeResponseAuthentication', line: 'ChallengeResponseAuthentication no' }
-    - { regexp: '^#?X11Forwarding', line: 'X11Forwarding no' }
-    - { regexp: '^#?LoginGraceTime', line: 'LoginGraceTime 30' }
+
+- name: Configure sshd settings
+  when: cis_Stage > 1
+  ansible.builtin.lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: "{{ item.regexp }}"
+    line: "{{ item.line }}"
+    state: present
+    create: yes
+    backup: yes
+    insertafter: EOF
+  loop:
+    - { regexp: '^#?Banner', line: 'Banner /etc/issue.net' }
+    - { regexp: '^#?Ciphers', line: 'Ciphers aes256-ctr,aes192-ctr,aes128-ctr' }
+    # - { regexp: '^#?ClientAliveInterval', line: 'ClientAliveInterval 300' }
+    # - { regexp: '^#?ClientAliveCountMax', line: 'ClientAliveCountMax 0' }
+    - { regexp: '^#?DisableForwarding', line: 'DisableForwarding yes' }
+    # - { regexp: '^#?HostbasedAuthentication', line: 'HostbasedAuthentication no' }
+    - { regexp: '^#?KexAlgorithms', line: 'KexAlgorithms -diffie-hellman-group1-sha1,diffie-hellman-group14-sha1,diffie-hellman-group-exchange-sha1' }
+    # - { regexp: '^#?LoginGraceTime', line: 'LoginGraceTime 30' }
+    - { regexp: '^#?MACs', line: 'MACs hmac-sha2-512-etm@openssh.com,hmac-sha2-256-etm@openssh.com' }
+    - { regexp: '^#?MaxAuthTries', line: 'MaxAuthTries 3' }
+    # - { regexp: '^#?MaxSessions', line: 'MaxSessions 10' }
+    # - { regexp: '^#?MaxStartups', line: 'MaxStartups 10:30:60' }
+    # - { regexp: '^#?PermitUserEnvironment', line: 'PermitUserEnvironment no' }

@@ -35,15 +35,7 @@
 
 ##########################################################
 
-##2.3.2 Configure chrony   
-- name: Create Chrony configuration file
-  ansible.builtin.template:
-    src: chrony.conf.j2
-    dest: /etc/chrony/chrony.conf
-  notify: Restart Chrony
-  when: time_sync_daemon == "chrony"
-
-# # 2.3.3 Configure systemd-timesyncd
+# # 2.3.2 Configure systemd-timesyncd
 - name: Ensure timesyncd NTP settings are configured
   block:
     - name: Ensure timesyncd configuration directory exists
@@ -79,4 +71,15 @@
       loop:
         - "NTP=time.nist.gov"
         - "FallbackNTP=time-a-g.nist.gov time-bg.nist.gov time-c-g.nist.gov"
+      notify:
+        - Restart systemd-journald
+        - Restart systemd-timesyncd
       when: time_section_check.rc == 0
+
+##2.3.2 Configure chrony   
+- name: Create Chrony configuration file
+  ansible.builtin.template:
+    src: chrony.conf.j2
+    dest: /etc/chrony/chrony.conf
+  notify: Restart Chrony
+  when: time_sync_daemon == "chrony"

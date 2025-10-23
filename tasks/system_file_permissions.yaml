@@ -1,9 +1,92 @@
----
+# 7.1.1 to 7.1.9 Tcp Wrapper and System File Permissions
 - name: Tcp Wrapper and System File Permissions
-  file:
-    path: '/etc/{{ item }}'
+  ansible.builtin.file:
+    path: "/etc/{{ item }}"
     owner: root
     group: root
     mode: '0644'
-  with_items:
-    - '{{ System_File_Permissions }}'
+  loop: "{{ System_File_Permissions }}"
+
+- name: File Permissions
+  ansible.builtin.file:
+    path: "/etc/{{ item }}"
+    owner: root 
+    group: root
+    mode: '0640'
+  loop: "{{ File_Permissions }}"
+
+# 7.1.10 Ensure permissions on /etc/security/opasswd are configured
+- name: Check if opasswd file exists
+  ansible.builtin.stat:
+    path: "{{ opasswd_file }}"
+  register: opasswd
+
+- name: Check if opasswd.old file exists
+  ansible.builtin.stat:
+    path: "{{ opasswd_old_file }}"
+  register: opasswd_old
+
+- name: Set permissions and ownership on opasswd if it exists
+  ansible.builtin.file:
+    path: "{{ opasswd_file }}"
+    owner: root
+    group: root
+    mode: '0600'
+  when: opasswd.stat.exists
+
+- name: Set permissions and ownership on opasswd.old if it exists
+  ansible.builtin.file:
+    path: "{{ opasswd_old_file }}"
+    owner: root
+    group: root
+    mode: '0600'
+  when: opasswd_old.stat.exists
+
+# 7.1.11 Ensure world writable files and directories are secured
+- name: Find all world-writable files and dirs 
+  ansible.builtin.find:
+    paths:
+      - /tmp
+      - /var/tmp
+      - /var/log
+      - /home
+    recurse: yes
+    file_type: any
+    follow: false
+  register: all_paths
+
+- name: Render ww_files template and load data
+  ansible.builtin.set_fact:
+    ww_files: "{{ lookup('ansible.builtin.template', 'templates/ww_files.j2') | from_json }}"
+
+- name: Render ww_dirs template and load data
+  ansible.builtin.set_fact:
+    ww_dirs: "{{ lookup('ansible.builtin.template', 'templates/ww_dirs.j2') | from_json }}"
+
+- name: Remove 'other write' from world-writable files
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    mode: "u=rwX,g=rX,o=rX"
+  loop: "{{ ww_files }}"
+  loop_control:
+    label: "{{ item.path }}"
+
+- name: Add sticky bit to world-writable directories
+  ansible.builtin.command: chmod a+t "{{ item.path }}"
+  loop: "{{ ww_dirs }}"
+  loop_control:
+    label: "{{ item.path }}"
+  changed_when: true
+
+# 7.1.12 Ensure no files or directories without an owner and a group exist
+- name: Find files without valid group ownership
+  ansible.builtin.command: find / -nogroup -type f 2>/dev/null
+  register: ungrouped_files
+  changed_when: false
+
+- name: Set group ownership to 'root' for ungrouped files
+  ansible.builtin.file:
+    path: "{{ item }}"
+    group: root
+  loop: "{{ ungrouped_files.stdout_lines }}"
+  when: item is defined

@@ -26,6 +26,15 @@ time_sync_daemon: systemd-timesyncd # Replace with one of in list ('chrony', 'sy
 
 cron_service_name: "{{ 'crond' if ansible_os_family == 'RedHat' else 'cron' }}"
 
+firewall_packages_by_os:
+  Debian:
+    - ufw
+    - nftables
+    - iptables
+  RedHat:
+    - firewalld
+    - nftables
+    - iptables
 firewall_package: ufw
 nftable_name: "my_nftables_rule"
 
@@ -34,11 +43,6 @@ preferred_logger: systemd-journald
 # preferred_logger: rsyslog
 
 System_File_Permissions:
-  - host.conf
-  - hostname
-  - hosts
-  - hosts.allow
-  - hosts.deny
   - passwd
   - passwd-  
   - group

@@ -1,5 +1,4 @@
-## 5.4.1.1
-
+# 5.4.1.1 Ensure password expiration is configured
 - name: "Ensure PASS_MAX_DAYS is set to 365 in /etc/login.defs"
   ansible.builtin.lineinfile:
     path: /etc/login.defs
@@ -31,8 +30,7 @@
   loop: "{{ users_with_empty_last_change.stdout_lines }}"
   when: users_with_empty_last_change.stdout_lines | length > 0
 
-## 5.4.1.2
-
+# 5.4.1.2 Ensure minimum password days is configured
 - name: "Ensure PASS_MIN_DAYS is set to 1 in /etc/login.defs"
   ansible.builtin.lineinfile:
     path: /etc/login.defs
@@ -53,8 +51,7 @@
   loop: "{{ users_with_invalid_mindays.stdout_lines }}"
   when: users_with_invalid_mindays.stdout_lines | length > 0
 
-## 5.4.1.3
-
+# 5.4.1.3 Ensure password expiration warning days is configured
 - name: "Ensure PASS_WARN_AGE is set to 7 in /etc/login.defs"
   ansible.builtin.lineinfile:
     path: /etc/login.defs
@@ -75,8 +72,7 @@
   loop: "{{ users_with_low_warndays.stdout_lines }}"
   when: users_with_low_warndays.stdout_lines | length > 0
 
-## 5.4.1.4
-
+# 5.4.1.4 Ensure strong password hashing algorithm is configured
 - name: "Ensure ENCRYPT_METHOD is set to SHA512 in /etc/login.defs"
   ansible.builtin.lineinfile:
     path: /etc/login.defs
@@ -85,9 +81,9 @@
     state: present
     create: yes
     backup: yes
+  when: cis_Stage > 1
 
-## 5.4.1.5
-
+# 5.4.1.5 Ensure inactive password lock is configured
 - name: "Set default password inactivity period to 45 days"
   ansible.builtin.command: useradd -D -f 45
 
@@ -106,7 +102,7 @@
   loop: "{{ users_with_invalid_inactive_days.stdout_lines }}"
   when: users_with_invalid_inactive_days.stdout_lines | length > 0
 
-## 5.4.2.1
+# 5.4.2.1 Ensure root is the only UID 0 account
 
 - name: Get root user's UID using getent
   ansible.builtin.command: getent passwd root
@@ -133,8 +129,7 @@
   when: non_root_uid0_users.stdout_lines | length > 0
   become: true
 
-## 5.4.2.2
-
+# 5.4.2.2 Ensure root is the only GID 0 account
 - name: Get current GID of root user
   ansible.builtin.command: getent passwd root
   register: root_user_entry
@@ -169,7 +164,7 @@
   loop: "{{ non_root_gid0_users.stdout_lines }}"
   when: non_root_gid0_users.stdout_lines | length > 0
 
-## 5.4.2.3
+# 5.4.2.3 Ensure group root is the only GID 0 group
 
 - name: "Ensure 'root' group has GID 0"
   ansible.builtin.command: groupmod -g 0 root
@@ -191,8 +186,7 @@
   when: groups_with_gid_0.stdout_lines | length > 0
   become: true
 
-## 5.4.2.5
-
+# 5.4.2.5 Ensure root path integrity
 - name: "5.4.2.5 | Fix non-root-owned directories in root's PATH"
   block:
     - name: "Get root's PATH variable"
@@ -223,8 +217,7 @@
       loop_control:
         label: "{{ item.stat.path | default(item.item) }}"
 
-## 5.4.2.6
-
+# 5.4.2.6 Ensure root user umask is configured
 - name: "Check if /root/.bash_profile and /root/.bashrc exist"
   ansible.builtin.stat:
     path: "{{ item }}"
@@ -252,8 +245,7 @@
   loop: "{{ umask_files.results }}"
   when: item.stat.exists
 
-## 5.4.3.2
-
+# 5.4.3.2 Ensure default user shell timeout is configured
 - name: Remove or correct invalid TMOUT entries
   ansible.builtin.find:
     paths:
@@ -287,7 +279,7 @@
     group: root
     mode: '0644'
 
-## 5.4.3.3
+# 5.4.3.3 Ensure default user umask is configured
 
 - name: Check and remediate insecure UMASK values
   block:

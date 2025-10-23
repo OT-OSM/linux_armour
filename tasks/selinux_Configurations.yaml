@@ -1,0 +1,45 @@
+---
+- name: Ensure SELinux is installed
+  ansible.builtin.yum:
+    name: libselinux
+    state: present
+
+- name: Ensure SELinux is not disabled in bootloader configuration
+  ansible.builtin.lineinfile:
+    path: /etc/default/grub
+    regexp: '(^GRUB_CMDLINE_LINUX=.*)(selinux=0|enforcing=0)(.*)'
+    line: '\1\3'
+    backrefs: yes
+
+- name: Rebuild GRUB config after SELinux changes
+  ansible.builtin.command: grub2-mkconfig -o /boot/grub2/grub.cfg
+  args:
+    warn: false
+
+- name: Ensure SELinux config file has targeted policy
+  ansible.builtin.lineinfile:
+    path: /etc/selinux/config
+    regexp: '^SELINUXTYPE='
+    line: 'SELINUXTYPE=targeted'
+    create: yes
+
+- name: Ensure SELinux mode is not disabled
+  ansible.builtin.lineinfile:
+    path: /etc/selinux/config
+    regexp: '^SELINUX='
+    line: 'SELINUX=enforcing'
+    create: yes
+
+- name: Set SELinux enforcing mode immediately
+  ansible.builtin.command: setenforce 1
+  args:
+    warn: false
+
+- name: Ensure SETroubleshoot is not installed
+  yum:
+    name: "{{ item }}"
+    state: removed
+  when: cis_Stage > 1 && selinux_state == "Enforcing"
+  with_items:
+    - mcstrans
+    - setroubleshoot

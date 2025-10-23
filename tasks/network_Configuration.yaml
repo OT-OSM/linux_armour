@@ -4,7 +4,7 @@
   ansible.builtin.blockinfile:
     path: "/etc/modprobe.d/{{ item }}.conf"
     block: |
-      install {{ item }} /bin/true
+      install {{ item }} /bin/false
       blacklist {{ item }}
     create: yes
   loop:

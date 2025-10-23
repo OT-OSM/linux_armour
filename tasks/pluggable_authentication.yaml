@@ -1,27 +1,24 @@
-- name: "Ensure libpam-runtime is upgraded to the latest version"
-  apt:
-    name: libpam-runtime
+- name: Ensure PAM packages are installed
+  ansible.builtin.apt:
+    name: "{{ item }}"
     state: latest
+  with_items: 
+    - libpam-runtime
+    - libpam-modules
+    - libpam-pwquality
 
-- name: "Ensure libpam-modules is upgraded to the latest version"
-  apt:
-    name: libpam-modules
-    state: latest
+# 5.3.2.1 Ensure pam_unix module is enabled
+- name: Enable pam_unix module using pam-auth-update
+  ansible.builtin.command: pam-auth-update --enable unix
 
-- name: "Ensure libpam-pwquality is installed"
-  apt:
-    name: libpam-pwquality
-    state: present
+# - name: "Enable 'unix' PAM profile using pam-auth-update (ignore errors)"
+#   ansible.builtin.shell: pam-auth-update --enable unix --force
+#   register: pam_unix_enable
+#   changed_when: pam_unix_enable.rc == 0
+#   failed_when: false
+#   ignore_errors: true
 
-- name: "Enable 'unix' PAM profile using pam-auth-update (ignore errors)"
-  shell: pam-auth-update --enable unix --force
-  register: pam_unix_enable
-  changed_when: pam_unix_enable.rc == 0
-  failed_when: false
-  ignore_errors: yes
-
-#####
-
+# 5.3.2.2 Ensure pam_faillock module is enabled
 - name: "Create 'faillock' PAM profile"
   copy:
     dest: /usr/share/pam-configs/faillock
@@ -58,17 +55,16 @@
   register: faillock_enable
   changed_when: faillock_enable.rc == 0
   failed_when: false
-  ignore_errors: yes
+  ignore_errors: true
 
 - name: "Enable 'faillock_notify' PAM profile"
   shell: pam-auth-update --enable faillock_notify --force
   register: faillock_notify_enable
   changed_when: faillock_notify_enable.rc == 0
   failed_when: false
-  ignore_errors: yes
+  ignore_errors: true
 
-#####
-
+# 5.3.2.3 Ensure pam_pwquality module is enabled
 - name: "Check if any PAM profile includes pam_pwquality.so"
   shell: grep -P -- '\bpam_pwquality\.so\b' /usr/share/pam-configs/* || true
   register: pwquality_check
@@ -95,9 +91,9 @@
   register: pwquality_enable
   changed_when: pwquality_enable.rc == 0
   failed_when: false
-  ignore_errors: yes
+  ignore_errors: true
 
-##############################5.3.2.4
+# 5.3.2.4 Ensure pam_pwhistory module is enabled
 - name: "Check if any PAM profile includes pam_pwhistory.so"
   shell: grep -P -- '\bpam_pwhistory\.so\b' /usr/share/pam-configs/* || true
   register: pwhistory_check
@@ -123,8 +119,9 @@
   register: pwhistory_enable
   changed_when: pwhistory_enable.rc == 0
   failed_when: false
-  ignore_errors: yes
-#####5.3.3.1
+  ignore_errors: true
+
+# 5.3.3.1.1 Ensure password failed attempts lockout is configured
 
 - name: "Ensure 'deny = 5' is set in /etc/security/faillock.conf"
   lineinfile:
@@ -151,7 +148,7 @@
   with_items: "{{ pam_faillock_deny_files.stdout_lines }}"
   when: pam_faillock_deny_files.stdout != ''
 
-# 5.3.3.1.2
+# 5.3.3.1.2 Ensure password unlock time is configured
 - name: "Ensure unlock_time is set to 900 or more in /etc/security/faillock.conf"
   lineinfile:
     path: /etc/security/faillock.conf
@@ -175,7 +172,7 @@
   with_items: "{{ pam_unlock_files.stdout_lines }}"
   when: pam_unlock_files.stdout_lines | length > 0
 
-###5.3.3.1.3
+# 5.3.3.1.3 Ensure password failed attempts lockout includes root account
 - name: "Ensure even_deny_root is present in /etc/security/faillock.conf"
   lineinfile:
     path: /etc/security/faillock.conf
@@ -206,9 +203,8 @@
     backup: yes
   with_items: "{{ pam_faillock_root_flags.stdout_lines }}"
   when: pam_faillock_root_flags.stdout_lines | length > 0
-################################################################################
 
-##5.3.3.2.1
+# 5.3.3.2.1 Ensure password number of changed characters is configured
 - name: Ensure difok is set to 2 securely
   block:
     - name: Comment out existing difok in /etc/security/pwquality.conf
@@ -243,8 +239,7 @@
       changed_when: false
       ignore_errors: true  # Safe fallback
 
-###################################################5.3.3.2.2
-
+# 5.3.3.2.2 Ensure minimum password length is configured
 - name: Check if /usr/share/pam-configs directory exists
   ansible.builtin.stat:
     path: /usr/share/pam-configs
@@ -275,7 +270,7 @@
   loop: "{{ pam_pwhistory_files.stdout_lines | map('basename') | list }}"
   when: pam_pwhistory_files.stdout_lines | length > 0
 
-############ 5.3.3.3.3
+# 5.3.3.3.3 Ensure pam_pwhistory includes use_authtok
 
 - name: Check if /usr/share/pam-configs directory exists
   ansible.builtin.stat:
@@ -307,7 +302,7 @@
   when: pam_pwhistory_files.stdout_lines | length > 0
 
 
-# ######5.3.3.4.1   
+# 5.3.3.4.1 Ensure pam_unix does not include nullok
 - name: Find pam_unix lines with nullok in pam configs
   ansible.builtin.shell: |
     grep -lPH -- '^\s*([^#\n\r]+\s+)?pam_unix\.so\s+([^#\n\r]+\s+)?nullok\b' /usr/share/pam-configs/*
@@ -340,7 +335,7 @@
   when: item.stdout != ""
 
 
-###5.3.3.4.2
+# 5.3.3.4.2 Ensure pam_unix does not include remember
 
 - name: Find pam_unix.so lines with remember=<N>
   ansible.builtin.command: >

@@ -9,7 +9,12 @@
       install {{ item }} /bin/true
       blacklist {{ item }}
     create: yes
-  with_items: "{{ filesystem_kernel_modules }}"
+  loop: >-
+    {{
+      (filesystem_kernel_modules.common | default([]))
+      + (filesystem_kernel_modules.get(ansible_facts.os_family, []) | list)
+    }}
+
 
 ########################################
 # 1.1.2 Configure Filesystem Partition #
@@ -49,14 +54,23 @@
   when: tmpfs_mount_check.results[idx].rc != 0
   changed_when: false
 
-- name: Bind mount directories with secure options
-  ansible.posix.mount:
-    path: "{{ item.path }}"
-    src: "{{ item.device }}"
-    fstype: none
-    opts: "{{ item.opts }}"
-    state: mounted
-  loop: "{{ dir_partition }}"
+- name: Ensure /tmp mount is enabled at boot
+  ansible.builtin.systemd:
+    name: tmp.mount
+    enabled: true
+  become: true
+  loop_control:
+    index_var: idx
+  when: tmpfs_mount_check.results[idx].rc != 0
+
+# - name: Bind mount directories with secure options
+#   ansible.posix.mount:
+#     path: "{{ item.path }}"
+#     src: "{{ item.device }}"
+#     fstype: none
+#     opts: "{{ item.opts }}"
+#     state: mounted
+#   loop: "{{ dir_partition }}"
 
 # Configure /home & /var partitions
 - name: Mount directories with nodev and nosuid options

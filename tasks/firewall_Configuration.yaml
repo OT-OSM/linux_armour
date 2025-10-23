@@ -3,10 +3,7 @@
   package:
     name: "{{ item }}"
     state: absent
-  loop:
-    - ufw
-    - nftables
-    - iptables
+  loop: "{{ firewall_packages_by_os[ansible_facts.os_family] | default([]) }}"
   when: item != firewall_package
 
 # 4 Ensure a single firewall is configured
@@ -15,27 +12,11 @@
     name:  "{{ firewall_package }}"
     state: present
 
-- name: Unmask ufw service (if needed)
-  ansible.builtin.systemd:
-    name: ufw.service
-    masked: false
-  become: true
-
-- name: Allow SSH through UFW
-  ansible.builtin.command: ufw allow ssh
-  become: true
-  when: firewall_package == "ufw"
-
-- name: Allow everything and enable UFW
-  community.general.ufw:
-    state: enabled
-  when: firewall_package == "ufw"
-
 - name: Ensure iptables-persistent is not installed with ufw
   apt:
     name: iptables-persistent
     state: absent
-  when: firewall_package != "iptables"
+  when: firewall_package == "ufw"
 
 - name: Ensure firewall_package service is enabled and started
   systemd:
@@ -45,7 +26,20 @@
   
 # # 4.1 Cofigure ufw
 - name: Configure ufw
+  when: firewall_package == "ufw"
   block:
+    - name: Unmask ufw service (if needed)
+      ansible.builtin.systemd:
+        name: ufw.service
+        masked: false
+
+    - name: Allow SSH through UFW
+      ansible.builtin.command: ufw allow ssh
+
+    - name: Allow everything and enable UFW
+      community.general.ufw:
+        state: enabled
+
     - name: Ensure ufw loopback traffic is configured
       command: '{{ item }}'
       with_items:
@@ -53,46 +47,41 @@
       - ufw allow out on lo
       - ufw deny in from 127.0.0.0/8
       - ufw deny in from ::1
-  when: firewall_package == "ufw"
 
-# 4.2.5 Ensure ufw outbound connections are configured (Manual)
-# - name: Ensure ufw outbound connections are configured
-#   command: ufw allow out on all
+  # 4.2.5 Ensure ufw outbound connections are configured (Manual)
+  # - name: Ensure ufw outbound connections are configured
+  #   command: ufw allow out on all
 
-- name: Ensure ufw rules for specific ports
-  ufw:
-    rule: allow
-    port: "{{ item.port }}"
-    proto: "{{ item.proto }}"
-  with_items:
-    - { port: "22", proto: "tcp" }
-    - { port: "53", proto: "tcp" }
-    - { port: "53", proto: "udp" }
-    - { port: "80", proto: "tcp" }
-    - { port: "443", proto: "tcp" }
-  when: firewall_package == "ufw"
+    - name: Ensure ufw rules for specific ports
+      ufw:
+        rule: allow
+        port: "{{ item.port }}"
+        proto: "{{ item.proto }}"
+      with_items:
+        - { port: "22", proto: "tcp" }
+        - { port: "53", proto: "tcp" }
+        - { port: "53", proto: "udp" }
+        - { port: "80", proto: "tcp" }
+        - { port: "443", proto: "tcp" }
 
-- name: Set default deny incoming policy
-  ufw:
-    policy: deny
-    direction: incoming
-  when: firewall_package == "ufw"
+    - name: Set default deny incoming policy
+      ufw:
+        policy: deny
+        direction: incoming
 
-- name: Set default deny outgoing policy
-  ufw:
-    policy: deny
-    direction: outgoing
-  when: firewall_package == "ufw"
+    - name: Set default deny outgoing policy
+      ufw:
+        policy: deny
+        direction: outgoing
 
-- name: Set default deny incoming policy
-  ufw:
-    policy: deny
-    direction: routed
-  when: firewall_package == "ufw"
-
+    - name: Set default deny incoming policy
+      ufw:
+        policy: deny
+        direction: routed
 
 # 4.2 Cofigure nftables
 - name: Configure nftables
+  when: firewall_package == "nftables"
   block:
     - name: Check if nftables table exists
       command: nft list table inet nf_table
@@ -106,13 +95,12 @@
         dest: /etc/nftables.conf
       notify: Apply nftables ruleset
 
-  when: firewall_package == "nftables"
-
 # 4.3 Cofigure iptables
 - name: Configure iptables
+  when: firewall_package == "iptables"
   block:
     - name: Ensure iptables-persistent is installed
-      apt:
+      ansible.builtin.apt:
         name: iptables-persistent
         state: present
       become: true
@@ -126,15 +114,14 @@
     - name: Disable UFW
       community.general.ufw:
        state: disabled
-      ignore_errors: yes
+      ignore_errors: true
   
-
     - name: Check if nftables service exists
       ansible.builtin.shell: systemctl status nftables.service
       register: nftables_status
       failed_when: false
       changed_when: false
-      become: yes
+      become: true
 
     - name: Stop nftables service
       ansible.builtin.systemd:
@@ -142,16 +129,16 @@
         state: stopped
         enabled: no
       when: nftables_status.rc == 0
-      become: yes
-      ignore_errors: yes
+      become: true
+      ignore_errors: true
 
     - name: Mask nftables service
       ansible.builtin.systemd:
         name: nftables
         masked: yes
       when: nftables_status.rc == 0
-      become: yes
-      ignore_errors: yes
+      become: true
+      ignore_errors: true
 
     - name: Accept already established connections #new
       iptables:
@@ -232,7 +219,6 @@
         - udp
         - icmp
 
-    
     - name: Set default policies to DROP
       iptables:
         chain: '{{ item }}'
@@ -243,7 +229,6 @@
         - FORWARD
         #- OUTPUT
     
- 
     - name: Allow established IPv6 connections
       ansible.builtin.iptables:
         chain: INPUT
@@ -337,8 +322,3 @@
         - { port: "80", proto: "tcp" }
         - { port: "443", proto: "tcp" }
       notify: Save iptables rules
-  when: firewall_package == "iptables"
-  
-
-
-
