@@ -2,7 +2,9 @@
   ansible.builtin.apt:
     name: "{{ item }}"
     state: latest
+    update_cache: yes
   with_items: 
+    - pam
     - libpam-runtime
     - libpam-modules
     - libpam-pwquality

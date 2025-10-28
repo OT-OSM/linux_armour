@@ -36,6 +36,19 @@ firewall_packages_by_os:
     - nftables
     - iptables
 firewall_package: ufw
+allowed_services:
+  - ssh
+  - http
+  - https
+  - dns
+
+allowed_ports:
+  - { port: "22", proto: "tcp" }
+  - { port: "53", proto: "tcp" }
+  - { port: "53", proto: "udp" }
+  - { port: "80", proto: "tcp" }
+  - { port: "443", proto: "tcp" }
+
 nftable_name: "my_nftables_rule"
 
 # Ensure only one logging system is used.

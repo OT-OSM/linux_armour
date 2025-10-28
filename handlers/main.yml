@@ -12,6 +12,11 @@
   systemd:
     daemon_reload: yes
 
+- name: Reload firewalld
+  ansible.builtin.service:
+    name: firewalld
+    state: reloaded
+
 - name: Restart Chrony
   service:
     name: chrony

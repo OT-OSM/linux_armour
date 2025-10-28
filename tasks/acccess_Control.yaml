@@ -1,6 +1,6 @@
 # 5.2.1 Ensure sudo is installed
 - name: Ensure sudo is installed
-  ansible.builtin.apt:
+  ansible.builtin.package:
     name: sudo
     state: present
 
@@ -23,12 +23,14 @@
         owner: root
         group: root
         mode: '0750'
+
     - ansible.builtin.file:
         path: /var/log/sudo/sudo.log
         state: touch
         owner: root
         group: root
         mode: '0640'
+
     - name: Ensure sudo commands use pty
       ansible.builtin.lineinfile:
         path: /etc/sudoers

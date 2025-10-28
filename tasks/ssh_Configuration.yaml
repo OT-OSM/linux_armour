@@ -69,7 +69,7 @@
     backup: yes
     insertafter: EOF
   loop:
-    - { regexp: '^#?GSSAPIAuthentication', line: 'GSSAPIAuthentication no' }
+    # - { regexp: '^#?GSSAPIAuthentication', line: 'GSSAPIAuthentication no' }
     - { regexp: '^#?IgnoreRhosts', line: 'IgnoreRhosts yes' }
     - { regexp: '^#?LogLevel', line: 'LogLevel VERBOSE' }
     - { regexp: '^#?PermitEmptyPasswords', line: 'PermitEmptyPasswords no' }
@@ -87,7 +87,7 @@
     backup: yes
     insertafter: EOF
   loop:
-    - { regexp: '^#?Banner', line: 'Banner /etc/issue.net' }
+    # - { regexp: '^#?Banner', line: 'Banner /etc/issue.net' }
     - { regexp: '^#?Ciphers', line: 'Ciphers aes256-ctr,aes192-ctr,aes128-ctr' }
     # - { regexp: '^#?ClientAliveInterval', line: 'ClientAliveInterval 300' }
     # - { regexp: '^#?ClientAliveCountMax', line: 'ClientAliveCountMax 0' }
@@ -98,5 +98,5 @@
     - { regexp: '^#?MACs', line: 'MACs hmac-sha2-512-etm@openssh.com,hmac-sha2-256-etm@openssh.com' }
     - { regexp: '^#?MaxAuthTries', line: 'MaxAuthTries 3' }
     # - { regexp: '^#?MaxSessions', line: 'MaxSessions 10' }
-    # - { regexp: '^#?MaxStartups', line: 'MaxStartups 10:30:60' }
+    - { regexp: '^#?MaxStartups', line: 'MaxStartups 10:30:60' }
     # - { regexp: '^#?PermitUserEnvironment', line: 'PermitUserEnvironment no' }

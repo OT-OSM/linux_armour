@@ -1,6 +1,10 @@
+# nftables managed by Ansible
 table inet {{ nftable_name }} {
+    # Input chain - inbound traffic
     chain input {
-        type filter hook input priority 0; policy drop;
+        type filter hook input priority 0;
+        policy drop;
+        
         # Accept all traffic from loopback interface
         iif lo accept
 
@@ -9,6 +13,10 @@ table inet {{ nftable_name }} {
 
         # Allow incoming SSH
         tcp dport 22 ct state new,established accept
+
+        # Allow incoming DNS (UDP/TCP 53)
+        udp dport 53 accept
+        tcp dport 53 accept
 
         # Drop invalid packets from localhost addresses
         ip saddr 127.0.0.0/8 counter packets 0 bytes 0 drop
@@ -27,10 +35,12 @@ table inet {{ nftable_name }} {
         ip protocol icmp ct state established accept
     }
     chain forward {
-        type filter hook forward priority 0; policy drop;
+        type filter hook forward priority 0;
+        policy drop;
     }
     chain output {
-        type filter hook output priority 0; policy accept;
+        type filter hook output priority 0;
+        policy accept;
 
         # Allow new, related, and established TCP connections
         ip protocol tcp ct state new,related,established accept
