@@ -18,9 +18,18 @@
     state: reloaded
 
 - name: Restart Chrony
-  service:
+  ansible.builtin.service:
     name: chrony
     state: restarted
+  listen: Restart Chrony
+  when: ansible_facts.os_family == "Debian"
+
+- name: Restart Chrony
+  ansible.builtin.service:
+    name: chronyd
+    state: restarted
+  listen: Restart Chrony
+  when: ansible_facts.os_family == "RedHat"
 
 - name: Restart systemd-timesyncd
   service:
@@ -33,10 +42,19 @@
     state: restarted
   
 - name: Update Grub Configuration
-  command: update-grub
+  ansible.builtin.command: update-grub
+  become: true
+  listen: Update Grub Configuration
+  when: ansible_facts.os_family == "Debian"
+
+- name: Update Grub2 Configuration
+  ansible.builtin.command: grub2-mkconfig -o /boot/grub2/grub.cfg
+  become: true
+  listen: Update Grub Configuration
+  when: ansible_facts.os_family == "RedHat"
 
 - name: Apply nftables ruleset
-  command: nft -f /etc/nftables.conf
+  ansible.builtin.command: nft -f /etc/nftables.conf
   
 - name: Save iptables rules
   ansible.builtin.shell: /sbin/iptables-save > /etc/iptables/rules.v4

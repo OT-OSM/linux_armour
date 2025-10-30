@@ -1,9 +1,0 @@
-[Unit]
-Description=Aide Check
-
-[Service]
-Type=simple
-ExecStart=/usr/bin/aide.wrapper --check
-
-[Install]
-WantedBy=multi-user.target

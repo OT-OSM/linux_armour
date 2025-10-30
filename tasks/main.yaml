@@ -1,55 +1,71 @@
 ---
 - name: Include CIS Stage Specific vars
-  include_vars: cis-{{ cis_Stage }}.yaml
+  ansible.builtin.include_vars: cis-{{ cis_Stage }}.yaml
 
-# 1.1 Confige Filesystem 
+#######################################################
+###### Configure Filesystems kernel & Partitions ######
+#######################################################
 - name: Filesystem Configuration
   ansible.builtin.include_tasks: filesystem_Configuration.yaml
 
-# 1.5 Additional Process Hardening
+##########################################
+###### Additional Process Hardening ######
+##########################################
 - name: Process Hardening
-  include_tasks: process_Hardening.yaml
+  ansible.builtin.include_tasks: process_Hardening.yaml
   when: cis_Stage > 1
 
-# 1.3 AppArmor Configuration
-# 1.4 Secure Boot Configuration
+##################################################
+###### AppArmor & Secure Boot Configuration ######
+##################################################
 - name: Secure Boot Settings
-  include_tasks: secure_BootSettings.yaml
+  ansible.builtin.include_tasks: secure_BootSettings.yaml
   when: ansible_os_family == 'Debian'
 
 - name: SELinux Configuration
-  include_tasks: selinux_Configurations.yaml
+  ansible.builtin.include_tasks: selinux_Configurations.yaml
   when:
     ansible_os_family == 'RedHat'
 
-# 1.6 Command Line Warning Banners
+##########################################
+###### Command Line Warning Banners ######
+##########################################
 - name: Command Line Warning Banners
-  include_tasks: command_Warning.yaml
+  ansible.builtin.include_tasks: command_Warning.yaml
 
-# 1.7 GNOME Display Manager
+############################################
+###### GNOME Display Manager Settings ######
+############################################
 - name: Ensure GNOME Display Manager is removed
-  apt:
+  ansible.builtin.apt:
     name: gdm3
     state: absent
-  when: ansible_os_family == "Debian" && cis_Stage > 1
+  when: ansible_os_family == "Debian" and cis_Stage > 1
 
-# 2.1 Special Purpose Services
+######################################
+###### Special Purpose Services ######
+######################################
 - name: Remove Special Purpose Services
-  include_tasks: services.yaml
+  ansible.builtin.include_tasks: services.yaml
 
-# 2.3 Configure Time Synchronization
+############################################
+###### Configure Time Synchronization ######
+############################################
 - name: Configure Time Synchronization
-  include_tasks: time_Synchronize.yaml
-  when: cis_Stage > 1 && ansible_os_family == 'Debian'
+  ansible.builtin.include_tasks: time_Synchronize.yaml
+  when: cis_Stage > 1 and ansible_os_family == 'Debian'
 
-# 2.4 Configure job Schedulers
+######################################
+###### Configure job Schedulers ######
+######################################
 - name: Configure job Schedulers
-  include_tasks: job_Schedulers.yaml
+  ansible.builtin.include_tasks: job_Schedulers.yaml
 
-# 3.2 Uncommon Network Protocols
-# 3.3 Network Configuration
+##################################################
+###### Configure Uncommon Network Protocols ######
+##################################################
 - name: Network Parameters For Host
-  include_tasks: network_Configuration.yaml
+  ansible.builtin.include_tasks: network_Configuration.yaml
   when: cis_Stage > 1
 
 # 4 Firewall Configuration
@@ -67,36 +83,18 @@
 - name: pluggable_Notification Access Control Configuration
   include_tasks: pam_{{ ansible_os_family }}.yaml
 
-- name: Debian realted Specification
-  include_tasks: configure_Debian.yaml
-  when:
-    ansible_os_family == 'Debian'
+- name: Configure user account and environment
+  include_tasks: user_Account_Environments.yaml
 
-- name: Centos realted Specification
-  include_tasks: configure_RedHat.yaml
-  when:
-    ansible_os_family == 'RedHat'
+- name: Ensure filesystem integrity is regularly checked
+  include_tasks: system_Logging.yaml
 
-# - name: Special purpose services
-#   include_tasks: services.yaml
+- name: Configure System Accounting
+  include_tasks: audit.yaml
 
-# - name: Logging and monitoring
-#   include_tasks: audit.yaml
+- name: Ensure filesystem integrity is regularly checked
+  include_tasks: filesystem_Integrity.yaml
+  when: cis_Stage > 1
 
-# - name: Additional Process Hardening
-#   include_tasks: pam_limit.yaml
-
-# - name: Tcp Wrapper and System File Permissions
-#   include_tasks: file_permissions.yaml
-
-# - name: Filesystem Configuration
-#   include_tasks: filesystem_configuration.yaml
-
-# - name: Network Configuration Host
-#   include_tasks: network_configuration_host.yaml
-
-# - name: Ensure bogus ICMP responses are ignored
-#   include_tasks: network_configuration_router.yaml
-
-# - name: Ensure dccp and sctp is disabled
-#   include_tasks: network_protocol_and_unusedFilesystem.yaml
+- name: Configure System files
+  include_tasks: system_file_permission.yaml

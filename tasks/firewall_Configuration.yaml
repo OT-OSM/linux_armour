@@ -70,6 +70,9 @@
       ufw:
         policy: deny
         direction: outgoing
+      when: "'22/tcp ALLOW' in ufw_status.stdout or '22 ALLOW' in ufw_status.stdout"
+      vars:
+        ufw_status: "{{ lookup('pipe', 'ufw status') | default('') }}"
 
     - name: Set default deny incoming policy
       ufw:

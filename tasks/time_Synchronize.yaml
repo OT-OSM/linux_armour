@@ -1,5 +1,5 @@
 ---
-# # 2.3.1 Ensure a single time synchronization daemon is in use
+# 2.3.1 Ensure a single time synchronization daemon is in use
 
 - name: Uninstall non-selected Time Synchronization Daemons
   ansible.builtin.package:
@@ -9,6 +9,21 @@
     - chrony
     - systemd-timesyncd
   when: item != time_sync_daemon
+
+- name: Gather service facts
+  ansible.builtin.service_facts:
+
+- name: Ensure non-selected Time Synchronization Daemon is disabled and stopped
+  ansible.builtin.systemd:
+    name: "{{ item }}"
+    enabled: no
+    state: stopped
+  loop:
+    - chrony
+    - systemd-timesyncd
+  when:
+    - item in ansible_facts.services
+    - item != time_sync_daemon
 
 - name: Ensure non-selected Time Synchronization is disabled and stopped
   ansible.builtin.systemd:
@@ -20,7 +35,6 @@
     - systemd-timesyncd
   when: item != time_sync_daemon
   ignore_errors: true
-
 
 - name: Install the selected Time Synchronization Daemon
   ansible.builtin.package:
@@ -37,6 +51,7 @@
 
 # # 2.3.2 Configure systemd-timesyncd
 - name: Ensure timesyncd NTP settings are configured
+  when: time_sync_daemon == "systemd-timesyncd"
   block:
     - name: Ensure timesyncd configuration directory exists
       ansible.builtin.file:
@@ -44,42 +59,81 @@
         state: directory
         mode: '0755'
 
-    - name: Check if [Time] section exists in 60-timesyncd.conf
-      ansible.builtin.shell: grep -Psq '^\h*\[Time\]' /etc/systemd/timesyncd.conf.d/60-timesyncd.conf
-      register: time_section_check
-      ignore_errors: true
+    # - name: Update 60-timesyncd.conf with NTP settings if [Time] section doesn't exist
+    #   ansible.builtin.blockinfile:
+    #     path: /etc/systemd/timesyncd.conf.d/60-timesyncd.conf
+    #     block: |
+    #       [Time]
+    #       NTP=time.nist.gov
+    #       FallbackNTP=time-a-g.nist.gov time-bg.nist.gov time-c-g.nist.gov
+    #     create: yes
+    #     mode: '0644'
+    #   notify:
+    #     - Restart systemd-timesyncd
 
-    - name: Set NTP configuration content
-      ansible.builtin.set_fact:
-        timesyncd_ntp_lines: |
-          [Time]
-          NTP=time.nist.gov
-          FallbackNTP=time-a-g.nist.gov time-bg.nist.gov time-c-g.nist.gov
+    - name: Wait briefly for timesync to stabilize
+      ansible.builtin.pause:
+        seconds: 3
 
-    - name: Update 60-timesyncd.conf with NTP settings if [Time] section doesn't exist
-      ansible.builtin.blockinfile:
-        path: /etc/systemd/timesyncd.conf.d/60-timesyncd.conf
-        block: "{{ timesyncd_ntp_lines }}"
-        create: yes
-      when: time_section_check.rc != 0
+    - name: Verify time synchronization status
+      ansible.builtin.command: timedatectl show -p NTPSynchronized --value
+      register: ntp_status
+      changed_when: false
+      failed_when: ntp_status.rc != 0
 
-    - name: Append only NTP lines if [Time] section already exists
-      ansible.builtin.lineinfile:
-        path: /etc/systemd/timesyncd.conf.d/60-timesyncd.conf
-        line: "{{ item }}"
-        insertafter: '^\s*\[Time\]'
-      loop:
-        - "NTP=time.nist.gov"
-        - "FallbackNTP=time-a-g.nist.gov time-bg.nist.gov time-c-g.nist.gov"
-      notify:
-        - Restart systemd-journald
-        - Restart systemd-timesyncd
-      when: time_section_check.rc == 0
+    - name: Display NTP synchronization status
+      ansible.builtin.debug:
+        msg: "Time synchronization active: {{ ntp_status.stdout }}"
 
-##2.3.2 Configure chrony   
-- name: Create Chrony configuration file
-  ansible.builtin.template:
-    src: chrony.conf.j2
-    dest: /etc/chrony/chrony.conf
-  notify: Restart Chrony
+# 2.3.2 Configure chrony   
+- name: Configure Chrony
   when: time_sync_daemon == "chrony"
+  block:
+    # - name: Ensure chrony is configured with authorized NTP servers
+    #   ansible.builtin.blockinfile:
+    #     path: "/etc/chrony/chrony.conf"
+    #     block: |
+    #       # Authorized NTP servers
+    #       {% for server in chrony_timeservers %}
+    #       server {{ server }} iburst
+    #       {% endfor %}
+    #     create: yes
+    #   vars:
+    #     chrony_timeservers:
+    #       - time.cloudflare.com
+    #       - time.google.com
+    #       - 0.pool.ntp.org
+    #       - 1.pool.ntp.org
+    #   notify: Restart chrony
+  
+    - name: Ensure _chrony user exists
+      ansible.builtin.user:
+        name: _chrony
+        system: yes
+        shell: /sbin/nologin
+        create_home: no
+
+    - name: Ensure chrony runs as _chrony user (RedHat)
+      ansible.builtin.lineinfile:
+        path: /etc/sysconfig/chronyd
+        regexp: '^OPTIONS='
+        line: 'OPTIONS="-u _chrony"'
+        create: yes
+      notify: Restart Chrony
+      when: ansible_os_family == "RedHat"
+
+    - name: Ensure chrony runs as _chrony user
+      ansible.builtin.lineinfile:
+        path: "/etc/chrony/chrony.conf"
+        regexp: '^user\s+'
+        line: 'user _chrony'
+        create: yes
+        insertafter: EOF
+      notify: Restart Chrony
+      when: ansible_facts.os_family == 'Debian'
+
+#   ansible.builtin.template:
+#     src: chrony.conf.j2
+#     dest: /etc/chrony/chrony.conf
+#   notify: Restart Chrony
+#   when: time_sync_daemon == "chrony"

@@ -4,77 +4,81 @@
   ansible.posix.sysctl:
     name: kernel.randomize_va_space
     value: 2
+    sysctl_set: true
     state: present
+    reload: true
 
 ## 1.5.2 Ensure ptrace_scope is restricted 
-- name: Set kernel.yama.ptrace_scope
+- name: Restrict ptrace_scope
   ansible.posix.sysctl:
     name: kernel.yama.ptrace_scope
     value: 2
+    sysctl_set: true
     state: present
+    reload: true
 
 ## 1.5.3 Ensure core dumps are restricted
-- name: Ensure core dumps are restricted
+- name: Restrict core dumps
   when: cis_Stage > 2
   block:
-    # - name: Check if security limits file exists
-    #   ansible.builtin.stat:
-    #     path: "{{ cis_security_limits_filename }}"
-    #   register: security_limits
+    - name: Check if systemd-coredump binary exists
+      ansible.builtin.stat:
+        path: /usr/lib/systemd/systemd-coredump
+      register: coredump_bin
 
-    # - name: Ensure core dumps are restricted (create file)
-    #   ansible.builtin.copy:
-    #     dest: "{{ cis_security_limits_filename }}"
-    #     content: "* hard core 0\n"
-    #   when: security_limits.stat.exists is not defined or not security_limits.stat.exists
+    - name: Configure core dump restriction using systemd
+      when: coredump_bin.stat.exists
+      block:
+        - name: Ensure [Coredump] section exists
+          ansible.builtin.lineinfile:
+            path: /etc/systemd/coredump.conf
+            regexp: '^\[Coredump\]'
+            line: '[Coredump]'
+            create: yes
 
-    # - name: Ensure core dumps are restricted (via pam_limits)
-    #   community.general.pam_limits:
-    #     dest: "{{ cis_security_limits_filename }}"
-    #     limit_item: "core"
-    #     limit_type: "hard"
-    #     domain: "*"
-    #     value: "0"
-    #   when: security_limits.stat.exists is defined and security_limits.stat.exists
+        - name: Apply CIS coredump restrictions
+          ansible.builtin.lineinfile:
+            path: /etc/systemd/coredump.conf
+            regexp: '^{{ item.key }}='
+            line: '{{ item.key }}={{ item.value }}'
+            insertafter: '^\[Coredump\]'
+          loop:
+            - { key: 'Storage', value: 'none' }
+            - { key: 'ProcessSizeMax', value: '0' }
+          notify: Reload systemd units
 
-    - name: Install systemd-coredump if package exists
-      ansible.builtin.package:
-        name: systemd-coredump
-        state: present
-      ignore_errors: true   # safe if package not available
+    - name: Configure fallback core dump restriction (non-systemd)
+      when: not coredump_bin.stat.exists
+      block:
+        - name: Disable core dumps kernel-wide
+          ansible.posix.sysctl:
+            name: fs.suid_dumpable
+            value: 0
+            sysctl_set: true
+            state: present
+            reload: true
 
-    - name: Ensure [Coredump] section exists
-      ansible.builtin.lineinfile:
-        path: /etc/systemd/coredump.conf
-        regexp: '^\[Coredump\]'
-        line: '[Coredump]'
-        create: yes
-
-    - name: Ensure /etc/systemd/coredump.conf and CIS settings
-      ansible.builtin.lineinfile:
-        path: /etc/systemd/coredump.conf
-        regexp: '^{{ item.key }}='
-        line: '{{ item.key }}={{ item.value }}'
-        insertafter: '^\[Coredump\]'
-        create: yes
-      loop:
-        - { key: Storage, value: none }
-        - { key: ProcessSizeMax, value: 0 }
-      notify: Reload systemd units
+        - name: Restrict user core dump limits
+          community.general.pam_limits:
+            domain: '*'
+            limit_type: hard
+            limit_item: core
+            value: 0
 
 ## 1.5.4 Ensure prelink is not installed
-- name: Ensure prelink is not installed
-  when: cis_Stage > 2 && ansible_os_family == "Debian"
+- name: Ensure prelink is not installed (Debian-based)
+  when: cis_Stage > 2 and ansible_os_family == "Debian"
   block:
     - name: Check if prelink binary exists
       ansible.builtin.command: which prelink
       ignore_errors: true
-      register: binary
+      register: prelink_check
       changed_when: false
 
     - name: Disable prelinked binaries
       ansible.builtin.command: prelink -ua
-      when: binary.rc is defined and binary.rc == 0
+      when: prelink_check.rc == 0
+      changed_when: false
 
     - name: Ensure prelink is disabled for Debian System
       ansible.builtin.apt:
@@ -82,7 +86,7 @@
         state: absent
 
 ## 1.5.5 Ensure Automatic Error Reporting is not enabled
-- name: Ensure Automatic Error Reporting is disabled for Debian System
+- name: Ensure Automatic Error Reporting is disabled (Debian-based)
   ansible.builtin.apt:
     name: apport
     state: absent

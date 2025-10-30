@@ -1,67 +1,46 @@
 ---
-###################################################
-# 1.1.1 Configure Filesystems kernel modules #
-###################################################
-- name: Disable filesystem kernel modules
+#################################################
+##### Configure Filesystems Kernel Modules ######
+#################################################
+
+- name: Disable unused or insecure filesystem kernel modules
   ansible.builtin.blockinfile:
     path: "/etc/modprobe.d/{{ item }}.conf"
     block: |
       install {{ item }} /bin/true
       blacklist {{ item }}
-    create: yes
+    create: true
+    owner: root
+    group: root
+    mode: '0644'
+    marker: "# {mark} {{ item }} module configuration"
   loop: >-
     {{
       (filesystem_kernel_modules.common | default([]))
       + (filesystem_kernel_modules.get(ansible_facts.os_family, []) | list)
     }}
 
+#################################################
+###### Configure Secure tmpfs Partitions ########
+#################################################
 
-########################################
-# 1.1.2 Configure Filesystem Partition #
-########################################
+- name: Ensure secure tmpfs mount directories exist
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: directory
+    mode: "1777"
+    owner: root
+    group: root
+  loop: "{{ secure_tmpfs_mounts }}"
 
-# Configure partitions for tmp directories
-
-# ----------------------------------------------------------------------------- 
-# 1. Check whether each path is **already** mounted as tmpfs with nodev,noexec,nosuid
-# -----------------------------------------------------------------------------
-- name: Check current mount options for secure tmpfs mounts
-  ansible.builtin.shell: |
-    mount | grep -E '^tmpfs on {{ item }} type tmpfs .*nodev.*noexec.*nosuid'
-  loop:
-    - /tmp
-    - /dev/shm
-  register: tmpfs_mount_check
-  ignore_errors: true
-  changed_when: false
-  failed_when: false
-
-# ----------------------------------------------------------------------------- 
-# 2. Mount only the directories that **failed** the check above
-# -----------------------------------------------------------------------------
-- name: Mount directories as tmpfs with nodev, noexec, and nosuid options
-  ansible.posix.mount:
-    path: "{{ item }}"
-    src:  tmpfs
-    fstype: tmpfs
-    opts: nodev,noexec,nosuid
+- name: Ensure secure tmpfs mounts are active and persistent
+  ansible.builtin.mount:
+    path: "{{ item.path }}"
+    src: "tmpfs"
+    fstype: "tmpfs"
+    opts: "{{ item.opts }}"
     state: mounted
-  loop:
-    - /tmp
-    - /dev/shm
-  loop_control:
-    index_var: idx
-  when: tmpfs_mount_check.results[idx].rc != 0
-  changed_when: false
-
-- name: Ensure /tmp mount is enabled at boot
-  ansible.builtin.systemd:
-    name: tmp.mount
-    enabled: true
-  become: true
-  loop_control:
-    index_var: idx
-  when: tmpfs_mount_check.results[idx].rc != 0
+  loop: "{{ secure_tmpfs_mounts }}"
 
 # - name: Bind mount directories with secure options
 #   ansible.posix.mount:
@@ -72,13 +51,30 @@
 #     state: mounted
 #   loop: "{{ dir_partition }}"
 
-# Configure /home & /var partitions
-- name: Mount directories with nodev and nosuid options
-  ansible.posix.mount:
-    path: "{{ item.path }}"
-    src: "{{ item.device }}"
-    fstype: ext4
-    opts: "{{ item.opts }}"
-    state: mounted
-  #changed_when: false
-  loop: "{{ dir_partition }}"
+# # Configure /home & /var partitions
+# - name: Mount directories with nodev and nosuid options
+#   ansible.posix.mount:
+#     path: "{{ item.path }}"
+#     src: "{{ item.device }}"
+#     fstype: ext4
+#     opts: "{{ item.opts }}"
+#     state: mounted
+#   #changed_when: false
+#   loop: "{{ dir_partition }}"
+
+- name: Gather current mount information
+  ansible.builtin.setup:
+    filter: ansible_mounts
+
+- name: Verify if /home is mounted on a separate partition
+  ansible.builtin.set_fact:
+    home_mount_found: "{{ ansible_facts.mounts | selectattr('mount', 'equalto', '/home') | list | length > 0 }}"
+
+- name: Report /home partition status
+  ansible.builtin.debug:
+    msg: >-
+      {{
+        '/home has a separate partition — compliant.'
+        if home_mount_found
+        else '/home is part of root filesystem — non-compliant. Create a separate partition manually.'
+      }}

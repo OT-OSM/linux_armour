@@ -1,5 +1,5 @@
 ---
-cis_Stage: 1
+cis_Stage: 3
 
 # FileSystem Directory Partition Location
 # dir_partition:
@@ -8,7 +8,9 @@ cis_Stage: 1
 #   - {path: "/var/log/audit", device: "/dev/sda3",opts: "nodev,noexec,nosuid,remount"}
 # #   # - {path: "/home", device: "/dev/xvda1",opts: "nodev,nosuid"}
 # #   # - {path: "/var", device: "/dev/xvda1", opts: "nodev,nosuid"}
-
+secure_tmpfs_mounts:
+  - { path: /tmp,    opts: "nodev,nosuid,noexec" }
+  - { path: /dev/shm, opts: "nodev,nosuid,noexec" }
 dir_partition:
   # - { path: "/home",           device: "/home",        opts: "bind,nodev,nosuid" }
   # - { path: "/var",           device: "/home",        opts: "bind,nodev,nosuid" }
@@ -17,12 +19,13 @@ dir_partition:
   - { path: "/var/log/audit",  device: "/var/log/audit",  opts: "bind,nodev,noexec,nosuid" }
 
 
+grub_password_required: false # Set true for on-premise on console enabled servers only
 root_password: "Cis@123#"
 
 sudo_timeout: 15
 
 # Set the default time synchronization daemon
-time_sync_daemon: systemd-timesyncd # Replace with one of in list ('chrony', 'systemd-timesyncd')
+time_sync_daemon: chrony # Replace with one of in list ('chrony', 'systemd-timesyncd')
 
 cron_service_name: "{{ 'crond' if ansible_os_family == 'RedHat' else 'cron' }}"
 

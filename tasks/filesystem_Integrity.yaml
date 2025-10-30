@@ -1,24 +1,46 @@
 ---
 # 6.3.1 Ensure AIDE is installed
 - name: Install & Configure aide
-  apt:
-    name:
-      - aide
-      - aide-common
-    state: "present"
-  register: "aide_installed"
-  until: "aide_installed is succeeded"
   when: ansible_os_family == "Debian"
+  block:
+    - name: Install aide
+      ansible.builtin.apt:
+        name:
+          - aide
+          - aide-common
+        state: "present"
+      register: "aide_installed"
+      until: "aide_installed is succeeded"
 
-- name: "Configure aide"
-  shell: aideinit
-  changed_when: false
+    - name: "Configure aide"
+      ansible.builtin.shell: aideinit
+      changed_when: false
 
-- name: "copy the newly generated database"
-  copy:
-    remote_src: true
-    src: "/var/lib/aide/aide.db.new"
-    dest: "/var/lib/aide/aide.db"
+    - name: Copy the newly generated database
+      ansible.builtin.copy:
+        remote_src: true
+        src: "/var/lib/aide/aide.db.new"
+        dest: "/var/lib/aide/aide.db"
+
+- name: Install & Configure aide "RedHat
+  when: ansible_os_family == "RedHat"
+  block:
+    - name: Install aide
+      ansible.builtin.yum:
+        name: aide
+        state: "present"
+      register: "aide_installed"
+      until: "aide_installed is succeeded"
+
+    - name: Configure aide
+      ansible.builtin.shell: aide --init
+      changed_when: false
+
+    - name: Copy the newly generated database
+      ansible.builtin.copy:
+        remote_src: true
+        src: "/var/lib/aide/aide.db.new.gz"
+        dest: "/var/lib/aide/aide.db.gz"
 
 # 6.1.2 Ensure filesystem integrity is regularly checked
 - name: "Service files are copied"
@@ -29,7 +51,7 @@
     group: root
     mode: '0644'
   with_items:
-    - { src: aidecheck.service, dest: /etc/systemd/system/aidecheck.service }
+    - { src: aidecheck.service.j2, dest: /etc/systemd/system/aidecheck.service }
     - { src: aidecheck.timer, dest: /etc/systemd/system/aidecheck.timer }
   notify:
     - Reload AIDE

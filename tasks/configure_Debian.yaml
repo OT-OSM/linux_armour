@@ -2,24 +2,3 @@
 - name: Update cache
   ansible.builtin.apt:
     update_cache: true
-
-# 5.4 Configure user account and environment
-- name: Configure user account and environment
-  include_tasks: user_Account_Environments.yaml
-
-# 6.1 System Logging Configuration
-- name: Ensure filesystem integrity is regularly checked
-  include_tasks: system_Logging.yaml
-
-# 6.2 Configure System Accounting
-- name: Configure System Accounting
-  include_tasks: audit.yaml
-
-# 6.3 Filesystem Integrity Checking
-- name: Ensure filesystem integrity is regularly checked
-  include_tasks: filesystem_Integrity.yaml
-  when: cis_Stage > 1
-
-# 7.1 Set System File Permission
-- name: Configure System files
-  include_tasks: system_file_permission.yaml
