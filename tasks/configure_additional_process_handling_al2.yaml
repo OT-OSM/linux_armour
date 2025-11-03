@@ -8,9 +8,7 @@
     sysctl_set: true
     reload: yes
     sysctl_file: /etc/sysctl.d/60-kernel_sysctl.conf
-  loop:
-    - { name: "kernel.randomize_va_space", value: "2", desc: "Ensure ASLR is enabled" }
-    - { name: "kernel.yama.ptrace_scope", value: "1", desc: "Restrict ptrace_scope" }
+  loop: "{{ kernel_hardening_params }}"
   loop_control:
     label: "{{ item.desc }}"
 
@@ -20,10 +18,9 @@
     path: /etc/systemd/coredump.conf
     create: yes
     block: "{{ item.block }}"
-  loop:
-    - { block: "[Coredump]\nProcessSizeMax=0", desc: "Disable core dump backtraces" }
-    - { block: "[Coredump]\nStorage=none", desc: "Disable core dump storage" }
+  loop: "{{ core_dump_blocks }}"
   loop_control:
     label: "{{ item.desc }}"
   notify:
     - reload systemd reexec
+
