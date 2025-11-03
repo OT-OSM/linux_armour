@@ -1,13 +1,10 @@
 ---
-
 - name: "1.3.1 Ensure authentication required for single user mode (rescue & emergency)"
   ansible.builtin.lineinfile:
     path: "/usr/lib/systemd/system/{{ item }}"
     regexp: '^ExecStart='
     line: 'ExecStart=-/bin/sh -c "/usr/sbin/sulogin; /usr/bin/systemctl --fail --no-block default"'
     backup: yes
-  loop:
-    - rescue.service
-    - emergency.service
+  loop: "{{ rescue_emergency_units }}"
   notify: Reload systemd
 

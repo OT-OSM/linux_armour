@@ -88,3 +88,9 @@ os_services_name: ['avahi-daemon', 'slapd', 'named', 'cups', 'telnet', 'discard-
 # aide cronjob configuration
 minute_aide_cronjob: '0'
 hour_aide_cronjob: '5'
+
+#Configure SELinux
+rescue_emergency_units:
+  - rescue.service
+  - emergency.service
+
