@@ -6,11 +6,9 @@
     state: present
   become: true
 
-# Ensure Chrony time synchronization is configured properly for Amazon Linux 2
-
 # Step 1: Check if Chrony has any configured NTP servers or pools
 - name: "Ensure chrony is configured"
-  ansible.builtin.shell: grep -Prs -- '^\h*(server|pool)\h+[^#\n\r]+' /etc/chrony.d
+  ansible.builtin.shell: "grep -Prs -- '^\\h*(server|pool)\\h+[^#\\n\\r]+' {{ chrony_shell_check_path }}"
   register: chrony_sources
   changed_when: false
   failed_when: false
@@ -19,21 +17,16 @@
 # Step 2: Add Amazon Time Sync Service configuration if none found
 - name: "Configure Chrony with Amazon Time Sync Service (if missing)"
   ansible.builtin.blockinfile:
-    path: /etc/chrony.d/amazon_time_sync.conf
+    path: "{{ chrony_conf_path }}"
     create: yes
-    block: |
-      # Amazon Linux 2 default Chrony configuration
-      server 169.254.169.123 prefer iburst minpoll 4 maxpoll 4
-      pool 0.amazon.pool.ntp.org iburst maxsources 1
-      pool 1.amazon.pool.ntp.org iburst maxsources 1
-      pool 2.amazon.pool.ntp.org iburst maxsources 2
+    block: "{{ chrony_amazon_timesync_block }}"
   when: chrony_sources.stdout == ""
   become: true
 
 # Step 3: Restart Chrony only if configuration was added
 - name: "Restart Chrony service to apply configuration (if modified)"
   ansible.builtin.service:
-    name: chronyd
+    name: "{{ chrony_service }}"
     state: restarted
     enabled: true
   when: chrony_sources.stdout == ""
@@ -54,7 +47,7 @@
   ansible.builtin.lineinfile:
     path: /etc/sysconfig/chronyd
     regexp: '^OPTIONS='
-    line: 'OPTIONS="-u chrony"'
+    line: '{{ chrony_user_opts }}'
     state: present
     create: yes
     backup: yes
@@ -62,7 +55,7 @@
 
 - name: "Reload Chrony service to apply user configuration"
   ansible.builtin.systemd:
-    name: chronyd
+    name: "{{ chrony_service }}"
     state: restarted
     daemon_reload: true
   become: true
