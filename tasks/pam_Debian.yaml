@@ -1,70 +1,56 @@
 - name: Ensure PAM packages are installed
   ansible.builtin.apt:
-    name: "{{ item }}"
+    name:
+      - libpam-runtime
+      - libpam-modules
+      - libpam-modules-bin
+      - libpam-pwquality
     state: latest
     update_cache: yes
-  with_items: 
-    - pam
-    - libpam-runtime
-    - libpam-modules
-    - libpam-pwquality
 
 # 5.3.2.1 Ensure pam_unix module is enabled
 - name: Enable pam_unix module using pam-auth-update
-  ansible.builtin.command: pam-auth-update --enable unix
-
-# - name: "Enable 'unix' PAM profile using pam-auth-update (ignore errors)"
-#   ansible.builtin.shell: pam-auth-update --enable unix --force
-#   register: pam_unix_enable
-#   changed_when: pam_unix_enable.rc == 0
-#   failed_when: false
-#   ignore_errors: true
+  ansible.builtin.shell: pam-auth-update --enable unix --force
+  register: pam_unix_enable
+  changed_when: pam_unix_enable.rc == 0
+  failed_when: false
+  ignore_errors: true
 
 # 5.3.2.2 Ensure pam_faillock module is enabled
-- name: "Create 'faillock' PAM profile"
-  copy:
-    dest: /usr/share/pam-configs/faillock
-    content: |
-      Name: Enable pam_faillock to deny access
-      Default: yes
-      Priority: 0
-      Auth-Type: Primary
-      Auth:
-       [default=die] pam_faillock.so authfail
+- name: Ensure pam_faillock profiles exist
+  ansible.builtin.copy:
+    dest: "/usr/share/pam-configs/{{ item.name }}"
+    content: "{{ item.content }}"
     owner: root
     group: root
     mode: '0644'
+  loop:
+    - name: faillock
+      content: |
+        Name: Enable pam_faillock to deny access
+        Default: yes
+        Priority: 0
+        Auth-Type: Primary
+        Auth:
+         [default=die] pam_faillock.so authfail
+    - name: faillock_notify
+      content: |
+        Name: Notify of failed login attempts and reset count upon success
+        Default: yes
+        Priority: 1024
+        Auth-Type: Primary
+        Auth:
+         requisite pam_faillock.so preauth
+        Account-Type: Primary
+        Account:
+         required pam_faillock.so
 
-- name: "Create 'faillock_notify' PAM profile"
-  copy:
-    dest: /usr/share/pam-configs/faillock_notify
-    content: |
-      Name: Notify of failed login attempts and reset count upon success
-      Default: yes
-      Priority: 1024
-      Auth-Type: Primary
-      Auth:
-       requisite pam_faillock.so preauth
-      Account-Type: Primary
-      Account:
-       required pam_faillock.so
-    owner: root
-    group: root
-    mode: '0644'
-
-- name: "Enable 'faillock' PAM profile"
-  shell: pam-auth-update --enable faillock --force
-  register: faillock_enable
-  changed_when: faillock_enable.rc == 0
+- name: Enable pam_faillock profiles
+  ansible.builtin.command: pam-auth-update --enable {{ item }} --force
+  loop:
+    - faillock
+    - faillock_notify
   failed_when: false
-  ignore_errors: true
-
-- name: "Enable 'faillock_notify' PAM profile"
-  shell: pam-auth-update --enable faillock_notify --force
-  register: faillock_notify_enable
-  changed_when: faillock_notify_enable.rc == 0
-  failed_when: false
-  ignore_errors: true
 
 # 5.3.2.3 Ensure pam_pwquality module is enabled
 - name: "Check if any PAM profile includes pam_pwquality.so"
@@ -73,7 +59,7 @@
   changed_when: false
 
 - name: "Create pwquality PAM profile if it does not exist"
-  copy:
+  ansible.builtin.copy:
     dest: /usr/share/pam-configs/pwquality
     content: |
       Name: Pwquality password strength checking
@@ -136,7 +122,7 @@
 
 - name: "Find PAM config files under /usr/share/pamconfigs/ containing 'pam_faillock.so ... deny'"
   shell: |
-    grep -Pl -- '\bpam_faillock\.so\h+([^#\n\r]+\h+)?deny\b' /usr/share/pamconfigs/*
+    grep -Pl -- '\bpam_faillock\.so\h+([^#\n\r]+\h+)?deny\b' /usr/share/pam-configs/*
   register: pam_faillock_deny_files
   changed_when: false
   failed_when: false
@@ -207,39 +193,64 @@
   when: pam_faillock_root_flags.stdout_lines | length > 0
 
 # 5.3.3.2.1 Ensure password number of changed characters is configured
-- name: Ensure difok is set to 2 securely
+- name: Ensure CIS compliance for pam_pwquality module (5.3.3.2.x)
   block:
-    - name: Comment out existing difok in /etc/security/pwquality.conf
+    - name: Comment out existing pwquality parameters in main config
       ansible.builtin.replace:
         path: /etc/security/pwquality.conf
-        regexp: '^\s*difok\s*='
-        replace: '# difok ='
-      ignore_errors: true  # In case file doesn't exist
+        regexp: '^\s*({{ item }})\s*='
+        replace: '# \g<0>'
+      loop:
+        - difok
+        - minlen
+        - dcredit
+        - ucredit
+        - lcredit
+        - ocredit
+        - maxrepeat
+        - maxclassrepeat
+        - dictcheck
+        - enforce_for_root
+      ignore_errors: true
 
-    - name: Ensure pwquality.conf.d directory exists
+    - name: Ensure pwquality configuration directory exists
       ansible.builtin.file:
         path: /etc/security/pwquality.conf.d
         state: directory
         mode: '0755'
 
-    - name: Set difok = 2 in a dedicated .conf file
+    - name: Create CIS pwquality configuration file
       ansible.builtin.copy:
-        dest: /etc/security/pwquality.conf.d/50-pwdifok.conf
+        dest: /etc/security/pwquality.conf.d/50-cis_pwquality.conf
         content: |
+          # CIS Controls 5.3.3.2.x – pam_pwquality configuration
           difok = 2
+          minlen = 14
+          dcredit = -1
+          ucredit = -1
+          lcredit = -1
+          ocredit = -1
+          maxrepeat = 3
+          maxclassrepeat = 4
+          dictcheck = 1
+          enforce_for_root
         owner: root
         group: root
         mode: '0644'
 
-    - name: Remove difok from pam_pwquality.so lines in /usr/share/pamconfigs/*
+    - name: Find PAM config files containing pam_pwquality.so with CIS parameters
       ansible.builtin.shell: |
-        for f in $(grep -Pl -- '\bpam_pwquality\.so\b.*\bdifok=' /usr/share/pamconfigs/* 2>/dev/null); do
-          sed -ri 's/(\bpam_pwquality\.so\b[^#\n\r]*)\bdifok=[0-9]+\b\s*//g' "$f"
-        done
-      args:
-        executable: /bin/bash
+        grep -Pl -- '\bpam_pwquality\.so\h+([^#\n\r]+\h+)?(difok|minlen|dcredit|ucredit|lcredit|ocredit|maxrepeat|maxclassrepeat|dictcheck|enforce_for_root)\b' /usr/share/pam-configs/* || true
+      register: pam_pwquality_files
       changed_when: false
-      ignore_errors: true  # Safe fallback
+
+    - name: Remove inline pam_pwquality arguments from /usr/share/pam-configs files
+      ansible.builtin.replace:
+        path: "{{ item }}"
+        regexp: '\b(difok|minlen|dcredit|ucredit|lcredit|ocredit|maxrepeat|maxclassrepeat|dictcheck|enforce_for_root)=[^\s#]+'
+        replace: ''
+      loop: "{{ pam_pwquality_files.stdout_lines }}"
+      when: pam_pwquality_files.stdout_lines | length > 0
 
 # 5.3.3.2.2 Ensure minimum password length is configured
 - name: Check if /usr/share/pam-configs directory exists
@@ -255,46 +266,14 @@
   register: pam_pwhistory_files
   when: pam_configs_dir.stat.exists
   changed_when: false
-  failed_when: pam_pwhistory_files.rc != 0 and pam_pwhistory_files.rc != 1
+  failed_when: pam_pwhistory_files.rc not in [0,1]
 
-
-- name: Ensure 'enforce_for_root' is present in pam_pwhistory line
+- name: Ensure pam_pwhistory options are present
   ansible.builtin.lineinfile:
     path: "{{ item }}"
-    regexp: '^(.*pam_pwhistory\.so.*)(?<!enforce_for_root)(.*)$'
-    line: '\1 enforce_for_root\2'
-    backrefs: yes
-  loop: "{{ pam_pwhistory_files.stdout_lines }}"
-  when: pam_pwhistory_files.stdout_lines | length > 0
-
-- name: Enable updated PAM profile using pam-auth-update
-  ansible.builtin.command: pam-auth-update --enable "{{ item | basename }}"
-  loop: "{{ pam_pwhistory_files.stdout_lines | map('basename') | list }}"
-  when: pam_pwhistory_files.stdout_lines | length > 0
-
-# 5.3.3.3.3 Ensure pam_pwhistory includes use_authtok
-
-- name: Check if /usr/share/pam-configs directory exists
-  ansible.builtin.stat:
-    path: /usr/share/pam-configs
-  register: pam_configs_dir
-
-- name: Find PAM config files using pam_pwhistory.so in Password-Type section
-  ansible.builtin.shell: |
-    awk '/Password-Type:/{ f = 1; next }
-         /-Type:/{ f = 0 }
-         f { if (/pam_pwhistory\.so/) print FILENAME }' /usr/share/pam-configs/*
-  register: pam_pwhistory_files
-  when: pam_configs_dir.stat.exists
-  changed_when: false
-  failed_when: pam_pwhistory_files.rc != 0 and pam_pwhistory_files.rc != 1
-
-- name: Ensure 'use_authtok' is present in pam_pwhistory line
-  ansible.builtin.lineinfile:
-    path: "{{ item }}"
-    regexp: '^(.*pam_pwhistory\.so.*)(?<!use_authtok)(.*)$'
-    line: '\1 use_authtok\2'
-    backrefs: yes
+    regexp: '^.*pam_pwhistory\.so.*$'
+    line: 'requisite pam_pwhistory.so remember=24 enforce_for_root try_first_pass use_authtok'
+    backrefs: no
   loop: "{{ pam_pwhistory_files.stdout_lines }}"
   when: pam_pwhistory_files.stdout_lines | length > 0
 
@@ -329,7 +308,6 @@
   when: pam_unix_nullok_files.stdout_lines | length > 0
   changed_when: false
   failed_when: false
-
 
 - name: Run pam-auth-update for edited profiles
   ansible.builtin.shell: "pam-auth-update --enable {{ item.stdout }}"

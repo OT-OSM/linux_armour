@@ -1,19 +1,10 @@
-- name: Define security banners
-  ansible.builtin.set_fact:
-    banner_message: |
-      ******************************************************************
-      * WARNING: Authorized access only!                               *
-      * Disconnect IMMEDIATELY if you are not an authorized user.      *
-      * All activities may be monitored and recorded.                  *
-      ******************************************************************
-
 # 1.6.1 Ensure message of the day is configured properly
 # 1.6.4 Ensure permissions on /etc/motd are configured
 
 - name: Configure /etc/motd
   ansible.builtin.copy:
     dest: /etc/motd
-    content: "{{ banner_message }}"
+    content: "{{ ssh_banner_content }}"
     owner: root
     group: root
     mode: '0644'
@@ -23,7 +14,7 @@
 - name: Configure /etc/issue
   ansible.builtin.copy:
     dest: /etc/issue
-    content: "{{ banner_message }}"
+    content: "{{ ssh_banner_content }}"
     owner: root
     group: root
     mode: '0644'
@@ -33,7 +24,7 @@
 - name: Configure /etc/issue.net
   ansible.builtin.copy:
     dest: /etc/issue.net
-    content: "{{ banner_message }}"
+    content: "{{ ssh_banner_content }}"
     owner: root
     group: root
     mode: '0644'

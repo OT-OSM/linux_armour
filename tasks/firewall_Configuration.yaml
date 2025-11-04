@@ -1,91 +1,98 @@
 # 4.1.1 Ensure a single firewall configuration utility is in use
-- name: Uninstall non-selected firewall packages
-  ansible.builtin.package:
-    name: "{{ item }}"
-    state: absent
-  loop: "{{ firewall_packages_by_os[ansible_facts.os_family] | default([]) }}"
-  when: item != firewall_package
-
 # 4 Ensure a single firewall is configured
 - name: Install selected firewall package
   ansible.builtin.package:
     name:  "{{ firewall_package }}"
     state: present
 
-- name: Ensure firewall_package service is enabled and started
-  ansible.builtin.service:
-    name: '{{ firewall_package }}'
-    state: started
-    enabled: true
-  
 # # 4.1 Cofigure ufw
 - name: Configure ufw
   when: firewall_package == "ufw"
   block:
+    - name: Uninstall nftables
+      ansible.builtin.package:
+        name: nftables
+        state: absent
+      ignore_errors: true
+
+    - name: Ensure firewall_package service is enabled and started
+      ansible.builtin.service:
+        name: ufw
+        state: started
+        enabled: true
+
     - name: Ensure iptables-persistent absent
       ansible.builtin.apt:
         name: iptables-persistent
         state: absent
+
+    - name: Enable UFW
+      community.general.ufw:
+        state: enabled
 
     - name: Unmask ufw service (if needed)
       ansible.builtin.systemd:
         name: ufw.service
         masked: false
 
-    - name: Allow SSH through UFW
+    - name: Ensure UFW loopback rules are configured
       community.general.ufw:
-        rule: allow
-        port: 22
-        proto: tcp
-
-    - name: Allow everything and enable UFW
-      community.general.ufw:
-        state: enabled
-
-    - name: Ensure ufw loopback traffic is configured
-      ansible.builtin.command: "{{ item }}"
+        rule: "{{ item.rule }}"
+        direction: "{{ item.direction | default(omit) }}"
+        interface: "{{ item.interface | default(omit) }}"
+        src: "{{ item.src | default(omit) }}"
       loop:
-        - ufw allow in on lo
-        - ufw allow out on lo
-        - ufw deny in from 127.0.0.0/8
-        - ufw deny in from ::1
+        - { rule: allow, interface: lo, direction: in }
+        - { rule: allow, interface: lo, direction: out }
+        - { rule: deny, src: "127.0.0.0/8", direction: in }
+        - { rule: deny, src: "::1", direction: in }
 
     - name: Ensure ufw rules for specific ports
       community.general.ufw:
         rule: allow
         port: "{{ item.port }}"
         proto: "{{ item.proto }}"
+        direction: in
       loop: "{{ allowed_ports }}"
 
-  # 4.2.5 Ensure ufw outbound connections are configured (Manual)
-  # - name: Ensure ufw outbound connections are configured
-  #   command: ufw allow out on all
+    - name: Ensure ufw rules for specific ports (outgoing)
+      community.general.ufw:
+        rule: allow
+        port: "{{ item.port }}"
+        proto: "{{ item.proto }}"
+        direction: out
+      loop: "{{ allowed_ports }}"
 
-    - name: Set default deny incoming policy
+    - name: Set default deny incoming/outgoing/routed policy
       ufw:
         policy: deny
-        direction: incoming
-
-    - name: Set default deny outgoing policy
-      ufw:
-        policy: deny
-        direction: outgoing
-      when: "'22/tcp ALLOW' in ufw_status.stdout or '22 ALLOW' in ufw_status.stdout"
-      vars:
-        ufw_status: "{{ lookup('pipe', 'ufw status') | default('') }}"
-
-    - name: Set default deny incoming policy
-      ufw:
-        policy: deny
-        direction: routed
+        direction: "{{ item }}"
+      loop:
+        - incoming
+        - outgoing
+        - routed
 
 # 4.2 Cofigure nftables
 - name: Configure nftables
   when: firewall_package == "nftables"
   block:
-    - name: Ensure iptables are flushed before using nftables
-      ansible.builtin.command: iptables -F
+    - name: Ensure firewall_package service is enabled and started
+      ansible.builtin.service:
+        name: nftables
+        state: started
+        enabled: true
+
+    - name: Disable UFW if active
+      ansible.builtin.service:
+        name: ufw
+        state: stopped
+        enabled: false
       ignore_errors: true
+
+    - name: Uninstall UFW package (if installed)
+      ansible.builtin.package:
+        name: ufw
+        state: absent
 
     - name: Ensure nftables configuration directory exists
       ansible.builtin.file:
@@ -104,91 +111,64 @@
     - name: Ensure nftables main config includes our table
       ansible.builtin.lineinfile:
         path: /etc/nftables.conf
-        regexp: '^include "/etc/nftables/{{ nftable_name }}.conf"'
+        regexp: '^include "/etc/nftables/{{ nftable_name }}\.conf"'
         line: 'include "/etc/nftables/{{ nftable_name }}.conf"'
         insertafter: EOF
       notify: Apply nftables ruleset
     - name: Save nftables rules persistently
-      ansible.builtin.command: "nft list ruleset > /etc/nftables.conf"
+      ansible.builtin.shell: "nft list ruleset > /etc/nftables.conf"
 
 # 4.3 Cofigure iptables
 - name: Configure iptables
   when: firewall_package == "iptables"
   block:
-    - name: Ensure iptables-persistent is installed
-      ansible.builtin.apt:
-        name: iptables-persistent
-        state: present
-      become: true
-
-    - name: Flush existing iptables rules
-      ansible.builtin.command: iptables -F
-      ignore_errors: true
-
-    - name: Disabling and stoping NFTables
-      ansible.builtin.service:
-        name: 'nftables.service'
+    # Disable and mask nftables and ufw
+    - name: Disable and mask nftables
+      ansible.builtin.systemd:
+        name: nftables
         state: stopped
         enabled: false
+        masked: true
+      ignore_errors: true
+
+    - name: Flush nftables ruleset if present
+      ansible.builtin.command: nft flush ruleset
+      ignore_errors: true
 
     - name: Disable UFW
       community.general.ufw:
-       state: disabled
-      ignore_errors: true
-  
-    - name: Check if nftables service exists
-      ansible.builtin.shell: systemctl status nftables.service
-      register: nftables_status
-      failed_when: false
-      changed_when: false
-      become: true
-
-    - name: Stop nftables service
-      ansible.builtin.systemd:
-        name: nftables
-        state: stopped
-        enabled: no
-      when: nftables_status.rc == 0
-      become: true
+        state: disabled
       ignore_errors: true
 
-    - name: Mask nftables service
-      ansible.builtin.systemd:
-        name: nftables
-        masked: yes
-      when: nftables_status.rc == 0
-      become: true
+    - name: Uninstall other firewall packages
+      ansible.builtin.package:
+        name:
+          - nftables
+          - ufw
+        state: absent
       ignore_errors: true
 
-    - name: Ensure iptables configuration directory exists
-      ansible.builtin.file:
-        path: /etc/iptables
-        state: directory
-        mode: "0755"
+    # Install iptables packages
+    - name: Install iptables persistence package
+      ansible.builtin.package:
+        name: "{{ 'iptables-persistent' if ansible_facts.os_family == 'Debian' else 'iptables-services' }}"
+        state: present
 
-    - name: Deploy IPv4 iptables template
-      ansible.builtin.template:
-        src: iptables.rules.v4.j2
-        dest: /etc/iptables/rules.v4
-        owner: root
-        group: root
-        mode: "0644"
+    # Configuration for IPv4 & IPv6
+    - name: Configure iptables rules for IPv4 and IPv6
+      vars:
+        ip_versions:
+          - ipv4
+          - ipv6
+      ansible.builtin.include_tasks: configure_iptablesRules.yaml
+      loop: "{{ ip_versions }}"
+      loop_control:
+        loop_var: ipver
 
-    - name: Deploy IPv6 rules template
-      ansible.builtin.template:
-        src: iptables.rules.v6.j2
-        dest: /etc/iptables/rules.v6
-        owner: root
-        group: root
-        mode: "0644"
-
-    - name: Apply IPv4 rules
-      ansible.builtin.command: iptables-restore /etc/iptables/rules.v4
-      become: true
-
-    - name: Apply IPv6 rules
-      ansible.builtin.command: ip6tables-restore /etc/iptables/rules.v6
-      become: true
+    # Persist rules
+    - name: Save iptables rules
+      ansible.builtin.shell: >
+        {{ 'netfilter-persistent save' if ansible_facts.os_family == 'Debian' else 'service iptables save' }}
 
 # 4.4 Configure firewalld
 - name: Configure firewalld

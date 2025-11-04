@@ -1,56 +1,60 @@
+# ===================================================================
 # nftables managed by Ansible
+# CIS Controls: 4.3.3 to 4.3.10
+# Do not edit manually - changes may be overwritten
+# ===================================================================
+
 table inet {{ nftable_name }} {
-    # Input chain - inbound traffic
-    chain input {
-        type filter hook input priority 0;
-        policy drop;
-        
-        # Accept all traffic from loopback interface
-        iif lo accept
 
-        # Allow established and related connections
-        ct state established,related accept
+  # 4.3.5 Ensure base chains exist
+  chain input {
+    type filter hook input priority 0;
+    policy drop;
 
-        # Allow incoming SSH
-        tcp dport 22 ct state new,established accept
+    # 4.3.6 Loopback traffic configuration
+    iif "lo" accept
+    ip saddr 127.0.0.0/8 drop
+    ip6 saddr ::1 drop
 
-        # Allow incoming DNS (UDP/TCP 53)
-        udp dport 53 accept
-        tcp dport 53 accept
+    # 4.3.7 Allow established/related connections
+    ct state established,related accept
 
-        # Drop invalid packets from localhost addresses
-        ip saddr 127.0.0.0/8 counter packets 0 bytes 0 drop
-        ip6 saddr ::1 counter packets 0 bytes 0 drop
+    # Allow SSH, DNS, HTTP, HTTPS
+    tcp dport { 22, 80, 443 } ct state new accept
+    udp dport 53 accept
+    tcp dport 53 accept
 
-        # Log and drop other packets
-        counter packets 0 bytes 0 log prefix "Dropped by nftables: " drop
+    # Optional: ICMP ping
+    ip protocol icmp accept
+    ip6 nexthdr icmpv6 accept
 
-        # Accept established TCP connections
-        ip protocol tcp ct state established accept
+    # Log and drop others
+    counter packets 0 bytes 0 log prefix "Dropped by nftables: " drop
+  }
 
-        # Accept established UDP connections
-        ip protocol udp ct state established accept
+  chain forward {
+    type filter hook forward priority 0;
+    policy drop;
+  }
 
-        # Accept established ICMP connections
-        ip protocol icmp ct state established accept
-    }
-    chain forward {
-        type filter hook forward priority 0;
-        policy drop;
-    }
-    chain output {
-        type filter hook output priority 0;
-        policy accept;
+  chain output {
+    type filter hook output priority 0;
+    policy drop;
 
-        # Allow new, related, and established TCP connections
-        ip protocol tcp ct state new,related,established accept
+    # Allow loopback
+    oif "lo" accept
 
-        # Allow new, related, and established UDP connections
-        ip protocol udp ct state new,related,established accept
+    # Allow established/related responses (SSH, DNS replies, etc.)
+    ct state established,related accept
 
-        # Allow new, related, and established ICMP connections
-        ip protocol icmp ct state new,related,established accept
-    }
+    # Allow DNS lookups
+    udp dport 53 accept
+    tcp dport 53 accept
+
+    # Allow SSH client connections if needed (e.g., outbound to git servers)
+    tcp dport 22 accept
+
+    # (Optional) Allow HTTP/HTTPS if server needs to fetch packages or APIs
+    tcp dport { 80, 443 } accept
+   }
 }
-
-

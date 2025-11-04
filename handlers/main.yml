@@ -71,3 +71,8 @@
   ansible.builtin.systemd:
     name: rsyslog
     state: restarted
+
+- name: Restart sshd
+  ansible.builtin.service:
+    name: sshd
+    state: restarted

@@ -58,7 +58,7 @@
         path: /etc/systemd/timesyncd.conf.d
         state: directory
         mode: '0755'
-
+    # Need change
     # - name: Update 60-timesyncd.conf with NTP settings if [Time] section doesn't exist
     #   ansible.builtin.blockinfile:
     #     path: /etc/systemd/timesyncd.conf.d/60-timesyncd.conf
@@ -89,6 +89,7 @@
 - name: Configure Chrony
   when: time_sync_daemon == "chrony"
   block:
+    # Need change
     # - name: Ensure chrony is configured with authorized NTP servers
     #   ansible.builtin.blockinfile:
     #     path: "/etc/chrony/chrony.conf"

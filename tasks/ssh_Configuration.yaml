@@ -21,7 +21,7 @@
     group: root
     mode: '0600'
   loop: "{{ ssh_private_keys.files }}"
-  when: ssh_private_keys.matched > 0
+  when: ssh_private_keys.matched | default(0) | int > 0
 
 # 5.1.3 Ensure permissions on SSH public host key files are configured
 - name: Ensure permissions on SSH public host key files
@@ -38,7 +38,7 @@
     group: root
     mode: '0644'
   loop: "{{ ssh_public_keys.files }}"
-  when: ssh_public_keys.matched > 0
+  when: ssh_public_keys.matched | default(0) | int > 0
 
 # 5.1.4 Ensure sshd access is configured
 - name: Ensure sshd_config has correct ownership and permissions
@@ -48,16 +48,17 @@
     group: root
     mode: '0600'
 
-# Need Fix
 - name: Configure sshd settings
   ansible.builtin.lineinfile:
     path: /etc/ssh/sshd_config
     regexp: "^#?AllowUsers"
-    line: "AllowUsers user1 user2"
+    line: "AllowUsers {{ (ssh_allow_users + [ansible_user]) | unique | join(' ') }}"
     state: present
     create: yes
     backup: yes
     insertafter: EOF
+  when: ssh_allow_users is defined and ssh_allow_users | length > 0
+  notify: Restart sshd
 
 - name: Configure sshd settings
   ansible.builtin.lineinfile:
@@ -69,12 +70,13 @@
     backup: yes
     insertafter: EOF
   loop:
-    # - { regexp: '^#?GSSAPIAuthentication', line: 'GSSAPIAuthentication no' }
-    - { regexp: '^#?IgnoreRhosts', line: 'IgnoreRhosts yes' }
-    - { regexp: '^#?LogLevel', line: 'LogLevel VERBOSE' }
-    - { regexp: '^#?PermitEmptyPasswords', line: 'PermitEmptyPasswords no' }
-    - { regexp: '^#?PermitRootLogin', line: 'PermitRootLogin no' }
-    - { regexp: '^#?UsePAM', line: 'UsePAM yes' }
+    - { regexp: '^#?GSSAPIAuthentication', line: 'GSSAPIAuthentication {{ ssh_gssapi_authentication }}' }
+    - { regexp: '^#?IgnoreRhosts', line: 'IgnoreRhosts {{ ssh_ignore_rhosts }}' }
+    - { regexp: '^#?LogLevel', line: 'LogLevel {{ ssh_log_level }}' }
+    - { regexp: '^#?PermitEmptyPasswords', line: 'PermitEmptyPasswords {{ ssh_permit_empty_passwords }}' }
+    - { regexp: '^#?PermitRootLogin', line: 'PermitRootLogin {{ ssh_permit_root_login }}' }
+    - { regexp: '^#?UsePAM', line: 'UsePAM {{ ssh_use_pam }}' }
+  notify: Restart sshd
 
 - name: Configure sshd settings
   when: cis_Stage > 1
@@ -87,16 +89,17 @@
     backup: yes
     insertafter: EOF
   loop:
-    # - { regexp: '^#?Banner', line: 'Banner /etc/issue.net' }
-    - { regexp: '^#?Ciphers', line: 'Ciphers aes256-ctr,aes192-ctr,aes128-ctr' }
-    # - { regexp: '^#?ClientAliveInterval', line: 'ClientAliveInterval 300' }
-    # - { regexp: '^#?ClientAliveCountMax', line: 'ClientAliveCountMax 0' }
-    - { regexp: '^#?DisableForwarding', line: 'DisableForwarding yes' }
-    # - { regexp: '^#?HostbasedAuthentication', line: 'HostbasedAuthentication no' }
-    - { regexp: '^#?KexAlgorithms', line: 'KexAlgorithms -diffie-hellman-group1-sha1,diffie-hellman-group14-sha1,diffie-hellman-group-exchange-sha1' }
-    # - { regexp: '^#?LoginGraceTime', line: 'LoginGraceTime 30' }
-    - { regexp: '^#?MACs', line: 'MACs hmac-sha2-512-etm@openssh.com,hmac-sha2-256-etm@openssh.com' }
-    - { regexp: '^#?MaxAuthTries', line: 'MaxAuthTries 3' }
-    # - { regexp: '^#?MaxSessions', line: 'MaxSessions 10' }
-    - { regexp: '^#?MaxStartups', line: 'MaxStartups 10:30:60' }
-    # - { regexp: '^#?PermitUserEnvironment', line: 'PermitUserEnvironment no' }
+    - { regexp: '^#?Banner', line: 'Banner /etc/issue.net' }
+    - { regexp: '^#?Ciphers', line: 'Ciphers {{ ssh_ciphers | join(",") }}' }
+    - { regexp: '^#?ClientAliveInterval', line: 'ClientAliveInterval {{ ssh_client_alive_interval }}' }
+    - { regexp: '^#?ClientAliveCountMax', line: 'ClientAliveCountMax {{ ssh_client_alive_count_max }}' }
+    - { regexp: '^#?DisableForwarding', line: 'DisableForwarding {{ ssh_disable_forwarding }}' }
+    - { regexp: '^#?HostbasedAuthentication', line: 'HostbasedAuthentication {{ ssh_hostbased_authentication }}' }
+    - { regexp: '^#?KexAlgorithms', line: 'KexAlgorithms {{ ssh_kex_algorithms | join(",") }}' }
+    - { regexp: '^#?LoginGraceTime', line: 'LoginGraceTime {{ ssh_login_grace_time }}' }
+    - { regexp: '^#?MACs', line: 'MACs {{ ssh_macs | join(",") }}' }
+    - { regexp: '^#?MaxAuthTries', line: 'MaxAuthTries {{ ssh_max_auth_tries }}' }
+    - { regexp: '^#?MaxSessions', line: 'MaxSessions {{ ssh_max_sessions }}' }
+    - { regexp: '^#?MaxStartups', line: 'MaxStartups {{ ssh_max_startups }}' }
+    - { regexp: '^#?PermitUserEnvironment', line: 'PermitUserEnvironment {{ ssh_permit_user_environment }}' }
+  notify: Restart sshd

@@ -24,6 +24,8 @@ root_password: "Cis@123#"
 
 sudo_timeout: 15
 
+su_group: "{{ 'wheel' if ansible_facts['os_family'] == 'RedHat' else 'sudo' }}"
+
 # Set the default time synchronization daemon
 time_sync_daemon: chrony # Replace with one of in list ('chrony', 'systemd-timesyncd')
 
@@ -52,7 +54,49 @@ allowed_ports:
   - { port: "80", proto: "tcp" }
   - { port: "443", proto: "tcp" }
 
-nftable_name: "my_nftables_rule"
+nftable_name: "cis_benchmark_ruleset"
+
+ssh_allow_users: []
+
+ssh_banner_content: |
+  ***********************************************************************
+  * WARNING: Authorized access only!                                    *
+  * Disconnect immediately if you are not an authorized user.           *
+  * All activities may be monitored and recorded.                       *
+  ***********************************************************************
+
+ssh_client_alive_interval: 300
+ssh_client_alive_count_max: 3
+ssh_max_auth_tries: 3
+ssh_max_sessions: 10
+ssh_max_startups: "10:30:60"
+ssh_login_grace_time: 30
+
+ssh_disable_forwarding: "yes"
+ssh_gssapi_authentication: "no"
+ssh_hostbased_authentication: "no"
+ssh_ignore_rhosts: "yes"
+ssh_permit_empty_passwords: "no"
+ssh_permit_root_login: "no"
+ssh_permit_user_environment: "no"
+ssh_use_pam: "yes"
+ssh_log_level: VERBOSE
+
+ssh_kex_algorithms:
+  - ecdh-sha2-nistp256
+  - ecdh-sha2-nistp384
+  - ecdh-sha2-nistp521
+  - diffie-hellman-group-exchange-sha256
+  - diffie-hellman-group16-sha512
+  - diffie-hellman-group18-sha512
+  - diffie-hellman-group14-sha256
+
+ssh_ciphers:
+  - aes256-ctr,aes192-ctr,aes128-ctr
+
+ssh_macs:
+  - hmac-sha2-512-etm@openssh.com
+  - hmac-sha2-256-etm@openssh.com
 
 # Ensure only one logging system is used.
 preferred_logger: systemd-journald
