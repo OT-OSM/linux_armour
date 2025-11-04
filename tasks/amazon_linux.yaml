@@ -1,3 +1,5 @@
 ---
 - name: Amazon Linux 2 | Configure Time Synchronization
   include_tasks: configure_time_synchronization_al2.yaml
+- name: Amazon Linux 2 | Configure Filesystem Partitions
+  include_tasks: configure_filesystem_partitions_al2.yaml
