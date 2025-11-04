@@ -4,10 +4,6 @@
   ansible.builtin.package:
     name: "{{ item }}"
     state: absent
-  loop:
-    - ftp      # Ensure FTP client is not installed
-    - ypbind   # Ensure NIS client is not installed
-    - telnet   # Ensure Telnet client is not installed
-    - tftp     # Ensure TFTP client is not installed
+  loop: "{{ insecure_service_clients }}"
   become: true
 

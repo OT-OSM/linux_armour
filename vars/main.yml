@@ -88,3 +88,11 @@ os_services_name: ['avahi-daemon', 'slapd', 'named', 'cups', 'telnet', 'discard-
 # aide cronjob configuration
 minute_aide_cronjob: '0'
 hour_aide_cronjob: '5'
+
+#Configure Service Clients
+insecure_service_clients:
+  - ftp       # Ensure FTP client is not installed
+  - ypbind    # Ensure NIS client is not installed
+  - telnet    # Ensure Telnet client is not installed
+  - tftp      # Ensure TFTP client is not installed
+
