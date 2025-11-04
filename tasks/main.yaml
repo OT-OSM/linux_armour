@@ -2,86 +2,86 @@
 - name: Include CIS Stage Specific vars
   ansible.builtin.include_vars: cis-{{ cis_Stage }}.yaml
 
-# #######################################################
-# ###### Configure Filesystems kernel & Partitions ######
-# #######################################################
-# - name: Filesystem Configuration
-#   ansible.builtin.include_tasks: filesystem_Configuration.yaml
+#######################################################
+###### Configure Filesystems kernel & Partitions ######
+#######################################################
+- name: Filesystem Configuration
+  ansible.builtin.include_tasks: filesystem_Configuration.yaml
 
-# ##########################################
-# ###### Additional Process Hardening ######
-# ##########################################
-# - name: Process Hardening
-#   ansible.builtin.include_tasks: process_Hardening.yaml
-#   when: cis_Stage > 1
+##########################################
+###### Additional Process Hardening ######
+##########################################
+- name: Process Hardening
+  ansible.builtin.include_tasks: process_Hardening.yaml
+  when: cis_Stage > 1
 
-# ##################################################
-# ###### AppArmor & Secure Boot Configuration ######
-# ##################################################
-# - name: Secure Boot Settings
-#   ansible.builtin.include_tasks: secure_BootSettings.yaml
-#   when: ansible_os_family == 'Debian'
+##################################################
+###### AppArmor & Secure Boot Configuration ######
+##################################################
+- name: Secure Boot Settings
+  ansible.builtin.include_tasks: secure_BootSettings.yaml
+  when: ansible_os_family == 'Debian'
 
-# - name: SELinux Configuration
-#   ansible.builtin.include_tasks: selinux_Configurations.yaml
-#   when:
-#     ansible_os_family == 'RedHat'
+- name: SELinux Configuration
+  ansible.builtin.include_tasks: selinux_Configurations.yaml
+  when:
+    ansible_os_family == 'RedHat'
 
-# ##########################################
-# ###### Command Line Warning Banners ######
-# ##########################################
-# - name: Command Line Warning Banners
-#   ansible.builtin.include_tasks: command_Warning.yaml
+##########################################
+###### Command Line Warning Banners ######
+##########################################
+- name: Command Line Warning Banners
+  ansible.builtin.include_tasks: command_Warning.yaml
 
-# ############################################
-# ###### GNOME Display Manager Settings ######
-# ############################################
-# - name: Ensure GNOME Display Manager is removed
-#   ansible.builtin.apt:
-#     name: gdm3
-#     state: absent
-#   when: ansible_os_family == "Debian" and cis_Stage > 1
+############################################
+###### GNOME Display Manager Settings ######
+############################################
+- name: Ensure GNOME Display Manager is removed
+  ansible.builtin.apt:
+    name: gdm3
+    state: absent
+  when: ansible_os_family == "Debian" and cis_Stage > 1
 
-# ######################################
-# ###### Special Purpose Services ######
-# ######################################
-# - name: Remove Special Purpose Services
-#   ansible.builtin.include_tasks: services.yaml
+######################################
+###### Special Purpose Services ######
+######################################
+- name: Remove Special Purpose Services
+  ansible.builtin.include_tasks: services.yaml
 
-# ############################################
-# ###### Configure Time Synchronization ######
-# ############################################
-# - name: Configure Time Synchronization
-#   ansible.builtin.include_tasks: time_Synchronize.yaml
-#   when: cis_Stage > 1 and ansible_os_family == 'Debian'
+############################################
+###### Configure Time Synchronization ######
+############################################
+- name: Configure Time Synchronization
+  ansible.builtin.include_tasks: time_Synchronize.yaml
+  when: cis_Stage > 1 and ansible_os_family == 'Debian'
 
-# ######################################
-# ###### Configure job Schedulers ######
-# ######################################
-# - name: Configure job Schedulers
-#   ansible.builtin.include_tasks: job_Schedulers.yaml
+######################################
+###### Configure job Schedulers ######
+######################################
+- name: Configure job Schedulers
+  ansible.builtin.include_tasks: job_Schedulers.yaml
 
-# ##################################################
-# ###### Configure Uncommon Network Protocols ######
-# ##################################################
-# - name: Network Parameters For Host
-#   ansible.builtin.include_tasks: network_Configuration.yaml
-#   when: cis_Stage > 1
+##################################################
+###### Configure Uncommon Network Protocols ######
+##################################################
+- name: Network Parameters For Host
+  ansible.builtin.include_tasks: network_Configuration.yaml
+  when: cis_Stage > 1
 
-# ################################
-# ###### Configure Firewall ######
-# ################################
-# - name: Network Parameters For Host
-#   ansible.builtin.include_tasks: firewall_Configuration.yaml
+################################
+###### Configure Firewall ######
+################################
+- name: Network Parameters For Host
+  ansible.builtin.include_tasks: firewall_Configuration.yaml
 
-# ###################################
-# ###### Configure SSH Control ######
-# ###################################
-# - name: Access Control Configuration
-#   ansible.builtin.include_tasks: ssh_Configuration.yaml
+###################################
+###### Configure SSH Control ######
+###################################
+- name: Access Control Configuration
+  ansible.builtin.include_tasks: ssh_Configuration.yaml
 
-# - name: Sudo Configuration
-#   ansible.builtin.include_tasks: access_Control.yaml
+- name: Sudo Configuration
+  ansible.builtin.include_tasks: access_Control.yaml
 
 - name: pluggable_Notification Access Control Configuration
   ansible.builtin.include_tasks: pam_{{ ansible_os_family }}.yaml
