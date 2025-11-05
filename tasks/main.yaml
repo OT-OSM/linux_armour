@@ -109,4 +109,4 @@
   when: cis_Stage > 1
 
 - name: Configure System files
-  include_tasks: system_file_permission.yaml
+  include_tasks: system_file_permissions.yaml
