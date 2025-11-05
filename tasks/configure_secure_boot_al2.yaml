@@ -1,5 +1,5 @@
 ---
-- name: "1.3.1 Ensure authentication required for single user mode (rescue & emergency)"
+- name: "Ensure authentication required for single user mode (rescue & emergency)"
   ansible.builtin.lineinfile:
     path: "/usr/lib/systemd/system/{{ item }}"
     regexp: '^ExecStart='

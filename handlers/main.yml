@@ -50,7 +50,8 @@
     name: systemd-journald
     state: restarted
 
-#1.3 configuresecureboot 
 - name: Reload systemd
-  ansible.builtin.command: systemctl daemon-reload
-  become: truem
+  ansible.builtin.systemd:
+    daemon_reload: yes
+  become: true
+
