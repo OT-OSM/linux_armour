@@ -1,53 +1,4 @@
 ---
-# Configure Network Kernel Parameters
-- name: "Configure Network Kernel Parameters"
-  ansible.builtin.set_fact:
-    sysctl_params:
-      # 1. Ensure IP forwarding is disabled
-      - { name: "net.ipv4.ip_forward", value: "0", file: "/etc/sysctl.d/60-netipv4_sysctl.conf" }
-      - { name: "net.ipv6.conf.all.forwarding", value: "0", file: "/etc/sysctl.d/60-netipv6_sysctl.conf" }
-
-      # 2. Ensure packet redirect sending is disabled
-      - { name: "net.ipv4.conf.all.send_redirects", value: "0", file: "/etc/sysctl.d/60-netipv4_sysctl.conf" }
-      - { name: "net.ipv4.conf.default.send_redirects", value: "0", file: "/etc/sysctl.d/60-netipv4_sysctl.conf" }
-
-      # 3. Ensure bogus ICMP responses are ignored
-      - { name: "net.ipv4.icmp_ignore_bogus_error_responses", value: "1", file: "/etc/sysctl.d/60-netipv4_sysctl.conf" }
-
-      # 4. Ensure broadcast ICMP requests are ignored
-      - { name: "net.ipv4.icmp_echo_ignore_broadcasts", value: "1", file: "/etc/sysctl.d/60-netipv4_sysctl.conf" }
-
-      # 5. Ensure ICMP redirects are not accepted
-      - { name: "net.ipv4.conf.all.accept_redirects", value: "0", file: "/etc/sysctl.d/60-netipv4_sysctl.conf" }
-      - { name: "net.ipv4.conf.default.accept_redirects", value: "0", file: "/etc/sysctl.d/60-netipv4_sysctl.conf" }
-      - { name: "net.ipv6.conf.all.accept_redirects", value: "0", file: "/etc/sysctl.d/60-netipv6_sysctl.conf" }
-      - { name: "net.ipv6.conf.default.accept_redirects", value: "0", file: "/etc/sysctl.d/60-netipv6_sysctl.conf" }
-
-      # 6. Ensure secure ICMP redirects are not accepted
-      - { name: "net.ipv4.conf.all.secure_redirects", value: "0", file: "/etc/sysctl.d/60-netipv4_sysctl.conf" }
-      - { name: "net.ipv4.conf.default.secure_redirects", value: "0", file: "/etc/sysctl.d/60-netipv4_sysctl.conf" }
-
-      # 7. Ensure reverse path filtering is enabled
-      - { name: "net.ipv4.conf.all.rp_filter", value: "1", file: "/etc/sysctl.d/60-netipv4_sysctl.conf" }
-      - { name: "net.ipv4.conf.default.rp_filter", value: "1", file: "/etc/sysctl.d/60-netipv4_sysctl.conf" }
-
-      # 8. Ensure source routed packets are not accepted
-      - { name: "net.ipv4.conf.all.accept_source_route", value: "0", file: "/etc/sysctl.d/60-netipv4_sysctl.conf" }
-      - { name: "net.ipv4.conf.default.accept_source_route", value: "0", file: "/etc/sysctl.d/60-netipv4_sysctl.conf" }
-      - { name: "net.ipv6.conf.all.accept_source_route", value: "0", file: "/etc/sysctl.d/60-netipv6_sysctl.conf" }
-      - { name: "net.ipv6.conf.default.accept_source_route", value: "0", file: "/etc/sysctl.d/60-netipv6_sysctl.conf" }
-
-      # 9. Ensure suspicious packets are logged
-      - { name: "net.ipv4.conf.all.log_martians", value: "1", file: "/etc/sysctl.d/60-netipv4_sysctl.conf" }
-      - { name: "net.ipv4.conf.default.log_martians", value: "1", file: "/etc/sysctl.d/60-netipv4_sysctl.conf" }
-
-      # 10. Ensure TCP SYN cookies is enabled
-      - { name: "net.ipv4.tcp_syncookies", value: "1", file: "/etc/sysctl.d/60-netipv4_sysctl.conf" }
-
-      # 11. Ensure IPv6 router advertisements are not accepted
-      - { name: "net.ipv6.conf.all.accept_ra", value: "0", file: "/etc/sysctl.d/60-netipv6_sysctl.conf" }
-      - { name: "net.ipv6.conf.default.accept_ra", value: "0", file: "/etc/sysctl.d/60-netipv6_sysctl.conf" }
-
 # Check whether IPv6 is enabled
 - name: "Check IPv6 enablement status"
   ansible.builtin.shell: cat /sys/module/ipv6/parameters/disable
@@ -65,7 +16,7 @@
     state: present
   loop: "{{ sysctl_params }}"
   loop_control:
-    label: "{{ item.name }}" 
+    label: "{{ item.name }}"
   become: true
 
 # Apply settings to the running kernel (IPv6 only if enabled)
@@ -80,7 +31,7 @@
     fi
   loop: "{{ sysctl_params }}"
   loop_control:
-    label: "{{ item.name }}"   
+    label: "{{ item.name }}"
   when: not (item.name is search("ipv6") and ipv6_disabled.stdout is defined and ipv6_disabled.stdout.strip() != "0")
   become: true
 
