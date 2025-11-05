@@ -17,10 +17,7 @@
   ansible.builtin.blockinfile:
     path: /etc/systemd/coredump.conf
     create: yes
-    block: "{{ item.block }}"
-  loop: "{{ core_dump_blocks }}"
-  loop_control:
-    label: "{{ item.desc }}"
+    block: "{{ coredump_config_block }}"
   notify:
-    - reload systemd reexec
+    - reload systemd daemon
 

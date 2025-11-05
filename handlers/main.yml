@@ -50,6 +50,7 @@
     name: systemd-journald
     state: restarted
 
-- name: reload systemd reexec
-  ansible.builtin.command: systemctl daemon-reexec
+- name: reload systemd daemon
+  ansible.builtin.systemd:
+    daemon_reload: yes
   become: true

@@ -94,7 +94,8 @@ kernel_hardening_params:
   - { name: "kernel.randomize_va_space", value: "2", desc: "Ensure ASLR is enabled" }
   - { name: "kernel.yama.ptrace_scope", value: "1", desc: "Restrict ptrace_scope" }
 
-core_dump_blocks:
-  - { block: "[Coredump]\nProcessSizeMax=0", desc: "Disable core dump backtraces" }
-  - { block: "[Coredump]\nStorage=none", desc: "Disable core dump storage" }
+coredump_config_block: |
+  [Coredump]
+  ProcessSizeMax=0
+  Storage=none
 
