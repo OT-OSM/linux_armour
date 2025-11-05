@@ -1,4 +1,6 @@
 ---
+- name: Amazon Linux 2 | Configure Service Clients
+  include_tasks: configure_service_clients_al2.yaml
 - name: Amazon Linux 2 | Configure selinux
   include_tasks: configure_selinux_al2.yaml
 - name: Amazon Linux 2 | Configure secure boot setting 
