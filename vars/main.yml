@@ -88,3 +88,13 @@ os_services_name: ['avahi-daemon', 'slapd', 'named', 'cups', 'telnet', 'discard-
 # aide cronjob configuration
 minute_aide_cronjob: '0'
 hour_aide_cronjob: '5'
+
+#Configure SELinux
+selinux_packages:
+  - libselinux
+selinux_policy_type: targeted
+selinux_mode: enforcing
+unwanted_selinux_packages:
+  - mcstrans
+  - setroubleshoot
+

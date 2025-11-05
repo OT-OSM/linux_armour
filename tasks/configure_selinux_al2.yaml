@@ -2,7 +2,7 @@
 # Ensure SELinux is installed
 - name: "Ensure SELinux is installed"
   ansible.builtin.package:
-    name: libselinux
+    name: "{{ selinux_packages }}"
     state: present
   become: true
 
@@ -28,7 +28,7 @@
   ansible.builtin.lineinfile:
     path: /etc/selinux/config
     regexp: '^SELINUXTYPE='
-    line: 'SELINUXTYPE=targeted'
+    line: 'SELINUXTYPE={{ selinux_policy_type }}'
     state: present
     backup: yes
   become: true
@@ -47,7 +47,7 @@
       ansible.builtin.lineinfile:
         path: /etc/selinux/config
         regexp: '^SELINUX='
-        line: 'SELINUX=enforcing'
+        line: 'SELINUX={{ selinux_mode }}'
         state: present
         backup: yes
       become: true
@@ -73,9 +73,7 @@
 # Ensure unnecessary SELinux-related services (mcstrans and SETroubleshoot) are not installed
 - name: "Ensure mcstrans and SETroubleshoot packages are not installed"
   ansible.builtin.package:
-    name:
-      - mcstrans        # Removes the MCS Translation Service
-      - setroubleshoot  # Removes the SETroubleshoot service
+    name: "{{ unwanted_selinux_packages }}"
     state: absent
   become: true
 
