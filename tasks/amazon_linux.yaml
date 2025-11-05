@@ -1,0 +1,3 @@
+---
+- name: Amazon Linux 2 | Configure firewall utility
+  include_tasks: configure_firewall_utility.yaml

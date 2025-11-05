@@ -88,3 +88,33 @@ os_services_name: ['avahi-daemon', 'slapd', 'named', 'cups', 'telnet', 'discard-
 # aide cronjob configuration
 minute_aide_cronjob: '0'
 hour_aide_cronjob: '5'
+
+#Configure firewall utility and firewalld
+firewall_base_packages:
+  - iptables
+  - firewalld
+
+firewall_remove_packages:
+  firewalld:
+    - nftables
+    - iptables-services
+  nftables:
+    - firewalld
+    - iptables-services
+  iptables-services:
+    - firewalld
+    - nftables
+
+firewall_stop_services:
+  firewalld:
+    - nftables
+    - iptables
+    - ip6tables
+  nftables:
+    - firewalld
+    - iptables
+    - ip6tables
+  iptables-services:
+    - firewalld
+    - nftables
+
