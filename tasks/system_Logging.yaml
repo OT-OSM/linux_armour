@@ -38,17 +38,6 @@
         update_cache: yes
       when:
         ansible_os_family == 'RedHat'
-      
-    # 6.1.2.1.3 Ensure systemd-journal-upload is enabled and active
-    - name: Unmask systemd-journal-upload.service
-      ansible.builtin.command: systemctl unmask systemd-journal-upload.service
-      changed_when: true
-
-    - name: Enable and start systemd-journal-upload.service
-      ansible.builtin.systemd:
-        name: systemd-journal-upload.service
-        enabled: yes
-        state: started
 
     # 6.1.2.1.4 Ensure systemd-journal-remote service is not in use
     - name: Stop systemd-journal-remote.socket and service
@@ -158,5 +147,5 @@
   ansible.builtin.command: /usr/local/bin/check_log_permissions.sh
   become: true
   register: log_check_result
-  changed_when: log_check_result.stdout != ""
+  changed_when: log_check_result.stdout | length > 0
   failed_when: false

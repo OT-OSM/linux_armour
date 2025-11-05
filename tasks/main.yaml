@@ -83,21 +83,30 @@
 - name: Sudo Configuration
   ansible.builtin.include_tasks: access_Control.yaml
 
+##############################################################
+###### Configure Pluggable Authentication Modules (PAM) ######
+##############################################################
 - name: pluggable_Notification Access Control Configuration
   ansible.builtin.include_tasks: pam_{{ ansible_os_family }}.yaml
 
-# - name: Configure user account and environment
-#   include_tasks: user_Account_Environments.yaml
+####################################################
+###### Configure User Account AND ENVIRONMENT ######
+####################################################
+- name: Configure user account and environment
+  include_tasks: user_Account_Environments.yaml
 
-# - name: Ensure filesystem integrity is regularly checked
-#   include_tasks: system_Logging.yaml
+####################################################
+###### Configure System Logging ######
+####################################################
+- name: Ensure filesystem integrity is regularly checked
+  ansible.builtin.include_tasks: system_Logging.yaml
 
-# - name: Configure System Accounting
-#   include_tasks: audit.yaml
+- name: Configure System Accounting
+  include_tasks: audit.yaml
 
-# - name: Ensure filesystem integrity is regularly checked
-#   include_tasks: filesystem_Integrity.yaml
-#   when: cis_Stage > 1
+- name: Ensure filesystem integrity is regularly checked
+  include_tasks: filesystem_Integrity.yaml
+  when: cis_Stage > 1
 
-# - name: Configure System files
-#   include_tasks: system_file_permission.yaml
+- name: Configure System files
+  include_tasks: system_file_permission.yaml
