@@ -1,4 +1,6 @@
 ---
+- name: Amazon Linux 2 | Configure secure boot setting 
+  include_tasks: configure_secure_boot_al2.yaml
 - name: Amazon Linux 2 | Configure Time Synchronization
   include_tasks: configure_time_synchronization_al2.yaml
 - name: Amazon Linux 2 | Configure Filesystem Partitions
