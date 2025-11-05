@@ -97,4 +97,33 @@ selinux_mode: enforcing
 unwanted_selinux_packages:
   - mcstrans
   - setroubleshoot
+rescue_emergency_units:
+  - rescue.service
+  - emergency.service
+# Configure Time Synchronization
+chrony_amazon_timesync_block: |
+  # Amazon Linux 2 default Chrony configuration
+  server 169.254.169.123 prefer iburst minpoll 4 maxpoll 4
+  pool 0.amazon.pool.ntp.org iburst maxsources 1
+  pool 1.amazon.pool.ntp.org iburst maxsources 1
+  pool 2.amazon.pool.ntp.org iburst maxsources 2
+
+chrony_user_opts: 'OPTIONS="-u chrony"'
+
+chrony_conf_path: "/etc/chrony.d/amazon_time_sync.conf"
+chrony_service: "chronyd"
+chrony_shell_check_path: "/etc/chrony.d"
+# configure filesystem partitions for al2
+tmp_mount_options:
+  - { name: "Ensure /tmp is a separate partition", opts: "defaults,rw,nosuid,nodev,noexec,relatime" }
+  - { name: "Ensure nodev option set on /tmp", opts: "defaults,rw,nosuid,nodev,noexec,relatime" }
+  - { name: "Ensure nosuid option set on /tmp", opts: "defaults,rw,nosuid,nodev,noexec,relatime" }
+  - { name: "Ensure noexec option set on /tmp", opts: "defaults,rw,nosuid,nodev,noexec,relatime" }
+
+shm_mount_options:
+  - { name: "Ensure /dev/shm is a separate partition", opts: "defaults,rw,nosuid,nodev,noexec,relatime" }
+  - { name: "Ensure nodev option set on /dev/shm", opts: "defaults,rw,nosuid,nodev,noexec,relatime" }
+  - { name: "Ensure nosuid option set on /dev/shm", opts: "defaults,rw,nosuid,nodev,noexec,relatime" }
+  - { name: "Ensure noexec option set on /dev/shm", opts: "defaults,rw,nosuid,nodev,noexec,relatime" }
+
 
