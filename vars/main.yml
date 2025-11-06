@@ -89,7 +89,7 @@ os_services_name: ['avahi-daemon', 'slapd', 'named', 'cups', 'telnet', 'discard-
 minute_aide_cronjob: '0'
 hour_aide_cronjob: '5'
 
-#Configure job schedulers
+# Configure job schedulers
 cron_service: crond
 cron_dirs:
   - /etc/cron.hourly
@@ -97,11 +97,7 @@ cron_dirs:
   - /etc/cron.weekly
   - /etc/cron.monthly
   - /etc/cron.d
-cron_dir_mode: "0700"
 cron_tab_file: /etc/crontab
-cron_tab_mode: "0600"
 cron_allow_file: /etc/cron.allow
-cron_allow_mode: "0640"
 cron_deny_file: /etc/cron.deny
-cron_deny_mode: "0640"
 

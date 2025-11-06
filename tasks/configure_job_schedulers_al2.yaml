@@ -8,13 +8,13 @@
     state: started
   become: true
 
-# Ensure cron directories permissions are configured
-- name: Ensure permissions on cron directories
+# Ensure permissions on cron directories are configured
+- name: Ensure permissions on cron directories are configured
   ansible.builtin.file:
     path: "{{ item }}"
     owner: root
     group: root
-    mode: "{{ cron_dir_mode }}"
+    mode: '0700'
   loop: "{{ cron_dirs }}"
   become: true
 
@@ -24,17 +24,17 @@
     path: "{{ cron_tab_file }}"
     owner: root
     group: root
-    mode: "{{ cron_tab_mode }}"
+    mode: '0600'
   become: true
 
-# Ensure /etc/cron.allow exists and is secured
+# Ensure /etc/cron.allow exists and is properly secured
 - name: Ensure /etc/cron.allow exists and is secured
   ansible.builtin.file:
     path: "{{ cron_allow_file }}"
     state: touch
     owner: root
     group: root
-    mode: "{{ cron_allow_mode }}"
+    mode: '0640'
   become: true
 
 # Check if /etc/cron.deny exists
@@ -49,7 +49,7 @@
     path: "{{ cron_deny_file }}"
     owner: root
     group: root
-    mode: "{{ cron_deny_mode }}"
+    mode: '0640'
   when: cron_deny_status.stat.exists
   become: true
 
