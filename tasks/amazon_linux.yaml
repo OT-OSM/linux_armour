@@ -1,0 +1,3 @@
+---
+- name: Amazon Linux 2 | Configure privilege escalation
+  include_tasks: configure_privilege_escalation_al2.yaml
