@@ -70,7 +70,7 @@
     label: "{{ item.item }}"
 
 # Ensure password failed attempts lockout is configured
-- name: "Ensure 'deny={{ pam_deny_value }}' is configured in pam_faillock lines"
+- name: "Ensure password failed attempts lockout is configured"
   become: true
   ansible.builtin.replace:
     path: "{{ item }}"
@@ -79,7 +79,7 @@
   loop: "{{ pam_files }}"
 
 # Ensure password unlock time is configured
-- name: "Ensure 'unlock_time={{ pam_unlock_time }}' is configured in pam_faillock lines"
+- name: "Ensure password unlock time is configured"
   become: true
   ansible.builtin.replace:
     path: "{{ item }}"
@@ -88,7 +88,7 @@
   loop: "{{ pam_files }}"
 
 # Ensure pam_pwquality module is enabled
-- name: "Check if pam_pwquality.so is configured"
+- name: "Ensure pam_pwquality module is enabled"
   become: true
   ansible.builtin.shell: |
     grep -P -- '\bpam_pwquality\.so\b' {{ item }} || true
@@ -112,7 +112,7 @@
     label: "{{ item.item }}"
 
 # Ensure password quality controls are configured (difok, minlen, maxrepeat, maxsequence)
-- name: "Set password quality controls in /etc/security/pwquality.conf"
+- name: "Ensure password quality controls are configured (difok, minlen, maxrepeat, maxsequence)"
   become: true
   ansible.builtin.lineinfile:
     path: /etc/security/pwquality.conf
@@ -136,7 +136,7 @@
     param: "{{ pwquality_parameters | first }}"
 
 # Ensure password dictionary check is enabled
-- name: "Ensure password dictionary check is enabled (Automated)"
+- name: "Ensure password dictionary check is enabled"
   become: true
   block:
     - name: "Comment out dictcheck = 0 in pwquality.conf"
@@ -165,8 +165,8 @@
   loop_control:
     label: "{{ item }}"
 
-# Ensure pam_unix.so does not include the nullok option
-- name: "Ensure pam_unix.so does not include the nullok option"
+# Ensure pam_unix does not include nullok
+- name: "Ensure pam_unix does not include nullok"
   become: true
   ansible.builtin.replace:
     path: "{{ item }}"
@@ -176,8 +176,8 @@
   loop_control:
     label: "{{ item }}"
 
-# Ensure pam_unix.so does not include the remember option (Automated)
-- name: "Ensure pam_unix.so does not include the remember option (Automated)"
+# Ensure pam_unix does not include remember
+- name: "Ensure pam_unix does not include remember"
   become: true
   ansible.builtin.replace:
     path: "{{ item }}"
@@ -187,8 +187,8 @@
   loop_control:
     label: "{{ item }}"
 
-# Ensure pam_unix.so uses SHA512 hashing algorithm with use_authtok
-- name: "Ensure pam_unix.so uses SHA512 hashing algorithm with use_authtok"
+# Ensure pam_unix includes a strong password hashing algorithm and use_authtok 
+- name: "Ensure pam_unix includes a strong password hashing algorithm and use_authtok"
   become: true
   ansible.builtin.replace:
     path: "{{ item }}"
