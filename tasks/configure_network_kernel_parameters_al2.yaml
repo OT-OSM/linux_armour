@@ -1,37 +1,34 @@
 ---
 # Check whether IPv6 is enabled
-- name: "Check IPv6 enablement status"
+- name: Check IPv6 enablement status
   ansible.builtin.shell: cat /sys/module/ipv6/parameters/disable
   register: ipv6_disabled
   changed_when: false
   failed_when: false
   become: true
 
-# Persist kernel network parameters to sysctl config files
-- name: "Persist sysctl parameters to configuration files"
-  ansible.builtin.lineinfile:
-    path: "{{ item.file }}"
-    create: yes
-    line: "{{ item.name }} = {{ item.value }}"
+# Apply sysctl parameters for Amazon Linux 2
+- name: Apply sysctl parameters for Amazon Linux 2
+  ansible.posix.sysctl:
+    name: "{{ item.name }}"
+    value: "{{ item.value }}"
+    sysctl_set: true
     state: present
+    reload: true
+    sysctl_file: "{{ item.file }}"
   loop: "{{ sysctl_params }}"
   loop_control:
     label: "{{ item.name }}"
+  register: sysctl_results
+  when: "not (item.name is search('ipv6') and ipv6_disabled.stdout is defined and ipv6_disabled.stdout.strip() != '0')"
   become: true
 
-# Apply settings to the running kernel (IPv6 only if enabled)
-- name: "Apply sysctl parameters at runtime"
-  ansible.builtin.shell: |
-    echo "Applying {{ item.name }} = {{ item.value }}"
-    sysctl -w {{ item.name }}={{ item.value }}
-    if [[ "{{ item.name }}" == net.ipv4.* ]]; then
-      sysctl -w net.ipv4.route.flush=1
-    elif [[ "{{ item.name }}" == net.ipv6.* && -f /sys/module/ipv6/parameters/disable && "$(cat /sys/module/ipv6/parameters/disable)" = "0" ]]; then
-      sysctl -w net.ipv6.route.flush=1
-    fi
-  loop: "{{ sysctl_params }}"
+- name: Display sysctl status summary
+  ansible.builtin.debug:
+    msg: >-
+      Parameter {{ item.item.name }} set to {{ item.item.value }}
+      - {{ 'updated' if item.changed else 'no change' }}
+  loop: "{{ sysctl_results.results }}"
   loop_control:
-    label: "{{ item.name }}"
-  when: not (item.name is search("ipv6") and ipv6_disabled.stdout is defined and ipv6_disabled.stdout.strip() != "0")
-  become: true
+    label: "{{ item.item.name }}"
 
