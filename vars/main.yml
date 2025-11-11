@@ -88,3 +88,18 @@ os_services_name: ['avahi-daemon', 'slapd', 'named', 'cups', 'telnet', 'discard-
 # aide cronjob configuration
 minute_aide_cronjob: '0'
 hour_aide_cronjob: '5'
+
+# Configure Pluggable Authentication Modules
+pam_min_version: "1.1.8-23"
+pam_deny_value: 5
+pam_unlock_time: 900
+pam_files:
+  - /etc/pam.d/system-auth
+  - /etc/pam.d/password-auth
+pwquality_parameters:
+  - { name: 'difok',       value: 2 }
+  - { name: 'minlen',      value: 14 }
+  - { name: 'maxrepeat',   value: 3 }
+  - { name: 'maxsequence', value: 3 }
+pam_pwhistory_remember: 24
+
