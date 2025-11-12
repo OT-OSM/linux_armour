@@ -53,3 +53,24 @@
   when: cron_deny_status.stat.exists
   become: true
 
+# Ensure at is restricted to authorized users 
+- name: "Determine group (daemon if exists, else root)"
+  ansible.builtin.shell: "grep -Pq -- '^daemon\\b' /etc/group && echo daemon || echo root"
+  register: at_group
+  changed_when: false
+
+- name: "Check if /etc/at.deny exists"
+  ansible.builtin.stat:
+    path: /etc/at.deny
+  register: at_deny_file
+
+- name: "Ensure /etc/at.allow exists and /etc/at.deny (if present) are secured"
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: file
+    owner: root
+    group: "{{ at_group.stdout.strip() }}"
+    mode: '0640'
+  loop: "{{ at_files }}"
+  when: item != '/etc/at.deny' or at_deny_file.stat.exists
+

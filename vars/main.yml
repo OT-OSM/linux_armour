@@ -100,4 +100,6 @@ cron_dirs:
 cron_tab_file: /etc/crontab
 cron_allow_file: /etc/cron.allow
 cron_deny_file: /etc/cron.deny
-
+at_files:
+  - /etc/at.allow
+  - /etc/at.deny
