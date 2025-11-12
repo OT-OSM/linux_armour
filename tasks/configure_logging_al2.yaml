@@ -1,0 +1,121 @@
+---
+
+# Ensure rsyslog is installed
+- name: Ensure rsyslog is installed
+  ansible.builtin.package:
+    name: rsyslog
+    state: present
+
+# Ensure rsyslog default file permissions are configured
+- name: Ensure rsyslog default file permissions are configured
+  ansible.builtin.lineinfile:
+    path: /etc/rsyslog.conf
+    regexp: '^#?\$FileCreateMode'
+    line: '$FileCreateMode 0640'
+  notify: Restart rsyslog
+
+# Ensure rsyslog is not configured to receive logs from a remote client
+- name: Ensure rsyslog is not configured to receive logs from a remote client
+  ansible.builtin.lineinfile:
+    path: /etc/rsyslog.conf
+    regexp: '^(module\(load="imtcp"\)|input\(type="imtcp" port="514"\)|\$ModLoad imtcp|\$InputTCPServerRun)'
+    state: absent
+  notify: Restart rsyslog
+
+# Ensure journald is not configured to receive logs from a remote client
+- name: Ensure systemd-journal-remote.socket is disabled and masked
+  ansible.builtin.systemd:
+    name: systemd-journal-remote.socket
+    enabled: no
+    state: stopped
+    masked: yes
+
+# Ensure journald service is enabled
+- name: Ensure systemd-journald service is present and static
+  ansible.builtin.systemd:
+    name: systemd-journald.service
+    state: started
+  register: journald_service_status
+
+- name: Verify systemd-journald service enablement status
+  ansible.builtin.command: systemctl is-enabled systemd-journald.service
+  register: journald_status
+  changed_when: false
+  failed_when: "'static' not in journald_status.stdout"
+  ignore_errors: false
+
+# Ensure journald is configured to compress large log files
+- name: Ensure journald is configured to compress large log files
+  ansible.builtin.lineinfile:
+    path: /etc/systemd/journald.conf
+    regexp: '^#?Compress='
+    line: 'Compress=yes'
+    create: yes
+    backup: yes
+  notify: Restart systemd-journald
+
+# Ensure journald is configured to write logfiles to persistent disk
+- name: Ensure journald is configured to write logs to persistent disk
+  ansible.builtin.lineinfile:
+    path: /etc/systemd/journald.conf
+    regexp: '^#?Storage='
+    line: 'Storage=persistent'
+    create: yes
+    backup: yes
+  notify: Restart systemd-journald
+    
+# Ensure all logfiles have appropriate access configured
+- name: Ensure all logfiles have appropriate access configured
+  block:
+
+    # Step 1: Find all log files
+    - name: Find log files in /var/log
+      ansible.builtin.find:
+        paths: /var/log
+        recurse: yes
+        file_type: file
+      register: log_files
+
+    # Step 2: Fix general log file permissions
+    - name: Ensure ownership and permissions for log files are correct
+      ansible.builtin.file:
+        path: "{{ item.path }}"
+        owner: root
+        group: root
+        mode: "0640"
+      loop: "{{ log_files.files }}"
+      when: item.path is not match('README')
+      register: file_fix_results
+      ignore_errors: true
+      become: true
+
+    # Step 3: Fix special log files
+    - name: Ensure special log files have proper group ownership
+      ansible.builtin.file:
+        path: "{{ item.path }}"
+        owner: root
+        group: "{{ item.group }}"
+        mode: "{{ item.mode }}"
+      loop:
+        - { path: "/var/log/wtmp", group: "utmp", mode: "0664" }
+        - { path: "/var/log/btmp", group: "utmp", mode: "0600" }
+        - { path: "/var/log/lastlog", group: "utmp", mode: "0644" }
+      register: special_fix_results
+      become: true
+      ignore_errors: true
+
+    # Step 4: Build counts manually
+    - name: Count total corrected files
+      ansible.builtin.set_fact:
+        corrected_count: "{{ file_fix_results.results | selectattr('changed') | list | length }}"
+
+    # Step 5: Display a clear text summary
+    - name: Summarize log file permission compliance
+      ansible.builtin.debug:
+        msg: |
+          Log File Permission Compliance Summary:
+          - Total log files checked: {{ log_files.files | length }}
+          - Files corrected: {{ corrected_count }}
+          - Special files handled: /var/log/wtmp, /var/log/btmp, /var/log/lastlog
+
+
