@@ -89,6 +89,20 @@ os_services_name: ['avahi-daemon', 'slapd', 'named', 'cups', 'telnet', 'discard-
 minute_aide_cronjob: '0'
 hour_aide_cronjob: '5'
 
+# Configure job schedulers
+cron_service: crond
+cron_dirs:
+  - /etc/cron.hourly
+  - /etc/cron.daily
+  - /etc/cron.weekly
+  - /etc/cron.monthly
+  - /etc/cron.d
+cron_tab_file: /etc/crontab
+cron_allow_file: /etc/cron.allow
+cron_deny_file: /etc/cron.deny
+at_files:
+  - /etc/at.allow
+  - /etc/at.deny
 # Configure Pluggable Authentication Modules
 pam_min_version: "1.1.8-23"
 pam_deny_value: 5

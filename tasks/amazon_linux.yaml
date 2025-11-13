@@ -1,4 +1,6 @@
 ---
+- name: Amazon Linux 2 | Configure Job Schedulers
+  include_tasks: configure_job_schedulers_al2.yaml
 - name: Amazon Linux 2 | Configure Pluggable Authentication Modules
   include_tasks: configure_pluggable_authentication_modules_al2.yaml
 - name: Amazon Linux 2 | Configure Service Clients
