@@ -1,5 +1,4 @@
 ---
-
     # Install selected logger
     - name: Install selected logger package(s)
       ansible.builtin.package:
@@ -38,7 +37,7 @@
 
         - name: Report if system-journal-gateway is unavailable
           ansible.builtin.debug:
-            msg: "system-journal-gateway package not found in Amazon Linux 2 repositories — skipping as per CIS guidance (manual control)."
+            msg: "system-journal-gateway package not found in Amazon Linux 2."
           when: journal_pkg.rc is defined and journal_pkg.rc != 0
 
         # Disable and mask journal remote services
