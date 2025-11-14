@@ -69,3 +69,9 @@
   ansible.builtin.service:
     name: systemd-journal-upload.service
     state: restarted
+
+- name: Restart sshd
+  ansible.builtin.service:
+    name: sshd
+    state: restarted
+

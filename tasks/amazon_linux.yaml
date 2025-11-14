@@ -11,3 +11,5 @@
   include_tasks: configure_filesystem_partitions_al2.yaml
 - name: Amazon Linux 2 | Configure Logging (rsyslog + journald)
   include_tasks: configure_logging_al2.yaml
+- name: Amazon Linux 2 | Configure SSH Server
+  include_tasks: configure_ssh_server.yaml
