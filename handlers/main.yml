@@ -6,7 +6,7 @@
     daemon_reload: true
   with_items:
     - aidecheck.timer
-    - aidecheck
+    - aidecheck.service
 
 - name: Reload systemd units
   systemd:
@@ -74,4 +74,14 @@
   ansible.builtin.service:
     name: sshd
     state: restarted
+
+- name: Update Grub Configuration
+  ansible.builtin.command: grub2-mkconfig -o /boot/grub2/grub.cfg
+
+- name: Restart AIDE Timer
+  ansible.builtin.systemd:
+    daemon_reload: yes
+    name: aidecheck.timer
+    state: restarted
+    enabled: yes
 

@@ -1,0 +1,57 @@
+---
+# Ensure AIDE is installed
+- name: Install AIDE (Debian)
+  when: ansible_os_family == "Debian"
+  block:
+    - name: Install aide packages
+      ansible.builtin.apt:
+        name:
+          - aide
+          - aide-common
+        state: present
+      register: aide_installed
+      until: aide_installed is succeeded
+
+    - name: Initialize AIDE DB
+      ansible.builtin.shell: aideinit
+      changed_when: false
+
+    - name: Move new AIDE DB into place
+      ansible.builtin.copy:
+        remote_src: true
+        src: "/var/lib/aide/aide.db.new"
+        dest: "/var/lib/aide/aide.db"
+
+- name: Install AIDE (RedHat / Amazon Linux)
+  when: ansible_os_family == "RedHat"
+  block:
+    - name: Install aide
+      ansible.builtin.package:
+        name: aide
+        state: present
+      register: aide_installed
+      until: aide_installed is succeeded
+
+    - name: Initialize AIDE DB
+      ansible.builtin.shell: aide --init
+      changed_when: false
+
+    - name: Move new AIDE DB into place
+      ansible.builtin.copy:
+        remote_src: true
+        src: "/var/lib/aide/aide.db.new.gz"
+        dest: "/var/lib/aide/aide.db.gz"
+
+# Ensure AIDE filesystem integrity is regularly checked
+- name: Install AIDE check systemd units
+  ansible.builtin.template:
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+    owner: root
+    group: root
+    mode: '0644'
+  with_items:
+    - { src: 'aidecheck.service', dest: '/etc/systemd/system/aidecheck.service' }
+    - { src: 'aidecheck.timer',   dest: '/etc/systemd/system/aidecheck.timer' }
+  notify: Restart AIDE Timer
+

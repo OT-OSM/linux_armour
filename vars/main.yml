@@ -25,6 +25,7 @@ sudo_timeout: 15
 ssh_allow_users:
   - ec2-user
   - root
+  - prince
 
 ssh_allow_groups: []
 ssh_deny_users: []
@@ -45,7 +46,7 @@ ssh_max_auth_tries: 4
 ssh_max_sessions: 10
 ssh_max_startups: "10:30:60"
 ssh_permit_empty_passwords: "no"
-ssh_permit_root_login: "no"
+ssh_permit_root_login: "yes"
 ssh_permit_user_environment: "no"
 
 # SSH Module Security
@@ -108,7 +109,7 @@ os_packages_list:
   - ldap-utils
 
 # Audit
-audit_package: 'auditd'
+audit_package: 'audit'
 audit_package_centos: 'audit'
 audit_rules_filename: "/etc/audit/audit.rules"
 

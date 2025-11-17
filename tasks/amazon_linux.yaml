@@ -13,3 +13,7 @@
   include_tasks: configure_logging_al2.yaml
 - name: Amazon Linux 2 | Configure SSH Server
   include_tasks: configure_ssh_server.yaml
+- name: Amazon Linux 2 | Configure System Accounting Audit
+  include_tasks: configure_system_accounting_audit.yaml
+- name: Amazon Linux 2 | Configure Integrity Checking
+  include_tasks: configure_integrity_checking.yaml
