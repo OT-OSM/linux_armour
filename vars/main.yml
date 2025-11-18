@@ -89,6 +89,15 @@ os_services_name: ['avahi-daemon', 'slapd', 'named', 'cups', 'telnet', 'discard-
 minute_aide_cronjob: '0'
 hour_aide_cronjob: '5'
 
+#Configure Additional Process Hardening
+kernel_hardening_params:
+  - { name: "kernel.randomize_va_space", value: "2", desc: "Ensure ASLR is enabled" }
+  - { name: "kernel.yama.ptrace_scope", value: "1", desc: "Restrict ptrace_scope" }
+
+coredump_config_block: |
+  [Coredump]
+  ProcessSizeMax=0
+  Storage=none
 #Configure privilege escalation
 sudo_package: "sudo"
 sudoers_path: "/etc/sudoers"

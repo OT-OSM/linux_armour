@@ -1,4 +1,6 @@
 ---
+- name: Amazon Linux 2 | Configure Additional Process handling
+  include_tasks: configure_additional_process_handling_al2.yaml
 - name: Amazon Linux 2 | Configure privilege escalation
   include_tasks: configure_privilege_escalation_al2.yaml
 - name: Amazon Linux 2 | User Accounts and Environment
