@@ -95,4 +95,74 @@ pass_warn_age: 7
 inactive_days: 30
 tmout_value: 900
 secure_umask: "0027"
+# Configure job schedulers
+cron_service: crond
+cron_dirs:
+  - /etc/cron.hourly
+  - /etc/cron.daily
+  - /etc/cron.weekly
+  - /etc/cron.monthly
+  - /etc/cron.d
+cron_tab_file: /etc/crontab
+cron_allow_file: /etc/cron.allow
+cron_deny_file: /etc/cron.deny
+at_files:
+  - /etc/at.allow
+  - /etc/at.deny
+# Configure Pluggable Authentication Modules
+pam_min_version: "1.1.8-23"
+pam_deny_value: 5
+pam_unlock_time: 900
+pam_files:
+  - /etc/pam.d/system-auth
+  - /etc/pam.d/password-auth
+pwquality_parameters:
+  - { name: 'difok',       value: 2 }
+  - { name: 'minlen',      value: 14 }
+  - { name: 'maxrepeat',   value: 3 }
+  - { name: 'maxsequence', value: 3 }
+pam_pwhistory_remember: 24
+#Configure Service Clients
+insecure_service_clients:
+  - ftp       # Ensure FTP client is not installed
+  - ypbind    # Ensure NIS client is not installed
+  - telnet    # Ensure Telnet client is not installed
+  - tftp      # Ensure TFTP client is not installed
+#Configure SELinux
+selinux_packages:
+  - libselinux
+selinux_policy_type: targeted
+selinux_mode: enforcing
+unwanted_selinux_packages:
+  - mcstrans
+  - setroubleshoot
+rescue_emergency_units:
+  - rescue.service
+  - emergency.service
+# Configure Time Synchronization
+chrony_amazon_timesync_block: |
+  # Amazon Linux 2 default Chrony configuration
+  server 169.254.169.123 prefer iburst minpoll 4 maxpoll 4
+  pool 0.amazon.pool.ntp.org iburst maxsources 1
+  pool 1.amazon.pool.ntp.org iburst maxsources 1
+  pool 2.amazon.pool.ntp.org iburst maxsources 2
+
+chrony_user_opts: 'OPTIONS="-u chrony"'
+
+chrony_conf_path: "/etc/chrony.d/amazon_time_sync.conf"
+chrony_service: "chronyd"
+chrony_shell_check_path: "/etc/chrony.d"
+# configure filesystem partitions for al2
+tmp_mount_options:
+  - { name: "Ensure /tmp is a separate partition", opts: "defaults,rw,nosuid,nodev,noexec,relatime" }
+  - { name: "Ensure nodev option set on /tmp", opts: "defaults,rw,nosuid,nodev,noexec,relatime" }
+  - { name: "Ensure nosuid option set on /tmp", opts: "defaults,rw,nosuid,nodev,noexec,relatime" }
+  - { name: "Ensure noexec option set on /tmp", opts: "defaults,rw,nosuid,nodev,noexec,relatime" }
+
+shm_mount_options:
+  - { name: "Ensure /dev/shm is a separate partition", opts: "defaults,rw,nosuid,nodev,noexec,relatime" }
+  - { name: "Ensure nodev option set on /dev/shm", opts: "defaults,rw,nosuid,nodev,noexec,relatime" }
+  - { name: "Ensure nosuid option set on /dev/shm", opts: "defaults,rw,nosuid,nodev,noexec,relatime" }
+  - { name: "Ensure noexec option set on /dev/shm", opts: "defaults,rw,nosuid,nodev,noexec,relatime" }
+
 
