@@ -96,6 +96,12 @@ sudo_logfile_path: "/var/log/sudo.log"
 timestamp_timeout_minutes: 15
 su_group_name: "sugroup"
 pam_su_path: "/etc/pam.d/su"
+#User Accounts and Environment
+pass_max_days: 365
+pass_warn_age: 7
+inactive_days: 30
+tmout_value: 900
+secure_umask: "0027"
 # Configure job schedulers
 cron_service: crond
 cron_dirs:
