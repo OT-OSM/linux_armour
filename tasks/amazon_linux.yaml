@@ -1,0 +1,3 @@
+---
+- name: Amazon Linux 2 | User Accounts and Environment
+  include_tasks: user_accounts_and_environment_al2.yaml
