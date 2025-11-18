@@ -33,6 +33,6 @@
     ('ProcessSizeMax=0' not in coredump_check.stdout) or
     ('Storage=none' not in coredump_check.stdout)
   notify:
-    - reload systemd daemon
+    - Reload systemd
   become: true
 
