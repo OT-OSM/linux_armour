@@ -89,6 +89,12 @@ os_services_name: ['avahi-daemon', 'slapd', 'named', 'cups', 'telnet', 'discard-
 minute_aide_cronjob: '0'
 hour_aide_cronjob: '5'
 
+#User Accounts and Environment
+pass_max_days: 365
+pass_warn_age: 7
+inactive_days: 30
+tmout_value: 900
+secure_umask: "0027"
 # Configure job schedulers
 cron_service: crond
 cron_dirs:
