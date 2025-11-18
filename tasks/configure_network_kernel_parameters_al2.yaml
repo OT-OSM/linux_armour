@@ -15,7 +15,7 @@
     sysctl_set: true
     state: present
     reload: true
-    sysctl_file: "{{ item.file }}"
+    sysctl_file: "/etc/sysctl.d/60-sysctl.conf"
   loop: "{{ sysctl_params }}"
   loop_control:
     label: "{{ item.name }}"
