@@ -89,6 +89,13 @@ os_services_name: ['avahi-daemon', 'slapd', 'named', 'cups', 'telnet', 'discard-
 minute_aide_cronjob: '0'
 hour_aide_cronjob: '5'
 
+#Configure privilege escalation
+sudo_package: "sudo"
+sudoers_path: "/etc/sudoers"
+sudo_logfile_path: "/var/log/sudo.log"
+timestamp_timeout_minutes: 15
+su_group_name: "sugroup"
+pam_su_path: "/etc/pam.d/su"
 #User Accounts and Environment
 pass_max_days: 365
 pass_warn_age: 7
