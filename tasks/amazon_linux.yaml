@@ -1,3 +1,3 @@
 ---
-- name: Amazon Linux 2 | Configure firewall utility
-  include_tasks: configure_firewall_utility.yaml
+- name: Amazon Linux 2 | Configure Network Kernel Modules
+  include_tasks: configure_network_kernel_modules_al2.yaml
