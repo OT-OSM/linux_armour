@@ -9,3 +9,5 @@
   include_tasks: configure_time_synchronization_al2.yaml
 - name: Amazon Linux 2 | Configure Filesystem Partitions
   include_tasks: configure_filesystem_partitions_al2.yaml
+- name: Amazon Linux 2 | Local User and Group Settings
+  include_tasks: local_user_and_group_settings_al2.yaml
