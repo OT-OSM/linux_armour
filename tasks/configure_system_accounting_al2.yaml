@@ -1,0 +1,58 @@
+# Ensure audit is installed
+- name: "Ensure audit and audit-libs are installed"
+  become: true
+  ansible.builtin.package:
+    name:
+      - audit
+      - audit-libs
+    state: present
+
+# Ensure auditing for processes that start prior to auditd is enabled
+- name: "Add audit=1 to GRUB_CMDLINE_LINUX if missing"
+  become: true
+  ansible.builtin.lineinfile:
+    path: /etc/default/grub
+    regexp: '^GRUB_CMDLINE_LINUX='
+    line: 'GRUB_CMDLINE_LINUX="audit=1"'
+  when: "'audit=1' not in lookup('file', '/etc/default/grub')"
+
+- name: "Update kernels if audit=1 added"
+  become: true
+  ansible.builtin.command: grubby --update-kernel ALL --args "audit=1"
+  when: "'audit=1' not in lookup('file', '/etc/default/grub')"
+
+# Ensure audit_backlog_limit is sufficient
+- name: "Ensure audit_backlog_limit is present in GRUB_CMDLINE_LINUX"
+  become: true
+  ansible.builtin.replace:
+    path: /etc/default/grub
+    regexp: '^(GRUB_CMDLINE_LINUX=")(?!.*audit_backlog_limit)(.*)"$'
+    replace: '\1\2 audit_backlog_limit={{ audit_grub_backlog_limit }}"'
+
+- name: "Update all kernels to include audit_backlog_limit"
+  become: true
+  ansible.builtin.command: >
+    grubby --update-kernel ALL --args "audit_backlog_limit={{ audit_grub_backlog_limit }}"
+  args:
+    warn: false
+  changed_when: false
+
+# Ensure auditd service is enabled
+- name: "Ensure auditd service is enabled and running"
+  become: true
+  ansible.builtin.systemd:
+    name: auditd
+    state: started
+    enabled: true
+
+# Ensure auditd.conf settings are configured
+- name: "Configure auditd.conf parameters"
+  become: true
+  ansible.builtin.lineinfile:
+    path: /etc/audit/auditd.conf
+    regexp: '^\\s*{{ item.key }}\\s*='
+    line: '{{ item.key }} = {{ item.value }}'
+  loop: "{{ audit_conf_settings }}"
+  loop_control:
+    label: "{{ item.key }}"
+

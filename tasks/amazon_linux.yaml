@@ -1,0 +1,4 @@
+---
+- name: Amazon Linux 2 | Configure System Accounting (auditd) 
+  include_tasks:  configure_system_accounting_al2.yaml
+
