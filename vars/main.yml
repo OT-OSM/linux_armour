@@ -88,3 +88,15 @@ os_services_name: ['avahi-daemon', 'slapd', 'named', 'cups', 'telnet', 'discard-
 # aide cronjob configuration
 minute_aide_cronjob: '0'
 hour_aide_cronjob: '5'
+
+#Configure Filesystem Kernel Modules
+fs_modules:
+  - cramfs
+  - freevxfs
+  - hfs
+  - hfsplus
+  - jffs2
+  - udf
+  - squashfs
+  - usb-storage
+

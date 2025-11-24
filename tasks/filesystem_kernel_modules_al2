@@ -1,50 +1,43 @@
 ---
-# Configure Filesystem Kernel Modules (CIS 1.1.1.1 - 1.1.1.8)
-# Combined single playbook to disable all unused filesystem kernel modules
+# Check if modules exist
+- name: Check if modules exist on system
+  ansible.builtin.command: modprobe -n -v {{ item }}
+  register: module_check
+  loop: "{{ fs_modules }}"
+  failed_when: false
+  changed_when: false
 
-- name: "Disable unused filesystem kernel modules"
-  block:
+# Build module existence map
+- name: Build module existence lookup table
+  ansible.builtin.set_fact:
+    mod_exists: "{{ mod_exists | default({}) | combine({item.item: item.rc}) }}"
+  loop: "{{ module_check.results }}"
+  loop_control:
+    loop_var: item
+    label: "{{ item.item }}"
 
-    # ---------------------------------------------------------
-    # Step 1: Create/update modprobe configuration (blockinfile)
-    # ---------------------------------------------------------
-    - name: "Block and blacklist filesystem modules in /etc/modprobe.d/cis.conf"
-      ansible.builtin.blockinfile:
-        path: /etc/modprobe.d/cis.conf
-        create: yes
-        block: |
-          install {{ item.name }} /bin/true
-          blacklist {{ item.name }}
-        marker: "# {mark} {{ item.name }} module disable"
-      loop:
-        - { name: "cramfs", desc: "1.1.1.1 Ensure cramfs kernel module is not available" }
-        - { name: "freevxfs", desc: "1.1.1.2 Ensure freevxfs kernel module is not available" }
-        - { name: "hfs", desc: "1.1.1.3 Ensure hfs kernel module is not available" }
-        - { name: "hfsplus", desc: "1.1.1.4 Ensure hfsplus kernel module is not available" }
-        - { name: "jffs2", desc: "1.1.1.5 Ensure jffs2 kernel module is not available" }
-        - { name: "usb-storage", desc: "1.1.1.8 Ensure usb-storage kernel module is not available" }
-      loop_control:
-        label: "{{ item.desc }}"
-      notify: Rebuild module dependencies
+# Apply blacklist and install rules
+- name: Disable filesystem modules (install + blacklist)
+  ansible.builtin.copy:
+    dest: "/etc/modprobe.d/{{ item }}.conf"
+    content: |
+      install {{ item }} /bin/false
+      blacklist {{ item }}
+    mode: "0644"
+  when: mod_exists[item] == 0
+  loop: "{{ fs_modules }}"
 
-    # ---------------------------------------------------------
-    # Step 2: Unload modules if they’re currently loaded
-    # ---------------------------------------------------------
-    - name: "Unload filesystem modules if loaded"
-      become: true
-      ansible.builtin.command: "modprobe -r {{ item.name }}"
-      register: unload_result
-      failed_when: false
-      changed_when: unload_result.rc == 0
-      loop:
-        - { name: "cramfs" }
-        - { name: "freevxfs" }
-        - { name: "hfs" }
-        - { name: "hfsplus" }
-        - { name: "jffs2" }
-        - { name: "usb-storage" }
-      loop_control:
-        label: "Unload {{ item.name }} module if loaded"
+# Check loaded modules
+- name: Check loaded modules
+  ansible.builtin.command: lsmod
+  register: lsmod_output
+  failed_when: false
+  changed_when: false
 
-  when: ansible_os_family == "RedHat"
+# Unload loaded modules
+- name: Unload loaded modules
+  ansible.builtin.command: modprobe -r {{ item }}
+  when: item in lsmod_output.stdout
+  failed_when: false
+  loop: "{{ fs_modules }}"
 

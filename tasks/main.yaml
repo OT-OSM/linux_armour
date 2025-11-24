@@ -1,18 +1,19 @@
 ---
-- name: Ubuntu related Specification
-  include_tasks: ubuntu.yaml
+- name: Include CIS Stage Specific vars
+  include_vars: cis-{{ cis_Stage }}.yaml
+
+- name: Debian related Specification
+  include_tasks: configure_Debian.yaml
   when:
     ansible_os_family == 'Debian'
 
 - name: CentOS related Specification
-  include_tasks: centos.yaml
-  when:
-    ansible_os_family == 'RedHat' and ansible_distribution != 'Amazon'
+  include_tasks: configure_RedHat.yaml
+  when: ansible_os_family == 'RedHat' and ansible_distribution != 'Amazon'
 
 - name: Amazon Linux 2 related Specification
   include_tasks: amazon_linux.yaml
-  when:
-    ansible_distribution == 'Amazon'
+  when: ansible_distribution == 'Amazon'
 
 # - name: Special purpose services
 #   include_tasks: services.yaml
