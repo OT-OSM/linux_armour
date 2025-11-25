@@ -42,6 +42,25 @@
     validate: '/usr/sbin/visudo -cf %s'
   when: sudo_logfile_check.stdout == ""
 
+# Ensure users must provide password for escalation
+#- name: Check for NOPASSWD entries
+#  become: true
+#  ansible.builtin.shell: |
+#    grep -rl "^[^#].*NOPASSWD" /etc/sudoers /etc/sudoers.d 2>/dev/null || true
+#  register: nopasswd_files
+#  changed_when: false
+#  failed_when: false
+
+#- name: Remove NOPASSWD lines entirely
+#  become: true
+#  ansible.builtin.lineinfile:
+#    path: "{{ item }}"
+#    regexp: '^[^#].*NOPASSWD.*$'
+#    state: absent
+#    validate: '/usr/sbin/visudo -cf %s'
+#  loop: "{{ nopasswd_files.stdout_lines }}"
+#  when: nopasswd_files.stdout != ""
+
 # Ensure re-authentication for privilege escalation is not disabled globally
 - name: Check for '!authenticate' entries
   become: true
