@@ -163,6 +163,12 @@ pwquality_parameters:
   - { name: 'maxrepeat',   value: 3 }
   - { name: 'maxsequence', value: 3 }
 pam_pwhistory_remember: 24
+pwquality_complexity:
+  - { name: 'minclass', value: 4 }
+  - { name: 'dcredit',  value: -1 }
+  - { name: 'ucredit',  value: -1 }
+  - { name: 'lcredit',  value: -1 }
+  - { name: 'ocredit',  value: -1 }
 #Configure Service Clients
 insecure_service_clients:
   - ftp       # Ensure FTP client is not installed
