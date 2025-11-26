@@ -88,3 +88,9 @@ os_services_name: ['avahi-daemon', 'slapd', 'named', 'cups', 'telnet', 'discard-
 # aide cronjob configuration
 minute_aide_cronjob: '0'
 hour_aide_cronjob: '5'
+
+# Configure Command Line Warning Banners
+login_banner_text: "Authorized users only. All activity may be monitored and reported.\n"
+issue_files:
+  - /etc/issue
+  - /etc/issue.net
