@@ -99,3 +99,17 @@ audit_conf_settings:
   - { key: 'space_left_action', value: 'exec' }
   - { key: 'admin_space_left_action', value: 'single' }
 
+audit_tools:
+  - /sbin/auditctl
+  - /sbin/auditd
+  - /sbin/ausearch
+  - /sbin/aureport
+  - /sbin/autrace
+  - /sbin/augenrules
+  - /usr/sbin/auditctl
+  - /usr/sbin/auditd
+  - /usr/sbin/ausearch
+  - /usr/sbin/aureport
+  - /usr/sbin/autrace
+  - /usr/sbin/augenrules
+

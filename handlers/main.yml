@@ -49,3 +49,8 @@
   ansible.builtin.systemd:
     name: systemd-journald
     state: restarted
+
+- name: update_grub
+  become: true
+  command: grub2-mkconfig -o /boot/grub2/grub.cfg
+
