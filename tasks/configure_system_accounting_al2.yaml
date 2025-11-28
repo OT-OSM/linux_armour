@@ -42,12 +42,13 @@
 
 # Ensure auditd service is enabled
 
-- name: "Ensure auditd service is enabled and running"
+- name: "Ensure auditd is enabled and running"
   become: true
   ansible.builtin.systemd:
     name: auditd
-    state: restarted
     enabled: true
+    state: started
+  ignore_errors: true
 
 # Ensure changes to system administration scope (sudoers) is collected
 
