@@ -1,3 +1,29 @@
 ---
 - name: Amazon Linux 2 | User Accounts and Environment
   include_tasks: user_accounts_and_environment_al2.yaml
+- name: Amazon Linux 2 | configure message of the day
+  include_tasks: ensure_message_of_the_day_al2.yaml
+- name: Amazon Linux 2 | Configure network kernel parameters 
+  include_tasks: configure_network_kernel_parameters_al2.yaml
+- name: Amazon Linux 2 | Configure Additional Process handling
+  include_tasks: configure_additional_process_handling_al2.yaml
+- name: Amazon Linux 2 | Configure privilege escalation
+  include_tasks: configure_privilege_escalation_al2.yaml
+- name: Amazon Linux 2 | User Accounts and Environment
+  include_tasks: user_accounts_and_environment_al2.yaml
+- name: Amazon Linux 2 | Configure Job Schedulers
+  include_tasks: configure_job_schedulers_al2.yaml
+- name: Amazon Linux 2 | Configure Pluggable Authentication Modules
+  include_tasks: configure_pluggable_authentication_modules_al2.yaml
+- name: Amazon Linux 2 | Configure Service Clients
+  include_tasks: configure_service_clients_al2.yaml
+- name: Amazon Linux 2 | Configure selinux
+  include_tasks: configure_selinux_al2.yaml
+- name: Amazon Linux 2 | Configure secure boot setting 
+  include_tasks: configure_secure_boot_al2.yaml
+- name: Amazon Linux 2 | Configure Time Synchronization
+  include_tasks: configure_time_synchronization_al2.yaml
+- name: Amazon Linux 2 | Configure Filesystem Partitions
+  include_tasks: configure_filesystem_partitions_al2.yaml
+- name: Amazon Linux 2 | Configure Logging (rsyslog + journald)
+  include_tasks: configure_logging_al2.yaml
