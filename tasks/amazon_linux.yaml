@@ -1,4 +1,6 @@
 ---
+- name: Amazon Linux 2 | configure message of the day
+  include_tasks: ensure_message_of_the_day_al2.yaml
 - name: Amazon Linux 2 | Configure network kernel parameters 
   include_tasks: configure_network_kernel_parameters_al2.yaml
 - name: Amazon Linux 2 | Configure Additional Process handling
