@@ -1,0 +1,62 @@
+---
+# Ensure Chrony is installed for time synchronization
+- name: "Ensure Chrony time synchronization service is installed"
+  ansible.builtin.package:
+    name: chrony
+    state: present
+  become: true
+
+# Step 1: Check if Chrony has any configured NTP servers or pools
+- name: "Ensure chrony is configured"
+  ansible.builtin.shell: "grep -Prs -- '^\\h*(server|pool)\\h+[^#\\n\\r]+' {{ chrony_shell_check_path }}"
+  register: chrony_sources
+  changed_when: false
+  failed_when: false
+  become: true
+
+# Step 2: Add Amazon Time Sync Service configuration if none found
+- name: "Configure Chrony with Amazon Time Sync Service (if missing)"
+  ansible.builtin.blockinfile:
+    path: "{{ chrony_conf_path }}"
+    create: yes
+    block: "{{ chrony_amazon_timesync_block }}"
+  when: chrony_sources.stdout == ""
+  become: true
+
+# Step 3: Restart Chrony only if configuration was added
+- name: "Restart Chrony service to apply configuration (if modified)"
+  ansible.builtin.service:
+    name: "{{ chrony_service }}"
+    state: restarted
+    enabled: true
+  when: chrony_sources.stdout == ""
+  become: true
+
+# Step 4: Report status clearly
+- name: "Report Chrony configuration status"
+  ansible.builtin.debug:
+    msg: >
+      {% if chrony_sources.stdout != "" %}
+      Chrony is already configured with time sources
+      {% else %}
+      Chrony was missing configuration — Amazon Time Sync Service has been added.
+      {% endif %}
+
+# Ensure Chrony is not run as the root user
+- name: "Ensure Chrony is not configured to run as root"
+  ansible.builtin.lineinfile:
+    path: /etc/sysconfig/chronyd
+    regexp: '^OPTIONS='
+    line: '{{ chrony_user_opts }}'
+    state: present
+    create: yes
+    backup: yes
+  become: true
+
+- name: "Reload Chrony service to apply user configuration"
+  ansible.builtin.systemd:
+    name: "{{ chrony_service }}"
+    state: restarted
+    daemon_reload: true
+  become: true
+

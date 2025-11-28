@@ -1,0 +1,155 @@
+---
+    # Install selected logger
+    - name: Install selected logger package(s)
+      ansible.builtin.package:
+        name: "{{ item }}"
+        state: present
+      loop:
+        - rsyslog
+      when: item == preferred_logger
+
+    # Enable and start preferred logger
+    - name: Enable and start preferred_logger
+      ansible.builtin.systemd:
+        name: "{{ item }}"
+        enabled: yes
+        state: started
+      loop:
+        - rsyslog
+        - systemd-journald
+      when: item == preferred_logger
+
+    ##################################################################
+    # Systemd Journald configuration
+    ##################################################################
+    - name: Systemd Journald configuration
+      when: preferred_logger == "systemd-journald"
+      block:
+
+        # Ensure systemd-journal-remote package installed
+        - name: Ensure systemd-journal-remote (gateway) package is installed
+          ansible.builtin.package:
+            name: system-journal-gateway
+            state: present
+          register: journal_pkg
+          failed_when: false
+          changed_when: false
+
+        - name: Report if system-journal-gateway is unavailable
+          ansible.builtin.debug:
+            msg: "system-journal-gateway package not found in Amazon Linux 2."
+          when: journal_pkg.rc is defined and journal_pkg.rc != 0
+
+        # Disable and mask journal remote services
+        - name: Disable and mask systemd-journal-remote socket and service
+          ansible.builtin.systemd:
+            name: "{{ item }}"
+            state: stopped
+            enabled: no
+            masked: yes
+          loop:
+            - systemd-journal-remote.socket
+            - systemd-journal-remote.service
+          when: cis_Stage > 1
+
+        # journald log configuration
+        - name: Configure journald log rotation and storage
+          ansible.builtin.lineinfile:
+            path: /etc/systemd/journald.conf
+            regexp: '^#?{{ item.key }}='
+            line: '{{ item.key }}={{ item.value }}'
+            state: present
+            create: yes
+          loop:
+            - { key: 'SystemMaxUse', value: '500M' }
+            - { key: 'SystemKeepFree', value: '100M' }
+            - { key: 'RuntimeMaxUse', value: '10M' }
+            - { key: 'RuntimeKeepFree', value: '200M' }
+            - { key: 'MaxFileSec', value: '1month' }
+            - { key: 'ForwardToSyslog', value: 'no' }
+            - { key: 'Storage', value: 'persistent' }
+            - { key: 'Compress', value: 'yes' }
+          notify: Restart systemd-journald
+
+    ##################################################################
+    # Rsyslog configuration (if preferred)
+    ##################################################################
+    - name: Rsyslog configuration
+      when: preferred_logger == "rsyslog"
+      block:
+        - name: Ensure journald forwards logs to rsyslog
+          ansible.builtin.lineinfile:
+            path: /etc/systemd/journald.conf
+            regexp: '^#?ForwardToSyslog='
+            line: 'ForwardToSyslog=yes'
+            backup: yes
+          notify: Restart systemd-journald
+
+        - name: Ensure rsyslog drop-in config directory exists
+          ansible.builtin.file:
+            path: /etc/rsyslog.d
+            state: directory
+            mode: '0755'
+
+        - name: Set restrictive FileCreateMode in rsyslog
+          ansible.builtin.lineinfile:
+            path: /etc/rsyslog.d/60-rsyslog.conf
+            create: yes
+            line: '$FileCreateMode 0640'
+            state: present
+          notify: Restart rsyslog
+
+        - name: Remove insecure rsyslog remote TCP settings
+          ansible.builtin.replace:
+            path: /etc/rsyslog.conf
+            regexp: '(^.*(imtcp|InputTCPServerRun).*$)'
+            replace: ''
+          notify: Restart rsyslog
+
+    ##################################################################
+    # Ensure proper log file permissions
+    ##################################################################
+    - name: Ensure all logfiles have appropriate access configured
+      block:
+        - name: Find all log files in /var/log
+          ansible.builtin.find:
+            paths: /var/log
+            recurse: yes
+            file_type: file
+          register: log_files
+
+        - name: Secure ownership and permissions for log files
+          ansible.builtin.file:
+            path: "{{ item.path }}"
+            owner: root
+            group: root
+            mode: "0640"
+          loop: "{{ log_files.files }}"
+          when: item.path is not match('README')
+          register: file_fix_results
+          ignore_errors: true
+
+        - name: Fix permissions for special log files
+          ansible.builtin.file:
+            path: "{{ item.path }}"
+            owner: root
+            group: "{{ item.group }}"
+            mode: "{{ item.mode }}"
+          loop:
+            - { path: "/var/log/wtmp", group: "utmp", mode: "0664" }
+            - { path: "/var/log/btmp", group: "utmp", mode: "0600" }
+            - { path: "/var/log/lastlog", group: "utmp", mode: "0644" }
+          register: special_fix_results
+          ignore_errors: true
+
+        - name: Count total corrected files
+          ansible.builtin.set_fact:
+            corrected_count: "{{ file_fix_results.results | selectattr('changed', 'defined') | list | length }}"
+
+        - name: Display compliance summary
+          ansible.builtin.debug:
+            msg: |
+              Log File Permission Compliance Summary:
+              - Total log files checked: {{ log_files.files | length }}
+              - Files corrected: {{ corrected_count }}
+              - Special files handled: /var/log/wtmp, /var/log/btmp, /var/log/lastlog
