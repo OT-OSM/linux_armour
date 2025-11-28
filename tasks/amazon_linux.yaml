@@ -1,3 +1,3 @@
 ---
-- name: Amazon Linux 2 | Configure firewall utility
-  include_tasks: configure_firewall_utility.yaml
+- name: Amazon Linux 2 | Configure Host Based Firewall
+  include_tasks: configure_host_based_firewall_al2.yaml
