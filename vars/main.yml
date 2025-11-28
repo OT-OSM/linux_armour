@@ -89,6 +89,34 @@ os_services_name: ['avahi-daemon', 'slapd', 'named', 'cups', 'telnet', 'discard-
 minute_aide_cronjob: '0'
 hour_aide_cronjob: '5'
 
+
+#  Configure Host Based Firewall
+firewalld_remove_services:
+  - cockpit
+firewalld_remove_ports:
+  - "25/tcp"
+firewalld_zone: public
+firewalld_interface: eth0
+firewalld_conflict_packages:
+  - nftables
+  - iptables-services
+nftables_conflict_packages:
+  - firewalld
+  - iptables-services
+iptables_conflict_packages:
+  - firewalld
+  - nftables
+firewalld_conflict_services:
+  - nftables
+  - iptables
+  - ip6tables
+nftables_conflict_services:
+  - firewalld
+  - iptables
+  - ip6tables
+iptables_conflict_services:
+  - firewalld
+  - nftables
 # Configure Command Line Warning Banners
 login_banner_text: "Authorized users only. All activity may be monitored and reported.\n"
 issue_files:
