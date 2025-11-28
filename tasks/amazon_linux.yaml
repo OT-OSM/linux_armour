@@ -1,4 +1,6 @@
 ---
+- name: Amazon Linux 2 | User Accounts and Environment
+  include_tasks: user_accounts_and_environment_al2.yaml
 - name: Amazon Linux 2 | configure message of the day
   include_tasks: ensure_message_of_the_day_al2.yaml
 - name: Amazon Linux 2 | Configure network kernel parameters 
