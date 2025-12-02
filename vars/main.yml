@@ -124,6 +124,113 @@ os_services_name: ['avahi-daemon', 'slapd', 'named', 'cups', 'telnet', 'discard-
 minute_aide_cronjob: '0'
 hour_aide_cronjob: '5'
 
+
+#  Configure Host Based Firewall
+firewalld_remove_services:
+  - cockpit
+firewalld_remove_ports:
+  - "25/tcp"
+firewalld_zone: public
+firewalld_interface: eth0
+firewalld_conflict_packages:
+  - nftables
+  - iptables-services
+nftables_conflict_packages:
+  - firewalld
+  - iptables-services
+iptables_conflict_packages:
+  - firewalld
+  - nftables
+firewalld_conflict_services:
+  - nftables
+  - iptables
+  - ip6tables
+nftables_conflict_services:
+  - firewalld
+  - iptables
+  - ip6tables
+iptables_conflict_services:
+  - firewalld
+  - nftables
+# Configure Command Line Warning Banners
+login_banner_text: "Authorized users only. All activity may be monitored and reported.\n"
+issue_files:
+  - /etc/issue
+  - /etc/issue.net
+# Configure Network Kernel Parameters
+sysctl_params:
+  - { name: "net.ipv4.ip_forward", value: "0" }
+  - { name: "net.ipv6.conf.all.forwarding", value: "0" }
+  - { name: "net.ipv4.conf.all.send_redirects", value: "0" }
+  - { name: "net.ipv4.conf.default.send_redirects", value: "0" }
+  - { name: "net.ipv4.icmp_ignore_bogus_error_responses", value: "1" }
+  - { name: "net.ipv4.icmp_echo_ignore_broadcasts", value: "1" }
+  - { name: "net.ipv4.conf.all.accept_redirects", value: "0" }
+  - { name: "net.ipv4.conf.default.accept_redirects", value: "0" }
+  - { name: "net.ipv6.conf.all.accept_redirects", value: "0" }
+  - { name: "net.ipv6.conf.default.accept_redirects", value: "0" }
+  - { name: "net.ipv4.conf.all.secure_redirects", value: "0" }
+  - { name: "net.ipv4.conf.default.secure_redirects", value: "0" }
+  - { name: "net.ipv4.conf.all.rp_filter", value: "1" }
+  - { name: "net.ipv4.conf.default.rp_filter", value: "1" }
+  - { name: "net.ipv4.conf.all.accept_source_route", value: "0" }
+  - { name: "net.ipv4.conf.default.accept_source_route", value: "0" }
+  - { name: "net.ipv6.conf.all.accept_source_route", value: "0" }
+  - { name: "net.ipv6.conf.default.accept_source_route", value: "0" }
+  - { name: "net.ipv4.conf.all.log_martians", value: "1" }
+  - { name: "net.ipv4.conf.default.log_martians", value: "1" }
+  - { name: "net.ipv4.tcp_syncookies", value: "1" }
+  - { name: "net.ipv6.conf.all.accept_ra", value: "0" }
+  - { name: "net.ipv6.conf.default.accept_ra", value: "0" }
+#Configure Additional Process Hardening
+kernel_hardening_params:
+  - { name: "kernel.randomize_va_space", value: "2", desc: "Ensure ASLR is enabled" }
+  - { name: "kernel.yama.ptrace_scope", value: "1", desc: "Restrict ptrace_scope" }
+
+coredump_config_block: |
+  [Coredump]
+  ProcessSizeMax=0
+  Storage=none
+#Configure privilege escalation
+sudo_package: "sudo"
+sudoers_path: "/etc/sudoers"
+sudo_logfile_path: "/var/log/sudo.log"
+timestamp_timeout_minutes: 15
+su_group_name: "sugroup"
+pam_su_path: "/etc/pam.d/su"
+#User Accounts and Environment
+pass_max_days: 365
+pass_warn_age: 7
+inactive_days: 30
+tmout_value: 900
+secure_umask: "0027"
+# Configure job schedulers
+cron_service: crond
+cron_dirs:
+  - /etc/cron.hourly
+  - /etc/cron.daily
+  - /etc/cron.weekly
+  - /etc/cron.monthly
+  - /etc/cron.d
+cron_tab_file: /etc/crontab
+cron_allow_file: /etc/cron.allow
+cron_deny_file: /etc/cron.deny
+at_files:
+  - /etc/at.allow
+  - /etc/at.deny
+# Configure Pluggable Authentication Modules
+pam_min_version: "1.1.8-23"
+pam_deny_value: 5
+pam_unlock_time: 900
+pam_files:
+  - /etc/pam.d/system-auth
+  - /etc/pam.d/password-auth
+pwquality_parameters:
+  - { name: 'difok',       value: 2 }
+  - { name: 'minlen',      value: 14 }
+  - { name: 'maxrepeat',   value: 3 }
+  - { name: 'maxsequence', value: 3 }
+pam_pwhistory_remember: 24
 #Configure Service Clients
 insecure_service_clients:
   - ftp       # Ensure FTP client is not installed

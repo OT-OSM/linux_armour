@@ -1,0 +1,38 @@
+---
+- name: Install firewalld and iptables
+  become: true
+  ansible.builtin.package:
+    name:
+      - firewalld
+      - iptables
+    state: present
+
+- name: Enable and start firewalld
+  become: true
+  ansible.builtin.systemd:
+    name: firewalld
+    enabled: true
+    masked: false
+    state: started
+
+- name: Remove unwanted firewalld rules
+  become: true
+  firewalld:
+    state: disabled
+    permanent: true
+    immediate: true
+    service: "{{ item.service | default(omit) }}"
+    port: "{{ item.port | default(omit) }}"
+  loop:
+    - { service: "{{ firewalld_remove_services[0] }}" }
+    - { port: "{{ firewalld_remove_ports[0] }}" }
+
+- name: Assign interface to firewalld zone
+  become: true
+  firewalld:
+    zone: "{{ firewalld_zone }}"
+    interface: "{{ firewalld_interface }}"
+    permanent: true
+    immediate: true
+    state: enabled
+

@@ -1,0 +1,290 @@
+---
+# Ensure password hashing algorithm is set to sha512
+
+- name: "Set SHA512 password hashing in /etc/libuser.conf and /etc/login.defs"
+  ansible.builtin.lineinfile:
+    path: "{{ item.path }}"
+    regexp: "{{ item.regexp }}"
+    line: "{{ item.line }}"
+    create: yes
+    state: present
+    mode: '0644'
+  loop:
+    - { path: '/etc/libuser.conf', regexp: '^crypt_style\s*=', line: 'crypt_style = sha512' }
+    - { path: '/etc/login.defs',   regexp: '^ENCRYPT_METHOD\s+', line: 'ENCRYPT_METHOD SHA512' }
+
+# Ensure PASS_MAX_DAYS is set to 365
+
+- name: "Set PASS_MAX_DAYS to 365 in /etc/login.defs"
+  ansible.builtin.lineinfile:
+    path: /etc/login.defs
+    regexp: '^PASS_MAX_DAYS'
+    line: "PASS_MAX_DAYS {{ pass_max_days }}"
+    create: yes
+    state: present
+
+- name: "Find users with PASS_MAX_DAYS > 365 or < 1"
+  ansible.builtin.shell: |
+    awk -F: '($2 ~ /^\$.+\$/ && ($5 > {{ pass_max_days }} || $5 < 1)) { print $1 }' /etc/shadow
+  register: users_with_invalid_maxdays
+  changed_when: false
+
+- name: "Apply PASS_MAX_DAYS = 365 to non-compliant users"
+  ansible.builtin.command: chage --maxdays {{ pass_max_days }} {{ item }}
+  loop: "{{ users_with_invalid_maxdays.stdout_lines }}"
+  when: users_with_invalid_maxdays.stdout_lines | length > 0
+
+- name: "Find users missing last password change date (shadow field 3)"
+  ansible.builtin.shell: |
+    awk -F: '($2 ~ /^\$.+\$/ && $3 == "") { print $1 }' /etc/shadow
+  register: users_with_empty_last_change
+  changed_when: false
+
+- name: "Set last password change date to today for users missing it"
+  ansible.builtin.command: chage -d "$(date +%Y-%m-%d)" {{ item }}
+  loop: "{{ users_with_empty_last_change.stdout_lines }}"
+  when: users_with_empty_last_change.stdout_lines | length > 0
+
+# Ensure PASS_WARN_AGE is set to 7
+
+- name: "Set PASS_WARN_AGE to 7 in /etc/login.defs"
+  ansible.builtin.lineinfile:
+    path: /etc/login.defs
+    regexp: '^PASS_WARN_AGE'
+    line: "PASS_WARN_AGE {{ pass_warn_age }}"
+    create: yes
+    state: present
+
+- name: "Find users with PASS_WARN_AGE < 7"
+  ansible.builtin.shell: |
+    awk -F: '($2 ~ /^\$.+\$/ && $6 < {{ pass_warn_age }}) { print $1 }' /etc/shadow
+  register: users_with_low_warndays
+  changed_when: false
+
+- name: "Apply PASS_WARN_AGE = 7 to non-compliant users"
+  ansible.builtin.command: chage --warndays {{ pass_warn_age }} {{ item }}
+  loop: "{{ users_with_low_warndays.stdout_lines }}"
+  when: users_with_low_warndays.stdout_lines | length > 0
+
+# Ensure inactive password lock is 30 days or less
+
+- name: "Set default INACTIVE = 30 for new users"
+  ansible.builtin.shell: useradd -D -f {{ inactive_days }}
+  args:
+    warn: false
+
+- name: "Find users with non-compliant INACTIVE values (-1 or > 30)"
+  ansible.builtin.shell: |
+    awk -F: '($2 ~ /^\$.+\$/ && ($7 == -1 || $7 > {{ inactive_days }})) { print $1 }' /etc/shadow
+  register: users_with_invalid_inactive
+  changed_when: false
+
+- name: "Apply INACTIVE = 30 to non-compliant users"
+  ansible.builtin.command: chage --inactive {{ inactive_days }} {{ item }}
+  loop: "{{ users_with_invalid_inactive.stdout_lines }}"
+  when: users_with_invalid_inactive.stdout_lines | length > 0
+
+# Ensure all users last password change date is in the past
+- name: "Find users with future password change date"
+  ansible.builtin.shell: |
+    while IFS= read -r user; do
+      last_change=$(chage --list "$user" | grep '^Last password change' | cut -d: -f2 | sed 's/^ *//')
+      [ "$last_change" = "never" ] && continue
+
+      last_epoch=$(date -d "$last_change" +%s 2>/dev/null || echo 0)
+      now_epoch=$(date +%s)
+
+      if [ "$last_epoch" -gt "$now_epoch" ]; then
+        echo "$user"
+      fi
+    done < <(awk -F: '/^[^:]+:[^!*xX]/{print $1}' /etc/shadow)
+  args:
+    executable: /bin/bash
+  register: users_with_future_change
+  changed_when: false
+
+- name: "Audit result: users with future password change date"
+  ansible.builtin.debug:
+    msg: >-
+      {% if users_with_future_change.stdout_lines | length > 0 %}
+      Users with future password change date: {{ users_with_future_change.stdout_lines | join(', ') }}
+      {% else %}
+      No users have a future password change date.
+      {% endif %}
+
+- name: "Expire password for users with future password change date"
+  ansible.builtin.command: chage -d 0 {{ item }}
+  loop: "{{ users_with_future_change.stdout_lines }}"
+  when: users_with_future_change.stdout_lines | length > 0
+
+#Ensure default group for the root account is GID 0 
+- name: "Ensure default group for the root account is GID 0"
+  ansible.builtin.user:
+    name: root
+    group: "0"
+
+# Ensure root user umask is configured
+
+- name: "List root shell configuration files"
+  ansible.builtin.set_fact:
+    umask_files:
+      - /root/.bash_profile
+      - /root/.bashrc
+
+- name: "Comment out existing insecure umask lines"
+  ansible.builtin.replace:
+    path: "{{ item }}"
+    regexp: '^\s*umask\s+[0-7]+'
+    replace: '# \g<0>'
+  loop: "{{ umask_files }}"
+  when: item is file
+
+- name: "Ensure secure umask 0027 is configured"
+  ansible.builtin.lineinfile:
+    path: "{{ item }}"
+    regexp: '^\s*umask\s+'
+    line: "umask {{ secure_umask }}"
+    create: yes
+    insertafter: EOF
+  loop: "{{ umask_files }}"
+  when: item is file
+
+# Ensure system accounts are secured
+- name: "Get UID_MIN value"
+  ansible.builtin.shell: awk '/^\s*UID_MIN/ {print $2}' /etc/login.defs
+  register: uid_min
+  changed_when: false
+
+- name: "Find system accounts that do not use nologin shell"
+  ansible.builtin.shell: |
+    awk -F: '($1!~/^(root|halt|sync|shutdown|nfsnobody)$/ &&
+      ($3<{{ uid_min.stdout }} || $3 == 65534) &&
+      $7!~/^(\/usr)?\/sbin\/nologin$/) { print $1 }' /etc/passwd
+  register: system_accounts_without_nologin
+  changed_when: false
+
+- name: "Set nologin shell for system accounts"
+  ansible.builtin.user:
+    name: "{{ item }}"
+    shell: "/sbin/nologin"
+  loop: "{{ system_accounts_without_nologin.stdout_lines }}"
+  when: system_accounts_without_nologin.stdout_lines | length > 0
+
+- name: "Find nologin accounts that are not locked"
+  ansible.builtin.shell: |
+    awk -F: '/nologin/ {print $1}' /etc/passwd | \
+    xargs -I '{}' passwd -S '{}' | \
+    awk '($2!="L" && $2!="LK") {print $1}'
+  register: unlocked_nologin_accounts
+  changed_when: false
+
+- name: "Lock nologin accounts that are not locked"
+  ansible.builtin.command: usermod -L {{ item }}
+  loop: "{{ unlocked_nologin_accounts.stdout_lines }}"
+  when: unlocked_nologin_accounts.stdout_lines | length > 0
+
+# Ensure root password is set
+- name: "Check if root password is set"
+  ansible.builtin.shell: |
+    passwd -S root | grep -Poi 'Password\s+set\b' || echo "Password not set"
+  register: root_pass_status
+  changed_when: false
+
+- name: "Fail if root password is not set"
+  ansible.builtin.fail:
+    msg: "Root password is NOT set — manual intervention required. Run: passwd root"
+  when: "'Password not set' in root_pass_status.stdout"
+  ignore_errors: yes
+
+# Ensure /nologin is not listed in /etc/shells
+- name: "Check if /nologin is present in /etc/shells"
+  ansible.builtin.shell: "grep '/nologin\\b' /etc/shells || true"
+  register: nologin_shells
+  changed_when: false
+
+- name: "Remove any /nologin entries from /etc/shells"
+  ansible.builtin.replace:
+    path: /etc/shells
+    regexp: '.*nologin.*'
+    replace: ''
+  when: nologin_shells.stdout != ""
+
+# Ensure default user shell timeout is configured 
+
+- name: "Collect shell configuration file paths"
+  ansible.builtin.find:
+    paths:
+      - /etc/profile
+      - /etc/bashrc
+      - /etc/profile.d/
+    patterns: "*.sh"
+    file_type: file
+  register: tmout_files
+
+- name: "Remove all existing TMOUT settings"
+  ansible.builtin.replace:
+    path: "{{ item }}"
+    regexp: '^\s*(readonly\s+TMOUT.*|export\s+TMOUT.*|TMOUT=.*)'
+    replace: ''
+    backup: yes
+  loop: "{{ tmout_files.files | map(attribute='path') | list }}"
+
+- name: "Set TMOUT policy"
+  ansible.builtin.copy:
+    dest: /etc/profile.d/tmout.sh
+    content: |
+      TMOUT={{ tmout_value }}
+      readonly TMOUT
+      export TMOUT
+    owner: root
+    group: root
+    mode: '0644'
+
+# Ensure default user umask is configured 
+
+- name: "Collect shell configuration files"
+  ansible.builtin.find:
+    paths:
+      - /etc/profile
+      - /etc/bashrc
+      - /etc/bash.bashrc
+      - /etc/login.defs
+      - /etc/default/login
+      - /etc/pam.d/postlogin
+      - /etc/profile.d/
+    patterns: "*.sh"
+    file_type: file
+  register: umask_files
+
+- name: "Comment out weak or insecure UMASK settings"
+  ansible.builtin.replace:
+    path: "{{ item.path }}"
+    regexp: '^\s*umask\s+(00[0-6]|0[0-2][0-7]|0?[0-7]?[0-7]?[0-6])'
+    replace: '# \g<0>'
+  loop: "{{ umask_files.files }}"
+  loop_control:
+    label: "{{ item.path }}"
+  register: replace_results
+  changed_when: "'changed' in replace_results.stdout | default('')"
+
+- name: "Insert secure UMASK 0027 where UMASK is defined"
+  ansible.builtin.lineinfile:
+    path: "{{ item.path }}"
+    regexp: '^\s*umask\s+'
+    line: "umask {{ secure_umask }}"
+    insertafter: EOF
+  loop: "{{ umask_files.files }}"
+  loop_control:
+    label: "{{ item.path }}"
+  register: umask_results
+  changed_when: "'changed' in umask_results.stdout | default('')"
+
+- name: "Create system-wide UMASK configuration file (CIS recommended)"
+  ansible.builtin.copy:
+    dest: /etc/profile.d/50-systemwide_umask.sh
+    content: |
+      umask {{ secure_umask }}
+    owner: root
+    group: root
+    mode: '0644'
+
