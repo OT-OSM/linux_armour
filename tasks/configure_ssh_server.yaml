@@ -114,189 +114,32 @@
     insertafter: EOF
   notify: Restart sshd
 
-# Ensure sshd Ciphers are configured
+# Ensure sshd configurations in loop 
 
-- name: Configure SSH Ciphers
-  ansible.builtin.lineinfile:
-    path: /etc/ssh/sshd_config
-    regexp: '^#?Ciphers'
-    line: "Ciphers aes256-ctr,aes192-ctr,aes128-ctr"
-    state: present
-    insertafter: EOF
-    create: yes
-    backup: yes
-  notify: Restart sshd
-
-# Ensure sshd ClientAliveInterval and ClientAliveCountMax are configured
-
-- name: Configure SSH ClientAliveInterval and ClientAliveCountMax
-  ansible.builtin.lineinfile:
+- name: Apply CIS SSH parameters using loop
+  lineinfile:
     path: /etc/ssh/sshd_config
     regexp: "{{ item.regexp }}"
     line: "{{ item.line }}"
     insertafter: EOF
-    state: present
   loop:
-    - { regexp: '^#?ClientAliveInterval',  line: 'ClientAliveInterval {{ ssh_client_alive_interval }}' }
-    - { regexp: '^#?ClientAliveCountMax',  line: 'ClientAliveCountMax {{ ssh_client_alive_count_max }}' }
-  notify: Restart sshd
-
-# Ensure sshd DisableForwarding is enabled
-
-- name: Ensure SSH DisableForwarding is enabled
-  ansible.builtin.lineinfile:
-    path: /etc/ssh/sshd_config
-    regexp: '^#?DisableForwarding'
-    line: 'DisableForwarding yes'
-    state: present
-    insertafter: EOF
-    backup: yes
-  notify: Restart sshd
-
-# Ensure sshd GSSAPIAuthentication is disabled
-
-- name: Ensure GSSAPIAuthentication is disabled
-  ansible.builtin.lineinfile:
-    path: /etc/ssh/sshd_config
-    regexp: '^#?GSSAPIAuthentication'
-    line: 'GSSAPIAuthentication no'
-    state: present
-    create: yes
-    insertafter: EOF
-  notify: Restart sshd
-
-# Ensure sshd HostbasedAuthentication is disabled
-- name: Ensure HostbasedAuthentication is disabled
-  ansible.builtin.lineinfile:
-    path: /etc/ssh/sshd_config
-    regexp: '^#?HostbasedAuthentication'
-    line: 'HostbasedAuthentication no'
-    state: present
-  notify: Restart sshd
-
-# Ensure sshd IgnoreRhosts is enabled
-- name: Ensure IgnoreRhosts is enabled
-  ansible.builtin.lineinfile:
-    path: /etc/ssh/sshd_config
-    regexp: '^#?IgnoreRhosts'
-    line: 'IgnoreRhosts yes'
-    state: present
-  notify: Restart sshd
-
-# Ensure sshd KexAlgorithms is configured
-- name: Configure SSH KexAlgorithms
-  ansible.builtin.lineinfile:
-    path: /etc/ssh/sshd_config
-    regexp: '^#?KexAlgorithms'
-    line: "KexAlgorithms {{ ssh_kex_algorithms }}"
-    state: present
-  notify: Restart sshd
-
-# Ensure sshd LoginGraceTime is configured
-- name: Configure SSH LoginGraceTime
-  ansible.builtin.lineinfile:
-    path: /etc/ssh/sshd_config
-    regexp: '^#?LoginGraceTime'
-    line: "LoginGraceTime {{ ssh_login_grace_time }}"
-    state: present
-  notify: Restart sshd
-
-# Ensure sshd LogLevel is configured
-
-- name: Configure SSH LogLevel
-  ansible.builtin.lineinfile:
-    path: /etc/ssh/sshd_config
-    regexp: '^#?LogLevel'
-    line: "LogLevel {{ ssh_loglevel }}"
-    state: present
-    insertafter: EOF
-  notify: Restart sshd
-
-# Ensure sshd MACs are configured
-
-- name: Configure SSH MAC algorithms
-  ansible.builtin.lineinfile:
-    path: /etc/ssh/sshd_config
-    regexp: '^#?MACs'
-    line: "MACs {{ ssh_macs }}"
-    state: present
-    insertafter: EOF
-  notify: Restart sshd
-
-# Ensure sshd MaxAuthTries is configured
-
-- name: Configure SSH MaxAuthTries
-  ansible.builtin.lineinfile:
-    path: /etc/ssh/sshd_config
-    regexp: '^#?MaxAuthTries'
-    line: "MaxAuthTries {{ ssh_max_auth_tries }}"
-    state: present
-    insertafter: EOF
-  notify: Restart sshd
-
-# Ensure sshd MaxSessions is configured
-
-- name: Configure SSH MaxSessions
-  ansible.builtin.lineinfile:
-    path: /etc/ssh/sshd_config
-    regexp: '^#?MaxSessions'
-    line: "MaxSessions {{ ssh_max_sessions }}"
-    state: present
-    insertafter: EOF
-  notify: Restart sshd
-
-# Ensure sshd MaxStartups is configured
-
-- name: Configure SSH MaxStartups
-  ansible.builtin.lineinfile:
-    path: /etc/ssh/sshd_config
-    regexp: '^#?MaxStartups'
-    line: "MaxStartups {{ ssh_max_startups }}"
-    state: present
-    insertafter: EOF
-  notify: Restart sshd
-
-# Ensure sshd PermitEmptyPasswords is disabled
-
-- name: Ensure SSH PermitEmptyPasswords is disabled
-  ansible.builtin.lineinfile:
-    path: /etc/ssh/sshd_config
-    regexp: '^#?PermitEmptyPasswords'
-    line: "PermitEmptyPasswords no"
-    state: present
-    insertafter: EOF
-  notify: Restart sshd
-
-# Ensure sshd PermitRootLogin is disabled
-
-- name: Ensure SSH PermitRootLogin is disabled
-  ansible.builtin.lineinfile:
-    path: /etc/ssh/sshd_config
-    regexp: '^#?PermitRootLogin'
-    line: "PermitRootLogin no"
-    state: present
-    insertafter: EOF
-  notify: Restart sshd
-
-# Ensure sshd PermitUserEnvironment is disabled
-
-- name: Ensure SSH PermitUserEnvironment is disabled
-  ansible.builtin.lineinfile:
-    path: /etc/ssh/sshd_config
-    regexp: '^#?PermitUserEnvironment'
-    line: "PermitUserEnvironment no"
-    state: present
-    insertafter: EOF
-  notify: Restart sshd
-
-# Ensure sshd UsePAM is enabled
-
-- name: Ensure SSH UsePAM is enabled
-  ansible.builtin.lineinfile:
-    path: /etc/ssh/sshd_config
-    regexp: '^#?UsePAM'
-    line: "UsePAM yes"
-    state: present
-    insertafter: EOF
-  notify: Restart sshd
+    - { regexp: '^#?Ciphers', line: "Ciphers aes256-ctr,aes192-ctr,aes128-ctr" }
+    - { regexp: '^#?ClientAliveInterval',  line: "ClientAliveInterval {{ ssh_client_alive_interval }}" }
+    - { regexp: '^#?ClientAliveCountMax', line: "ClientAliveCountMax {{ ssh_client_alive_count_max }}" }
+    - { regexp: '^#?DisableForwarding', line: "DisableForwarding yes" }
+    - { regexp: '^#?GSSAPIAuthentication', line: "GSSAPIAuthentication no" }
+    - { regexp: '^#?HostbasedAuthentication', line: "HostbasedAuthentication no" }
+    - { regexp: '^#?IgnoreRhosts', line: "IgnoreRhosts yes" }
+    - { regexp: '^#?KexAlgorithms', line: "KexAlgorithms {{ ssh_kex_algorithms }}" }
+    - { regexp: '^#?LoginGraceTime', line: "LoginGraceTime {{ ssh_login_grace_time }}" }
+    - { regexp: '^#?LogLevel', line: "LogLevel {{ ssh_loglevel }}" }
+    - { regexp: '^#?MACs', line: "MACs {{ ssh_macs }}" }
+    - { regexp: '^#?MaxAuthTries', line: "MaxAuthTries {{ ssh_max_auth_tries }}" }
+    - { regexp: '^#?MaxSessions', line: "MaxSessions {{ ssh_max_sessions }}" }
+    - { regexp: '^#?MaxStartups', line: "MaxStartups {{ ssh_max_startups }}" }
+    - { regexp: '^#?PermitEmptyPasswords', line: "PermitEmptyPasswords no" }
+    - { regexp: '^#?PermitRootLogin', line: "PermitRootLogin no" }
+    - { regexp: '^#?PermitUserEnvironment', line: "PermitUserEnvironment no" }
+    - { regexp: '^#?UsePAM', line: "UsePAM yes" }
+  notify: restart sshd
 

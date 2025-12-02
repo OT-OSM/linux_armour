@@ -25,6 +25,7 @@ sudo_timeout: 15
 ssh_allow_users:
   - ec2-user
   - root
+  - prince
 
 ssh_allow_groups: []
 ssh_deny_users: []
