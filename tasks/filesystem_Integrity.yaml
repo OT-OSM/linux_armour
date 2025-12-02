@@ -14,13 +14,20 @@
 
     - name: "Configure aide"
       ansible.builtin.shell: aideinit
-      changed_when: false
+      args:
+        creates: "/var/lib/aide/aide.db"
 
     - name: Copy the newly generated database
       ansible.builtin.copy:
         remote_src: true
         src: "/var/lib/aide/aide.db.new"
         dest: "/var/lib/aide/aide.db"
+      ignore_errors: true
+
+    - name: Remove the newly generated database
+      ansible.builtin.file:
+        path: /var/lib/aide/aide.db.new
+        state: absent
 
 - name: Install & Configure aide "RedHat
   when: ansible_os_family == "RedHat"
@@ -34,13 +41,20 @@
 
     - name: Configure aide
       ansible.builtin.shell: aide --init
-      changed_when: false
+      args:
+        creates: /var/lib/aide/aide.db.gz
 
     - name: Copy the newly generated database
       ansible.builtin.copy:
         remote_src: true
         src: "/var/lib/aide/aide.db.new.gz"
         dest: "/var/lib/aide/aide.db.gz"
+      ignore_errors: true
+    
+    - name: Remove the newly generated database
+      ansible.builtin.file:
+        path: /var/lib/aide/aide.db.new.gz
+        state: absent
 
 # 6.1.2 Ensure filesystem integrity is regularly checked
 - name: "Service files are copied"

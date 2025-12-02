@@ -80,13 +80,21 @@
 
 # 7.1.12 Ensure no files or directories without an owner and a group exist
 - name: Find files without valid group ownership
-  ansible.builtin.command: find / -nogroup -type f 2>/dev/null
+  ansible.builtin.shell: |
+    find / -nogroup -type f 2>/dev/null || true
   register: ungrouped_files
   changed_when: false
 
-- name: Set group ownership to 'root' for ungrouped files
-  ansible.builtin.file:
-    path: "{{ item }}"
-    group: root
-  loop: "{{ ungrouped_files.stdout_lines }}"
-  when: item is defined
+# - name: Set group ownership to 'root' for ungrouped files
+#   ansible.builtin.file:
+#     path: "{{ item }}"
+#     group: root
+#   loop: "{{ ungrouped_files.stdout_lines }}"
+#   when:
+#     - item is defined
+#     - not item.startswith('/snap/')
+#     - not item.startswith('/proc/')
+#     - not item.startswith('/sys/')
+#     - not item.startswith('/run/')
+#     - not item.startswith('/dev/')
+#   ignore_errors: true

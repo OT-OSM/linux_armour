@@ -27,7 +27,7 @@
     - name: Ensure sudo logfile file exists
       ansible.builtin.file:
         path: /var/log/sudo/sudo.log
-        state: file
+        state: touch
         owner: root
         group: root
         mode: '0640'

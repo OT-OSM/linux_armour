@@ -67,7 +67,7 @@ ssh_banner_content: |
 
 ssh_client_alive_interval: 300
 ssh_client_alive_count_max: 3
-ssh_max_auth_tries: 3
+ssh_max_auth_tries: 5
 ssh_max_sessions: 10
 ssh_max_startups: "10:30:60"
 ssh_login_grace_time: 30
