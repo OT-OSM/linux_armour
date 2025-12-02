@@ -217,7 +217,6 @@
   ansible.builtin.debug:
     var: world_writable.stdout_lines
 
-
 - name: "Find unowned files"
   become: true
   ansible.builtin.shell: |
@@ -228,7 +227,6 @@
 - name: "Report unowned files"
   ansible.builtin.debug:
     var: unowned_files.stdout_lines
-
 
 - name: "Find ungrouped files"
   become: true
