@@ -4,3 +4,17 @@
     name: sshd
     state: restarted
 
+- name: Restart rsyslog
+  ansible.builtin.systemd:
+    name: rsyslog
+    state: restarted
+
+- name: Restart journald
+  systemd:
+    name: systemd-journald
+    state: restarted
+
+- name: Restart systemd-journal-upload
+  ansible.builtin.service:
+    name: systemd-journal-upload.service
+    state: restarted

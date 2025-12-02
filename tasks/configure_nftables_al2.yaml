@@ -1,0 +1,154 @@
+- name: Ensure nftables is installed
+  become: true
+  package:
+    name:
+      - nftables
+    state: present
+
+- name: Set iptables INPUT, FORWARD, OUTPUT policies to ACCEPT before flushing
+  ansible.builtin.shell: |
+    {{ item }} -P INPUT ACCEPT
+    {{ item }} -P FORWARD ACCEPT
+    {{ item }} -P OUTPUT ACCEPT
+  ignore_errors: true
+  loop:
+    - iptables
+    - ip6tables
+
+- name: Check if legacy iptables binaries exist
+  ansible.builtin.stat:
+    path: "{{ item.path }}"
+  register: ipt_stats
+  loop:
+    - { path: "/sbin/iptables" }
+    - { path: "/sbin/ip6tables" }
+  loop_control:
+    label: "{{ item.path }}"
+  changed_when: false
+  failed_when: false
+
+- name: Flush legacy iptables rules
+  ansible.builtin.command: "{{ item.item.path }} -F"
+  loop: "{{ ipt_stats.results }}"
+  when: item.stat.exists
+  loop_control:
+    label: "{{ item.item.path }}"
+  changed_when: false
+  failed_when: false
+
+- name: Ensure nftables table exists
+  become: true
+  block:
+    - name: Check for nftables table
+      ansible.builtin.command: nft list tables
+      register: nft_table_list
+      changed_when: false
+      failed_when: false
+
+    - name: Create nftables table if missing
+      ansible.builtin.command: nft create table inet filter
+      when: "'table inet filter' not in nft_table_list.stdout"
+      changed_when: true
+      failed_when: false
+
+- name: Ensure nftables base chains exist
+  become: true
+  vars:
+    nft_chains:
+      - input
+      - forward
+      - output
+  ansible.builtin.shell: |
+    if ! nft list chain inet filter {{ item }} >/dev/null 2>&1; then
+      nft create chain inet filter {{ item }} { type filter hook {{ item }} priority 0\; }
+      nft chain inet filter {{ item }} { policy none\; }
+    fi
+  args:
+    executable: /bin/bash
+  loop: "{{ nft_chains }}"
+  changed_when: false
+  failed_when: false
+
+- name: Ensure nftables loopback traffic is configured
+  become: true
+  block:
+    - name: Check if IPv6 is enabled
+      ansible.builtin.command: cat /sys/module/ipv6/parameters/disable
+      register: ipv6_status
+      changed_when: false
+      failed_when: false
+
+    - name: Ensure loopback rules exist (no duplicates)
+      ansible.builtin.shell: |
+        if ! nft list ruleset | grep -q '{{ item.check }}'; then
+          nft add rule inet filter input {{ item.rule }}
+        fi
+      args:
+        executable: /bin/bash
+      loop:
+        - { check: 'iif "lo" accept', rule: 'iif lo accept' }
+        - { check: 'ip saddr 127.0.0.0/8', rule: 'ip saddr 127.0.0.0/8 counter drop' }
+        - { check: 'ip6 saddr ::1', rule: 'ip6 saddr ::1 counter drop' }
+      when: "'ip6' not in item.rule or ipv6_status.stdout | trim == '0'"
+      changed_when: false
+      failed_when: false
+
+- name: Check if nftables is active
+  ansible.builtin.shell: |
+    systemctl is-active nftables >/dev/null 2>&1 && echo 1 || echo 0
+  register: nftables_active
+  changed_when: false
+
+- name: Configure inbound and outbound nftables established rules
+  ansible.builtin.shell: |
+    if ! nft list ruleset | grep -q 'hook input' | grep -q 'ip protocol {{ item.proto }} ct state established accept'; then
+      nft add rule inet filter input ip protocol {{ item.proto }} ct state established accept
+    fi
+    if ! nft list ruleset | grep -q 'hook output' | grep -q 'ip protocol {{ item.proto }} ct state new,related,established accept'; then
+      nft add rule inet filter output ip protocol {{ item.proto }} ct state new,related,established accept
+    fi
+  args:
+    executable: /bin/bash
+  loop:
+    - { proto: tcp }
+    - { proto: udp }
+    - { proto: icmp }
+  when: nftables_active.stdout == "1"
+  changed_when: false
+  failed_when: false
+
+- name: Set nftables default deny base chain policies
+  ansible.builtin.shell: |
+    nft chain inet filter input { policy drop \; }
+    nft chain inet filter forward { policy drop \; }
+    nft chain inet filter output { policy drop \; }
+  args:
+    executable: /bin/bash
+  when: nftables_active.stdout == "1"
+  changed_when: false
+  failed_when: false
+
+- name: Unmask nftables service
+  ansible.builtin.systemd:
+    name: nftables
+    masked: false
+
+- name: Enable and start nftables service
+  ansible.builtin.systemd:
+    name: nftables
+    enabled: true
+    state: started
+
+- name: Save active nftables rules
+  ansible.builtin.command: nft list ruleset > /etc/nftables/nftables.rules
+  args:
+    executable: /bin/bash
+  changed_when: false
+
+- name: Ensure nftables.conf includes persistent rules file
+  ansible.builtin.lineinfile:
+    path: /etc/sysconfig/nftables.conf
+    regexp: '^\s*include\s+\"/etc/nftables/nftables.rules\"'
+    line: 'include "/etc/nftables/nftables.rules"'
+    create: yes
+
