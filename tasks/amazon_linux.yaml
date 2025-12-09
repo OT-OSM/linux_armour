@@ -1,17 +1,3 @@
 ---
-- name: Amazon Linux 2 | Configure Service Clients
-  include_tasks: configure_service_clients_al2.yaml
-- name: Amazon Linux 2 | Configure selinux
-  include_tasks: configure_selinux_al2.yaml
-- name: Amazon Linux 2 | Configure secure boot setting 
-  include_tasks: configure_secure_boot_al2.yaml
-- name: Amazon Linux 2 | Configure Time Synchronization
-  include_tasks: configure_time_synchronization_al2.yaml
-- name: Amazon Linux 2 | Configure Filesystem Partitions
-  include_tasks: configure_filesystem_partitions_al2.yaml
-- name: Amazon Linux 2 | Configure Logging (rsyslog + journald)
-  include_tasks: configure_logging_al2.yaml
-- name: Amazon Linux 2 | Configure SSH Server
-  include_tasks: configure_ssh_server.yaml
 - name: Amazon Linux 2 | Configure Integrity Checking
   include_tasks: configure_integrity_checking.yaml
