@@ -607,7 +607,7 @@
     group: root
     mode: '0640'
     content: |
-      -w /usr/bin/chcon -p x -k perm_mod
+      -a always,exit -F path=/usr/bin/chcon -F perm=x -F auid>=1000 -F auid!=unset -k perm_mod
 
 - name: "Load audit rules"
   become: true
@@ -635,7 +635,7 @@
     group: root
     mode: '0640'
     content: |
-      -w /usr/bin/setfacl -p x -k perm_mod
+      -a always,exit -F path=/usr/bin/setfacl -F perm=x -F auid>=1000 -F auid!=unset -k perm_mod
 
 - name: "Load audit rules"
   become: true
@@ -663,7 +663,7 @@
     group: root
     mode: '0640'
     content: |
-      -w /usr/bin/chacl -p x -k perm_mod
+      -a always,exit -F path=/usr/bin/chacl -F perm=x -F auid>=1000 -F auid!=unset -k perm_mod
 
 - name: "Load audit rules"
   become: true
@@ -691,7 +691,7 @@
     group: root
     mode: '0640'
     content: |
-      -w /usr/sbin/usermod -p x -k usermod
+      -a always,exit -F path=/usr/sbin/usermod -F perm=x -F auid>=1000 -F auid!=unset -k usermod
 
 - name: "Load audit rules"
   become: true
