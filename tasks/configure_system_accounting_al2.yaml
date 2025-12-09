@@ -48,6 +48,7 @@
     name: auditd
     enabled: true
     state: started
+  failed_when: false
   ignore_errors: true
 
 # Ensure changes to system administration scope (sudoers) is collected
