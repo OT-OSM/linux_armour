@@ -1,19 +1,72 @@
 ---
+- name: Reload AIDE
+  service:
+    name: '{{ item }}'
+    state: restarted
+    daemon_reload: true
+  with_items:
+    - aidecheck.timer
+    - aidecheck
+
+- name: Reload systemd units
+  systemd:
+    daemon_reload: yes
+
+- name: Restart Chrony
+  service:
+    name: chrony
+    state: restarted
+
+- name: Restart systemd-timesyncd
+  service:
+    name: systemd-timesyncd
+    state: restarted
+
+- name: Restart NTP
+  service:
+    name: ntp
+    state: restarted
+
+- name: Restart Postfix
+  service:
+    name: postfix
+    state: restarted
+
+- name: Update Grub Configuration
+  command: update-grub
+
+- name: Apply nftables ruleset
+  command: nft -f /etc/nftables.conf
+
+- name: Save iptables rules
+  ansible.builtin.shell: /sbin/iptables-save > /etc/iptables/rules.v4
+  args:
+    executable: /bin/bash
+  become: yes
+
+- name: Restart systemd-journald
+  ansible.builtin.systemd:
+    name: systemd-journald
 - name: Restart sshd
   ansible.builtin.service:
     name: sshd
     state: restarted
 
+- name: Reload systemd
+  ansible.builtin.systemd:
+    daemon_reload: yes
+  become: true
+
 - name: Restart rsyslog
   ansible.builtin.systemd:
     name: rsyslog
     state: restarted
-
+    
 - name: Restart journald
   systemd:
     name: systemd-journald
     state: restarted
-
+    
 - name: Restart systemd-journal-upload
   ansible.builtin.service:
     name: systemd-journal-upload.service
