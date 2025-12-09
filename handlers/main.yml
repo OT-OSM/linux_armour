@@ -6,7 +6,7 @@
     daemon_reload: true
   with_items:
     - aidecheck.timer
-    - aidecheck.service
+    - aidecheck
 
 - name: Reload systemd units
   systemd:
