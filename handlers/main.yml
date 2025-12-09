@@ -47,6 +47,7 @@
 - name: Restart systemd-journald
   ansible.builtin.systemd:
     name: systemd-journald
+    
 - name: Restart sshd
   ansible.builtin.service:
     name: sshd
