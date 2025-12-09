@@ -30,9 +30,9 @@
     mode: '0644'
 
 # Ensure permissions on /etc/group- are configured
-- name: Ensure permissions on /etc/group are configured
+- name: Ensure permissions on /etc/group- are configured
   ansible.builtin.file:
-    path: /etc/group
+    path: /etc/group-
     owner: root
     group: root
     mode: '0644'
@@ -143,7 +143,6 @@
     mode: u=rwX,g=rX,o=rX
   loop: "{{ world_writable_files.stdout_lines }}"
   when: world_writable_files.stdout_lines | length > 0
-
 
 - name: "Find world-writable directories"
   ansible.builtin.command: "find / -xdev -type d -perm -0002"
