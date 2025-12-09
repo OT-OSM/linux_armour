@@ -1,48 +1,75 @@
 ---
-# Ensure AIDE is installed
-- name: Install AIDE (Debian)
+# ===============================
+#   AIDE INSTALLATION & SETUP
+# ===============================
+
+# -------- Debian Family --------
+- name: Install & Configure AIDE on Debian
   when: ansible_os_family == "Debian"
   block:
-    - name: Install aide packages
+
+    - name: Install AIDE packages
       ansible.builtin.apt:
         name:
           - aide
           - aide-common
         state: present
+        update_cache: yes
       register: aide_installed
       until: aide_installed is succeeded
 
-    - name: Initialize AIDE DB
-      ansible.builtin.shell: aideinit
-      changed_when: false
+    - name: Check if AIDE DB exists
+      ansible.builtin.stat:
+        path: /var/lib/aide/aide.db
+      register: aide_db
+
+    - name: Initialize AIDE DB (Debian)
+      ansible.builtin.command: aideinit
+      when: not aide_db.stat.exists
+      notify: Restart AIDE Timer
 
     - name: Move new AIDE DB into place
       ansible.builtin.copy:
         remote_src: true
         src: "/var/lib/aide/aide.db.new"
         dest: "/var/lib/aide/aide.db"
+      when: not aide_db.stat.exists
 
-- name: Install AIDE (RedHat / Amazon Linux)
+
+# -------- RedHat / Amazon Linux --------
+- name: Install & Configure AIDE on RedHat
   when: ansible_os_family == "RedHat"
   block:
-    - name: Install aide
+
+    - name: Install AIDE package
       ansible.builtin.package:
         name: aide
         state: present
       register: aide_installed
       until: aide_installed is succeeded
 
-    - name: Initialize AIDE DB
-      ansible.builtin.shell: aide --init
-      changed_when: false
+    - name: Check if AIDE DB exists (RedHat)
+      ansible.builtin.stat:
+        path: /var/lib/aide/aide.db.gz
+      register: aide_db
+
+    - name: Initialize AIDE DB (RedHat)
+      ansible.builtin.command: aide --init
+      when: not aide_db.stat.exists
+      notify: Restart AIDE Timer
 
     - name: Move new AIDE DB into place
       ansible.builtin.copy:
         remote_src: true
         src: "/var/lib/aide/aide.db.new.gz"
         dest: "/var/lib/aide/aide.db.gz"
+      when: not aide_db.stat.exists
 
-# Ensure AIDE filesystem integrity is regularly checked
+
+# ===============================
+#   SYSTEMD TIMER FOR AIDE CHECK
+# ===============================
+
 - name: Install AIDE check systemd units
   ansible.builtin.template:
     src: "{{ item.src }}"
@@ -50,7 +77,7 @@
     owner: root
     group: root
     mode: '0644'
-  with_items:
+  loop:
     - { src: 'aidecheck.service', dest: '/etc/systemd/system/aidecheck.service' }
     - { src: 'aidecheck.timer',   dest: '/etc/systemd/system/aidecheck.timer' }
   notify: Restart AIDE Timer
