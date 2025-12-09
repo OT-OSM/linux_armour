@@ -22,6 +22,7 @@ root_password: "Cis@123#"
 sudo_timeout: 15
 
 # Access Control
+# ssh_allow_users is mandatory to mention the username of specific user who want to ssh into the server (Important)
 ssh_allow_users:
   - ec2-user
   - root
