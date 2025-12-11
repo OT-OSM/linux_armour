@@ -49,8 +49,27 @@
   ansible.builtin.systemd:
     name: systemd-journald
     state: restarted
-
+    
 - name: update_grub
   become: true
   command: grub2-mkconfig -o /boot/grub2/grub.cfg
 
+- name: Reload systemd
+  ansible.builtin.systemd:
+    daemon_reload: yes
+  become: true
+
+- name: Restart rsyslog
+  ansible.builtin.systemd:
+    name: rsyslog
+    state: restarted
+
+- name: Restart journald
+  systemd:
+    name: systemd-journald
+    state: restarted
+
+- name: Restart systemd-journal-upload
+  ansible.builtin.service:
+    name: systemd-journal-upload.service
+    state: restarted

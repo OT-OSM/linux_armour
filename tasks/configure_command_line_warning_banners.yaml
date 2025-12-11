@@ -1,0 +1,59 @@
+---
+# Ensure message of the day is configured properly
+- name: Remove escape sequences from update-motd scripts
+  ansible.builtin.replace:
+    path: "{{ item }}"
+    regexp: '(\\m|\\r|\\s|\\v)'
+    replace: ''
+  loop: "{{ lookup('ansible.builtin.fileglob', '/etc/update-motd.d/*', wantlist=True) }}"
+  failed_when: false
+
+- name: Set MOTD banner in update-motd.d
+  ansible.builtin.copy:
+    dest: /etc/update-motd.d/30-banner
+    content: "{{ login_banner_text }}"
+    owner: root
+    group: root
+    mode: '0755'
+
+# Ensure local & remote login warning banner is configured properly 
+- name: Remove escape sequences from /etc/issue and /etc/issue.net
+  ansible.builtin.replace:
+    path: "{{ item }}"
+    regexp: '(\\m|\\r|\\s|\\v)'
+    replace: ''
+  loop: "{{ issue_files }}"
+  failed_when: false
+
+- name: Set approved banner for /etc/issue and /etc/issue.net
+  ansible.builtin.copy:
+    dest: "{{ item }}"
+    content: "{{ login_banner_text }}"
+    owner: root
+    group: root
+    mode: '0644'
+  loop: "{{ issue_files }}"
+
+# Ensure access to /etc/issue & /etc/issue.net is configured
+- name: Fix permissions for /etc/issue and /etc/issue.net
+  ansible.builtin.file:
+    path: "{{ item }}"
+    owner: root
+    group: root
+    mode: '0644'
+  loop: "{{ issue_files }}"
+
+# Ensure access to /etc/motd is configured 
+- name: Check if /etc/motd exists
+  ansible.builtin.stat:
+    path: /etc/motd
+  register: motd_stat
+
+- name: Fix permissions for /etc/motd
+  ansible.builtin.file:
+    path: /etc/motd
+    owner: root
+    group: root
+    mode: '0644'
+  when: motd_stat.stat.exists
+
