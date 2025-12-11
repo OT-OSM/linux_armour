@@ -21,6 +21,42 @@ root_password: "Cis@123#"
 
 sudo_timeout: 15
 
+# Access Control
+# ssh_allow_users is mandatory to mention the username of specific user who want to ssh into the server (Important)
+ssh_allow_users:
+  - ec2-user
+  - root
+  - prince
+
+ssh_allow_groups: []
+ssh_deny_users: []
+ssh_deny_groups: []
+
+# SSH Timeouts and Session Policies
+ssh_client_alive_interval: 300
+ssh_client_alive_count_max: 3
+ssh_login_grace_time: 60
+
+# Logging and Security
+ssh_loglevel: "INFO"
+ssh_macs: "hmac-sha2-512,hmac-sha2-256"
+ssh_kex_algorithms: "curve25519-sha256,curve25519-sha256@libssh.org,diffie-hellman-group14-sha256,diffie-hellman-group16-sha512,diffie-hellman-group18-sha512"
+
+# Authentication and Login Restrictions
+ssh_max_auth_tries: 4
+ssh_max_sessions: 10
+ssh_max_startups: "10:30:60"
+ssh_permit_empty_passwords: "no"
+ssh_permit_root_login: "no"
+ssh_permit_user_environment: "no"
+
+# SSH Module Security
+ssh_use_pam: "yes"
+ssh_disable_forwarding: "yes"
+ssh_gssapi_authentication: "no"
+ssh_hostbased_authentication: "no"
+ssh_ignore_rhosts: "yes"
+
 # Set the default time synchronization daemon
 time_sync_daemon: systemd-timesyncd # Replace with one of in list ('chrony', 'systemd-timesyncd')
 
