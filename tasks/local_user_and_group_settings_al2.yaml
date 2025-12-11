@@ -48,54 +48,45 @@
 
 # Ensure no duplicate UIDs exist
 
-- name: Find duplicate UIDs
+- name: Detect duplicate UIDs
   ansible.builtin.shell: "cut -d: -f3 /etc/passwd | sort -n | uniq -d"
   register: duplicate_uids
   changed_when: false
 
-- name: Get usernames for duplicate UIDs
+- name: Get accounts associated with duplicate UIDs
   ansible.builtin.shell: "awk -F: -v uid={{ item }} '($3==uid){print $1}' /etc/passwd"
-  register: users_with_duplicate_uids
   loop: "{{ duplicate_uids.stdout_lines }}"
+  register: duplicate_uid_users
   when: duplicate_uids.stdout_lines | length > 0
   changed_when: false
 
-- name: Fix duplicate UIDs by assigning unique UID starting from 20000
-  ansible.builtin.user:
-    name: "{{ item }}"
-    uid: "{{ 20000 + index }}"
-    move_home: yes
-  loop: "{{ users_with_duplicate_uids.results | map(attribute='stdout_lines') | list | flatten }}"
-  loop_control:
-    index_var: index
-  become: true
+- name: Warn administrator about duplicate UIDs (manual remediation required)
+  ansible.builtin.debug:
+    msg: >
+      "Duplicate UIDs detected: {{ duplicate_uid_users.results | map(attribute='stdout_lines') | list }}.
+      CIS requires manual review and correction to avoid breaking file ownership."
+  when: duplicate_uids.stdout_lines | length > 0
 
 # Ensure no duplicate GIDs exist
 
-- name: Find duplicate GIDs
-  ansible.builtin.shell: |
-    cut -d: -f3 /etc/group | sort -n | uniq -d
+- name: Detect duplicate GIDs
+  ansible.builtin.shell: "cut -d: -f3 /etc/group | sort -n | uniq -d"
   register: duplicate_gids
   changed_when: false
 
-- name: Get group names for duplicate GIDs
-  ansible.builtin.shell: |
-    awk -F: -v gid={{ item }} '($3==gid){print $1}' /etc/group
-  register: groups_with_duplicate_gids
+- name: Get groups associated with duplicate GIDs
+  ansible.builtin.shell: "awk -F: -v gid={{ item }} '($3==gid){print $1}' /etc/group"
   loop: "{{ duplicate_gids.stdout_lines }}"
+  register: duplicate_gid_groups
   when: duplicate_gids.stdout_lines | length > 0
   changed_when: false
 
-- name: Fix duplicate GIDs by assigning unique GIDs starting from 30000
-  ansible.builtin.group:
-    name: "{{ item }}"
-    gid: "{{ 30000 + index }}"
-    state: present
-  loop: "{{ groups_with_duplicate_gids.results | map(attribute='stdout_lines') | list | flatten }}"
-  loop_control:
-    index_var: index
-  when: groups_with_duplicate_gids.results is defined
-  become: true
+- name: Warn administrator about duplicate GIDs (manual remediation required)
+  ansible.builtin.debug:
+    msg: >
+      "Duplicate GIDs detected: {{ duplicate_gid_groups.results | map(attribute='stdout_lines') | list }}.
+      CIS requires manual correction to avoid breaking group permissions."
+  when: duplicate_gids.stdout_lines | length > 0
 
 # Ensure no duplicate user names exist
 
