@@ -1,0 +1,867 @@
+# Ensure audit is installed
+
+- name: "Ensure audit and audit-libs are installed"
+  become: true
+  ansible.builtin.package:
+    name:
+      - audit
+      - audit-libs
+    state: present
+
+# Ensure auditing for processes that start prior to auditd is enabled
+
+- name: "Ensure audit=1 exists in GRUB_CMDLINE_LINUX if missing"
+  become: true
+  ansible.builtin.lineinfile:
+    path: /etc/default/grub
+    regexp: '^GRUB_CMDLINE_LINUX='
+    line: 'GRUB_CMDLINE_LINUX="audit=1"'
+  notify: update_grub
+
+# Ensure auditd.conf settings are configured
+
+- name: "Configure auditd.conf parameters"
+  become: true
+  ansible.builtin.lineinfile:
+    path: /etc/audit/auditd.conf
+    regexp: '^\\s*{{ item.key }}\\s*='
+    line: '{{ item.key }} = {{ item.value }}'
+  loop: "{{ audit_conf_settings }}"
+  loop_control:
+    label: "{{ item.key }}"
+
+# Ensure auditd service is enabled
+
+- name: "Ensure auditd is enabled and running"
+  become: true
+  ansible.builtin.systemd:
+    name: auditd
+    enabled: true
+    state: started
+  failed_when: false
+  ignore_errors: true
+
+# Ensure changes to system administration scope (sudoers) is collected
+
+- name: "Create auditd rules for monitoring sudoers changes"
+  become: true
+  ansible.builtin.copy:
+    dest: /etc/audit/rules.d/50-scope.rules
+    owner: root
+    group: root
+    mode: '0640'
+    content: |
+      -w /etc/sudoers -p wa -k scope
+      -w /etc/sudoers.d -p wa -k scope
+
+- name: "Load auditd rules using augenrules"
+  become: true
+  ansible.builtin.command: augenrules --load
+  register: augenrules_output
+  changed_when: "'No rules' not in augenrules_output.stderr"
+
+- name: "Check if audit system is in locked mode and reboot may be required"
+  become: true
+  ansible.builtin.command: auditctl -s
+  register: audit_status
+
+- name: "Warn if auditd immutable mode is enabled (reboot required)"
+  ansible.builtin.debug:
+    msg: "Audit configuration is locked (enabled=2). A reboot is required to load new audit rules."
+  when: audit_status.stdout is search('enabled 2')
+
+# Ensure actions as another user are always logged
+
+- name: "Create audit rule for logging actions executed as another user"
+  become: true
+  ansible.builtin.copy:
+    dest: /etc/audit/rules.d/50-user-emulation.rules
+    owner: root
+    group: root
+    mode: '0640'
+    content: |
+      -a always,exit -F arch=b64 -S execve -C uid!=euid -F key=user_emulation
+      -a always,exit -F arch=b32 -S execve -C uid!=euid -F key=user_emulation
+
+- name: "Load auditd rules using augenrules"
+  become: true
+  ansible.builtin.command: augenrules --load
+  register: augenrules_output
+  changed_when: "'No rules' not in augenrules_output.stderr"
+
+- name: "Check audit system status"
+  become: true
+  ansible.builtin.command: auditctl -s
+  register: audit_status
+
+- name: "Warn if auditd immutable mode is enabled (reboot required)"
+  ansible.builtin.debug:
+    msg: "Audit configuration is locked (enabled=2). A reboot is required to load new audit rules."
+  when: audit_status.stdout is search('enabled 2')
+
+# Ensure events that modify the sudo log file are collected
+
+- name: "Detect sudo log file path from sudoers"
+  become: true
+  ansible.builtin.shell: |
+    grep -r "^[[:space:]]*Defaults[[:space:]]\+logfile=" /etc/sudoers /etc/sudoers.d 2>/dev/null \
+    | awk -F= '{print $2}' \
+    | tr -d '"'
+  register: sudo_logfile_raw
+  changed_when: false
+
+- name: "Set sudo log file path (default if none found)"
+  ansible.builtin.set_fact:
+    sudo_log_file: "{{ sudo_logfile_raw.stdout | default('/var/log/sudo.log') }}"
+
+- name: "Create audit rule for sudo log file modification"
+  become: true
+  ansible.builtin.copy:
+    dest: /etc/audit/rules.d/50-sudo-log.rules
+    owner: root
+    group: root
+    mode: '0640'
+    content: |
+      -w {{ sudo_log_file }} -p wa -k sudo_log_file
+
+- name: "Load auditd rules using augenrules"
+  become: true
+  ansible.builtin.command: augenrules --load
+  register: augenrules_output
+  changed_when: "'No rules' not in augenrules_output.stderr"
+
+- name: "Check audit system status"
+  become: true
+  ansible.builtin.command: auditctl -s
+  register: audit_status
+
+- name: "Warn if auditd immutable mode is enabled (reboot required)"
+  ansible.builtin.debug:
+    msg: "Audit configuration is locked (enabled=2). A reboot is required to load new audit rules."
+  when: audit_status.stdout is search('enabled 2')
+
+# Ensure events that modify date and time information are collected
+
+- name: Ensure audit rules directory exists
+  ansible.builtin.file:
+    path: /etc/audit/rules.d
+    state: directory
+    owner: root
+    group: root
+    mode: '0750'
+  become: true
+
+- name: Deploy time-change audit rules
+  ansible.builtin.copy:
+    dest: /etc/audit/rules.d/50-time-change.rules
+    owner: root
+    group: root
+    mode: '0640'
+    content: |
+      -a always,exit -F arch=b64 -S adjtimex,settimeofday,clock_settime -k time-change
+      -a always,exit -F arch=b32 -S adjtimex,settimeofday,clock_settime -k time-change
+      -w /etc/localtime -p wa -k time-change
+  become: true
+
+- name: Load audit rules using augenrules
+  ansible.builtin.command: augenrules --load
+  become: true
+
+- name: Check if reboot is required for time-change audit rules
+  ansible.builtin.shell: |
+    auditctl -s | grep "enabled" | grep -q "2" && echo "Reboot required" || echo "OK"
+  register: timechange_reboot_required
+  changed_when: false
+  become: true
+
+- name: Display reboot requirement for time-change rules
+  ansible.builtin.debug:
+    msg: >
+      Audit rules loaded. 
+      {{ "REBOOT REQUIRED (auditd immutable)" if "Reboot required" in timechange_reboot_required.stdout 
+      else "No reboot required." }}
+
+# Ensure events that modify the system's network environment are collected
+
+- name: Ensure audit rules directory exists
+  become: true
+  ansible.builtin.file:
+    path: /etc/audit/rules.d
+    state: directory
+    owner: root
+    group: root
+    mode: '0750'
+
+- name: Deploy network modification audit rules
+  become: true
+  ansible.builtin.copy:
+    dest: /etc/audit/rules.d/50-system-network.rules
+    owner: root
+    group: root
+    mode: '0640'
+    content: |
+      -a always,exit -F arch=b64 -S sethostname,setdomainname -k system-locale
+      -a always,exit -F arch=b32 -S sethostname,setdomainname -k system-locale
+      -w /etc/hosts -p wa -k system-locale
+      -w /etc/issue -p wa -k system-locale
+      -w /etc/issue.net -p wa -k system-locale
+      -w /etc/sysconfig/network -p wa -k system-locale
+      -w /etc/sysconfig/network-scripts/ -p wa -k system-locale
+
+- name: Load audit rules using augenrules
+  become: true
+  ansible.builtin.command: augenrules --load
+  register: audit_network_load
+  changed_when: "'No rules' not in audit_network_load.stderr"
+
+- name: Check audit system immutability status
+  become: true
+  ansible.builtin.command: auditctl -s
+  register: audit_network_status
+  changed_when: false
+
+- name: Warn if auditd immutable mode is enabled
+  ansible.builtin.debug:
+    msg: "Auditd is in immutable mode (enabled=2). Reboot required to apply network audit rules."
+  when: audit_network_status.stdout is search('enabled 2')
+
+# Ensure use of privileged commands are collected
+
+- name: "Find privileged (SUID/SGID) commands"
+  become: true
+  ansible.builtin.shell: |
+    find / -xdev -type f \( -perm -4000 -o -perm -2000 \) 2>/dev/null
+  register: privileged_cmds_raw
+  changed_when: false
+
+- name: "Create audit rules file for privileged commands"
+  become: true
+  ansible.builtin.copy:
+    dest: /etc/audit/rules.d/50-privileged.rules
+    owner: root
+    group: root
+    mode: '0640'
+    content: |
+      {% for cmd in privileged_cmds_raw.stdout_lines %}
+      -a always,exit -F path={{ cmd }} -F perm=x -F auid>=1000 -F auid!=unset -k privileged
+      {% endfor %}
+
+- name: "Load audit rules using augenrules"
+  become: true
+  ansible.builtin.command: augenrules --load
+  register: privileged_rule_load
+  changed_when: "'No rules' not in privileged_rule_load.stderr"
+
+- name: "Check auditd immutable mode"
+  become: true
+  ansible.builtin.command: auditctl -s
+  register: privileged_immutable
+  changed_when: false
+
+- name: "Warn if auditd immutable mode is enabled (reboot required)"
+  ansible.builtin.debug:
+    msg: "Auditd is in immutable mode (enabled=2). Reboot required to apply privileged command audit rules."
+  when: privileged_immutable.stdout is search('enabled 2')
+
+# Ensure unsuccessful unauthorized file access attempts are collected
+
+- name: Ensure audit rules directory exists
+  become: true
+  ansible.builtin.file:
+    path: /etc/audit/rules.d
+    state: directory
+    owner: root
+    group: root
+    mode: '0750'
+
+- name: Deploy audit rules for unauthorized access attempts
+  become: true
+  ansible.builtin.copy:
+    dest: /etc/audit/rules.d/50-access.rules
+    owner: root
+    group: root
+    mode: '0640'
+    content: |
+      -a always,exit -F arch=b64 -S open,openat,creat,truncate,ftruncate -F exit=-EACCES -k access
+      -a always,exit -F arch=b64 -S open,openat,creat,truncate,ftruncate -F exit=-EPERM  -k access
+
+      -a always,exit -F arch=b32 -S open,openat,creat,truncate,ftruncate -F exit=-EACCES -k access
+      -a always,exit -F arch=b32 -S open,openat,creat,truncate,ftruncate -F exit=-EPERM  -k access
+
+- name: Load audit rules using augenrules
+  become: true
+  ansible.builtin.command: augenrules --load
+  register: access_load
+  changed_when: "'No rules' not in access_load.stderr"
+
+- name: Check auditd immutable mode
+  become: true
+  ansible.builtin.command: auditctl -s
+  register: access_status
+  changed_when: false
+
+- name: Warn if auditd immutable mode is enabled (reboot required)
+  ansible.builtin.debug:
+    msg: "Auditd immutable mode detected (enabled=2). Reboot required to load new access audit rules."
+  when: access_status.stdout is search('enabled 2')
+
+# Ensure events that modify user/group information are collected
+
+- name: Ensure audit rules directory exists
+  become: true
+  ansible.builtin.file:
+    path: /etc/audit/rules.d
+    state: directory
+    owner: root
+    group: root
+    mode: '0750'
+
+- name: Deploy user/group modification audit rules
+  become: true
+  ansible.builtin.copy:
+    dest: /etc/audit/rules.d/50-identity.rules
+    owner: root
+    group: root
+    mode: '0640'
+    content: |
+      -w /etc/group -p wa -k identity
+      -w /etc/passwd -p wa -k identity
+      -w /etc/gshadow -p wa -k identity
+      -w /etc/shadow -p wa -k identity
+      -w /etc/security/opasswd -p wa -k identity
+
+- name: Load audit rules using augenrules
+  become: true
+  ansible.builtin.command: augenrules --load
+  register: identity_load
+  changed_when: "'No rules' not in identity_load.stderr"
+
+- name: Check auditd immutable mode
+  become: true
+  ansible.builtin.command: auditctl -s
+  register: identity_status
+  changed_when: false
+
+- name: Warn if auditd immutable mode is enabled (reboot required)
+  ansible.builtin.debug:
+    msg: "Auditd immutable mode detected (enabled=2). Reboot required to load the identity audit rules."
+  when: identity_status.stdout is search('enabled 2')
+
+# Ensure discretionary access control permission modification events are collected
+
+- name: Ensure /etc/audit/rules.d exists
+  become: true
+  ansible.builtin.file:
+    path: /etc/audit/rules.d
+    state: directory
+    owner: root
+    group: root
+    mode: '0750'
+
+- name: Deploy DAC modification audit rules
+  become: true
+  ansible.builtin.copy:
+    dest: /etc/audit/rules.d/50-perm_mod.rules
+    owner: root
+    group: root
+    mode: '0640'
+    content: |
+      -a always,exit -F arch=b64 -S chmod,fchmod,fchmodat,chown,fchown,fchownat,lchown,setxattr,lsetxattr,fsetxattr,removexattr,lremovexattr,fremovexattr -k perm_mod
+      -a always,exit -F arch=b32 -S chmod,fchmod,fchmodat,chown,fchown,fchownat,lchown,setxattr,lsetxattr,fsetxattr,removexattr,lremovexattr,fremovexattr -k perm_mod
+
+- name: Load audit rules using augenrules
+  become: true
+  ansible.builtin.command: augenrules --load
+  register: perm_mod_load
+  changed_when: "'No rules' not in perm_mod_load.stderr"
+
+- name: Check auditd immutable mode
+  become: true
+  ansible.builtin.command: auditctl -s
+  register: perm_mod_status
+  changed_when: false
+
+- name: Warn if auditd immutable mode is enabled (reboot required)
+  ansible.builtin.debug:
+    msg: "Auditd immutable mode detected (enabled=2). Reboot required to activate DAC audit rules."
+  when: perm_mod_status.stdout is search('enabled 2')
+
+# Ensure successful file system mounts are collected
+
+- name: Ensure audit rules directory exists
+  become: true
+  ansible.builtin.file:
+    path: /etc/audit/rules.d
+    state: directory
+    owner: root
+    group: root
+    mode: '0750'
+
+- name: Deploy mount audit rules
+  become: true
+  ansible.builtin.copy:
+    dest: /etc/audit/rules.d/50-mounts.rules
+    owner: root
+    group: root
+    mode: '0640'
+    content: |
+      -a always,exit -F arch=b64 -S mount -F auid>=1000 -F auid!=unset -k mounts
+      -a always,exit -F arch=b32 -S mount -F auid>=1000 -F auid!=unset -k mounts
+
+- name: Load audit rules using augenrules
+  become: true
+  ansible.builtin.command: augenrules --load
+  register: mounts_load
+  changed_when: "'No rules' not in mounts_load.stderr"
+
+- name: Check auditd immutable mode
+  become: true
+  ansible.builtin.command: auditctl -s
+  register: mounts_status
+  changed_when: false
+
+- name: Warn if auditd immutable mode is enabled (reboot required)
+  ansible.builtin.debug:
+    msg: "Auditd immutable mode detected (enabled=2). Reboot required to activate mount audit rules."
+  when: mounts_status.stdout is search('enabled 2')
+
+# Ensure session initiation information is collected
+
+- name: Ensure audit rules directory exists
+  become: true
+  ansible.builtin.file:
+    path: /etc/audit/rules.d
+    state: directory
+    owner: root
+    group: root
+    mode: '0750'
+
+- name: Deploy session initiation audit rules
+  become: true
+  ansible.builtin.copy:
+    dest: /etc/audit/rules.d/50-session.rules
+    owner: root
+    group: root
+    mode: '0640'
+    content: |
+      -w /var/run/faillock/ -p wa -k session
+      -w /var/log/lastlog -p wa -k session
+      -w /var/log/tallylog -p wa -k session
+
+- name: Load audit rules using augenrules
+  become: true
+  ansible.builtin.command: augenrules --load
+  register: session_load
+  changed_when: "'No rules' not in session_load.stderr"
+
+- name: Check auditd immutable status
+  become: true
+  ansible.builtin.command: auditctl -s
+  register: session_status
+  changed_when: false
+
+- name: Warn if auditd immutable mode is enabled (reboot required)
+  ansible.builtin.debug:
+    msg: "Auditd immutable mode is enabled (enabled=2). Reboot required for session audit rules to take effect."
+  when: session_status.stdout is search('enabled 2')
+
+# Ensure login and logout events are collected
+
+- name: Ensure audit rules directory exists
+  become: true
+  ansible.builtin.file:
+    path: /etc/audit/rules.d
+    state: directory
+    owner: root
+    group: root
+    mode: '0750'
+
+- name: Deploy login/logout audit rules
+  become: true
+  ansible.builtin.copy:
+    dest: /etc/audit/rules.d/50-logins.rules
+    owner: root
+    group: root
+    mode: '0640'
+    content: |
+      -w /var/log/wtmp -p wa -k logins
+      -w /var/log/btmp -p wa -k logins
+
+- name: Load audit rules using augenrules
+  become: true
+  ansible.builtin.command: augenrules --load
+  register: logins_load
+  changed_when: "'No rules' not in logins_load.stderr"
+
+- name: Check auditd immutable mode
+  become: true
+  ansible.builtin.command: auditctl -s
+  register: logins_status
+  changed_when: false
+
+- name: Warn if auditd immutable mode is enabled (reboot required)
+  ansible.builtin.debug:
+    msg: "Auditd immutable mode detected (enabled=2). Reboot required for login/logout audit rules to apply."
+  when: logins_status.stdout is search('enabled 2')
+
+# Ensure file deletion events by users are collected
+
+- name: Ensure audit rules directory exists
+  become: true
+  ansible.builtin.file:
+    path: /etc/audit/rules.d
+    state: directory
+    owner: root
+    group: root
+    mode: '0750'
+
+- name: Deploy file deletion audit rules
+  become: true
+  ansible.builtin.copy:
+    dest: /etc/audit/rules.d/50-delete.rules
+    owner: root
+    group: root
+    mode: '0640'
+    content: |
+      -a always,exit -F arch=b64 -S unlink,unlinkat,rename,renameat -F auid>=1000 -F auid!=unset -k delete
+      -a always,exit -F arch=b32 -S unlink,unlinkat,rename,renameat -F auid>=1000 -F auid!=unset -k delete
+
+- name: Load audit rules using augenrules
+  become: true
+  ansible.builtin.command: augenrules --load
+  register: delete_load
+  changed_when: "'No rules' not in delete_load.stderr"
+
+- name: Check auditd immutable mode
+  become: true
+  ansible.builtin.command: auditctl -s
+  register: delete_status
+  changed_when: false
+
+- name: Warn if auditd immutable mode is enabled (reboot required)
+  ansible.builtin.debug:
+    msg: "Auditd immutable mode detected (enabled=2). Reboot required to apply file deletion audit rules."
+  when: delete_status.stdout is search('enabled 2')
+
+# Ensure events that modify the system’s Mandatory Access Controls (MAC) are collected
+
+- name: Ensure /etc/audit/rules.d directory exists
+  become: true
+  ansible.builtin.file:
+    path: /etc/audit/rules.d
+    state: directory
+    owner: root
+    group: root
+    mode: '0750'
+
+- name: Deploy MAC policy audit rules
+  become: true
+  ansible.builtin.copy:
+    dest: /etc/audit/rules.d/50-MAC-policy.rules
+    owner: root
+    group: root
+    mode: '0640'
+    content: |
+      # Audit SELinux attribute change syscalls
+      -a always,exit -F arch=b64 -S setxattr,lsetxattr,fsetxattr,removexattr,lremovexattr,fremovexattr -k MAC-policy
+      -a always,exit -F arch=b32 -S setxattr,lsetxattr,fsetxattr,removexattr,lremovexattr,fremovexattr -k MAC-policy
+
+      # Audit SELinux policy directories
+      -w /etc/selinux/ -p wa -k MAC-policy
+      -w /usr/share/selinux/ -p wa -k MAC-policy
+
+- name: Load audit rules using augenrules
+  become: true
+  ansible.builtin.command: augenrules --load
+  register: mac_policy_load
+  changed_when: "'No rules' not in mac_policy_load.stderr"
+
+- name: Check auditd immutable mode
+  become: true
+  ansible.builtin.command: auditctl -s
+  register: mac_policy_status
+  changed_when: false
+
+- name: Warn if auditd immutable mode = 2 (requires reboot)
+  ansible.builtin.debug:
+    msg: "Auditd is in immutable mode (enabled=2). Reboot required for MAC audit rules to take effect."
+  when: mac_policy_status.stdout is search('enabled 2')
+
+# Ensure successful and unsuccessful attempts to use the chcon command are recorded
+
+- name: "Create audit rule for chcon command"
+  become: true
+  ansible.builtin.copy:
+    dest: /etc/audit/rules.d/50-chcon.rules
+    owner: root
+    group: root
+    mode: '0640'
+    content: |
+      -a always,exit -F path=/usr/bin/chcon -F perm=x -F auid>=1000 -F auid!=unset -k perm_mod
+
+- name: "Load audit rules"
+  become: true
+  ansible.builtin.command: augenrules --load
+  changed_when: false
+
+- name: "Check if audit config is immutable (enabled=2)"
+  become: true
+  ansible.builtin.command: auditctl -s
+  register: audit_status
+  changed_when: false
+
+- name: "Warn if reboot required due to immutable audit rules"
+  ansible.builtin.debug:
+    msg: "Reboot required to load rules because auditing is locked (enabled=2)"
+  when: audit_status.stdout is search("enabled 2")
+
+# Ensure successful and unsuccessful attempts to use the setfacl command are recorded
+
+- name: "Create audit rule for setfacl command"
+  become: true
+  ansible.builtin.copy:
+    dest: /etc/audit/rules.d/50-setfacl.rules
+    owner: root
+    group: root
+    mode: '0640'
+    content: |
+      -a always,exit -F path=/usr/bin/setfacl -F perm=x -F auid>=1000 -F auid!=unset -k perm_mod
+
+- name: "Load audit rules"
+  become: true
+  ansible.builtin.command: augenrules --load
+  changed_when: false
+
+- name: "Check audit config immutable status"
+  become: true
+  ansible.builtin.command: auditctl -s
+  register: audit_status
+  changed_when: false
+
+- name: "Warn if immutable mode prevents loading new rules"
+  ansible.builtin.debug:
+    msg: "Audit system is immutable (enabled=2). Reboot required to apply setfacl audit rule."
+  when: audit_status.stdout is search('enabled 2')
+
+# Ensure successful and unsuccessful attempts to use the chacl command are recorded
+
+- name: "Create audit rule for chacl command"
+  become: true
+  ansible.builtin.copy:
+    dest: /etc/audit/rules.d/50-chacl.rules
+    owner: root
+    group: root
+    mode: '0640'
+    content: |
+      -a always,exit -F path=/usr/bin/chacl -F perm=x -F auid>=1000 -F auid!=unset -k perm_mod
+
+- name: "Load audit rules"
+  become: true
+  ansible.builtin.command: augenrules --load
+  changed_when: false
+
+- name: "Check audit config immutable status"
+  become: true
+  ansible.builtin.command: auditctl -s
+  register: audit_status
+  changed_when: false
+
+- name: "Warn if immutable mode prevents loading new rules"
+  ansible.builtin.debug:
+    msg: "Audit system is immutable (enabled=2). Reboot required to apply chacl audit rule."
+  when: audit_status.stdout is search('enabled 2')
+
+# Ensure successful and unsuccessful attempts to use the usermod command are recorded
+
+- name: "Create audit rule for usermod command"
+  become: true
+  ansible.builtin.copy:
+    dest: /etc/audit/rules.d/50-usermod.rules
+    owner: root
+    group: root
+    mode: '0640'
+    content: |
+      -a always,exit -F path=/usr/sbin/usermod -F perm=x -F auid>=1000 -F auid!=unset -k usermod
+
+- name: "Load audit rules"
+  become: true
+  ansible.builtin.command: augenrules --load
+  changed_when: false
+
+- name: "Check audit config immutable status"
+  become: true
+  ansible.builtin.command: auditctl -s
+  register: audit_status
+  changed_when: false
+
+- name: "Warn if immutable rule prevents loading new rules"
+  ansible.builtin.debug:
+    msg: "Audit system is immutable (enabled=2). Reboot required to apply usermod audit rule."
+  when: audit_status.stdout is search('enabled 2')
+
+# Ensure kernel module loading/unloading/modification is collected
+
+- name: "Deploy kernel module audit rules"
+  become: true
+  ansible.builtin.copy:
+    dest: /etc/audit/rules.d/50-modules.rules
+    owner: root
+    group: root
+    mode: '0640'
+    content: |
+      -a always,exit -F arch=b64 -S init_module,finit_module,delete_module -k modules
+      -a always,exit -F arch=b32 -S init_module,finit_module,delete_module -k modules
+
+- name: "Load audit rules"
+  become: true
+  ansible.builtin.command: augenrules --load
+  changed_when: false
+
+- name: "Check audit immutability status"
+  become: true
+  ansible.builtin.command: auditctl -s
+  register: audit_status
+  changed_when: false
+
+- name: "Warn if immutable mode prevents rule loading"
+  ansible.builtin.debug:
+    msg: "Audit is immutable (enabled=2). Reboot required to activate module audit rules."
+  when: audit_status.stdout is search('enabled 2')
+
+# Ensure the audit configuration is immutable
+
+- name: "Enable immutable audit configuration (-e 2)"
+  become: true
+  ansible.builtin.copy:
+    dest: /etc/audit/rules.d/99-immutable.rules
+    owner: root
+    group: root
+    mode: '0640'
+    content: |
+      -e 2
+
+- name: "Load audit rules"
+  become: true
+  ansible.builtin.command: augenrules --load
+  changed_when: false
+
+- name: "Check audit status for immutability"
+  become: true
+  ansible.builtin.command: auditctl -s
+  register: audit_status
+  changed_when: false
+
+- name: "Notify that reboot is required"
+  ansible.builtin.debug:
+    msg: "Audit system is now immutable. A reboot is required for changes to take full effect."
+  when: audit_status.stdout is search('enabled 2')
+
+# Ensure running and on-disk audit configuration is the same (Manual)
+
+- name: "Get running audit rules"
+  become: true
+  ansible.builtin.command: auditctl -l
+  register: running_rules
+  changed_when: false
+
+- name: "Check on-disk audit rules integrity"
+  become: true
+  ansible.builtin.command: augenrules --check
+  register: disk_rules
+  changed_when: false
+
+- name: "Show on-disk vs running audit rules comparison"
+  ansible.builtin.debug:
+    msg: "{{ disk_rules.stdout_lines }}"
+
+# Ensure audit log directory is 0750 or more restrictive
+
+- name: "Ensure audit log directory has correct permissions"
+  become: true
+  ansible.builtin.file:
+    path: /var/log/audit
+    state: directory
+    owner: root
+    group: root
+    mode: '0750'
+
+# Ensure audit log files are mode 0640 or less permissive
+
+- name: "Ensure audit log files are 0640 or more restrictive"
+  become: true
+  ansible.builtin.shell: |
+    find /var/log/audit -type f -exec chmod 0640 {} \;
+  args:
+    warn: false
+  changed_when: false
+
+- name: "Ensure audit log files are owned by root"
+  become: true
+  ansible.builtin.shell: |
+    find /var/log/audit -type f -exec chown root:root {} \;
+  args:
+    warn: false
+  changed_when: false
+
+# Ensure only authorized users own audit log files
+
+- name: "Ensure audit log files are owned by root user"
+  become: true
+  ansible.builtin.shell: |
+    find /var/log/audit -type f ! -user root -exec chown root {} \;
+  args:
+    warn: false
+  changed_when: false
+
+# Ensure only authorized groups own audit log files
+
+- name: "Ensure audit log files belong to the root group"
+  become: true
+  ansible.builtin.shell: |
+    find /var/log/audit -type f ! -group root -exec chgrp root {} \;
+  args:
+    warn: false
+  changed_when: false
+
+# Ensure audit configuration files permissions are 0640 or more restrictive
+
+- name: "Ensure audit configuration files have mode 0640 or more restrictive"
+  become: true
+  ansible.builtin.shell: |
+    find /etc/audit -type f -exec chmod 0640 {} \;
+  args:
+    warn: false
+  changed_when: false
+
+# Ensure audit configuration files are owned by root
+
+- name: "Ensure audit configuration files are owned by root"
+  become: true
+  ansible.builtin.shell: |
+    find /etc/audit -type f ! -user root -exec chown root {} \;
+  args:
+    warn: false
+  changed_when: false
+
+# Ensure audit configuration files belong to group root
+
+- name: "Ensure audit configuration files belong to group root"
+  become: true
+  ansible.builtin.shell: |
+    find /etc/audit -type f ! -group root -exec chgrp root {} \;
+  args:
+    warn: false
+  changed_when: false
+
+# Ensure audit tools are 755 or more restrictive and root owned
+
+- name: "Ensure audit tools are 755 and root-owned"
+  become: true
+  ansible.builtin.file:
+    path: "{{ item }}"
+    mode: '0755'
+    owner: root
+    group: root
+  loop: "{{ audit_tools }}"
+  ignore_errors: true
+
