@@ -213,6 +213,7 @@ sysctl_params:
   - { name: "net.ipv4.tcp_syncookies", value: "1" }
   - { name: "net.ipv6.conf.all.accept_ra", value: "0" }
   - { name: "net.ipv6.conf.default.accept_ra", value: "0" }
+
 #Configure Additional Process Hardening
 kernel_hardening_params:
   - { name: "kernel.randomize_va_space", value: "2", desc: "Ensure ASLR is enabled" }
@@ -222,6 +223,7 @@ coredump_config_block: |
   [Coredump]
   ProcessSizeMax=0
   Storage=none
+
 #Configure privilege escalation
 sudo_package: "sudo"
 sudoers_path: "/etc/sudoers"
@@ -229,12 +231,14 @@ sudo_logfile_path: "/var/log/sudo.log"
 timestamp_timeout_minutes: 15
 su_group_name: "sugroup"
 pam_su_path: "/etc/pam.d/su"
+
 #User Accounts and Environment
 pass_max_days: 365
 pass_warn_age: 7
 inactive_days: 30
 tmout_value: 900
 secure_umask: "0027"
+
 # Configure job schedulers
 cron_service: crond
 cron_dirs:
@@ -262,12 +266,14 @@ pwquality_parameters:
   - { name: 'maxrepeat',   value: 3 }
   - { name: 'maxsequence', value: 3 }
 pam_pwhistory_remember: 24
+
 #Configure Service Clients
 insecure_service_clients:
-  - ftp       # Ensure FTP client is not installed
-  - ypbind    # Ensure NIS client is not installed
-  - telnet    # Ensure Telnet client is not installed
-  - tftp      # Ensure TFTP client is not installed
+  - ftp                    # Ensure FTP client is not installed
+  - ypbind                 # Ensure NIS client is not installed
+  - telnet                 # Ensure Telnet client is not installed
+  - tftp                   # Ensure TFTP client is not installed
+  - openldap-clients       # Ensure LDAP client is not installed
 #Configure SELinux
 selinux_packages:
   - libselinux
@@ -279,6 +285,7 @@ unwanted_selinux_packages:
 rescue_emergency_units:
   - rescue.service
   - emergency.service
+
 # Configure Time Synchronization
 chrony_amazon_timesync_block: |
   # Amazon Linux 2 default Chrony configuration
@@ -292,6 +299,7 @@ chrony_user_opts: 'OPTIONS="-u chrony"'
 chrony_conf_path: "/etc/chrony.d/amazon_time_sync.conf"
 chrony_service: "chronyd"
 chrony_shell_check_path: "/etc/chrony.d"
+
 # configure filesystem partitions for al2
 tmp_mount_options:
   - { name: "Ensure /tmp is a separate partition", opts: "defaults,rw,nosuid,nodev,noexec,relatime" }
