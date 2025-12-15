@@ -1,4 +1,6 @@
 ---
+- name: Amazon Linux 2 | Configure System Accounting (auditd) 
+  include_tasks:  configure_system_accounting_al2.yaml
 - name: Amazon Linux 2 | Configure Host Based Firewall
   include_tasks: configure_host_based_firewall_al2.yaml
 - name: Amazon Linux 2 | User Accounts and Environment

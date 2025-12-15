@@ -52,6 +52,10 @@
   ansible.builtin.service:
     name: sshd
     state: restarted
+    
+- name: update_grub
+  become: true
+  command: grub2-mkconfig -o /boot/grub2/grub.cfg
 
 - name: Reload systemd
   ansible.builtin.systemd:
