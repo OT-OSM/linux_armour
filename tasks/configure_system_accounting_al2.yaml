@@ -18,16 +18,6 @@
     line: 'GRUB_CMDLINE_LINUX="audit=1"'
   notify: update_grub
 
-# Ensure audit_backlog_limit is sufficient
-
-- name: "Ensure audit_backlog_limit is set"
-  become: true
-  ansible.builtin.lineinfile:
-    path: /etc/default/grub
-    regexp: '^GRUB_CMDLINE_LINUX='
-    line: 'GRUB_CMDLINE_LINUX="audit=1 audit_backlog_limit={{ audit_grub_backlog_limit }}"'
-  notify: update_grub
-
 # Ensure auditd.conf settings are configured
 
 - name: "Configure auditd.conf parameters"
