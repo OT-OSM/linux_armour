@@ -125,6 +125,13 @@ os_services_name: ['avahi-daemon', 'slapd', 'named', 'cups', 'telnet', 'discard-
 minute_aide_cronjob: '0'
 hour_aide_cronjob: '5'
 
+# Configure Network Kernel Modules
+modules_list:
+  - dccp
+  - tipc
+  - rds
+  - sctp
+
 # Configure System Accounting
 audit_grub_backlog_limit: 8192
 audit_conf_settings:
