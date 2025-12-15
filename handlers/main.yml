@@ -31,24 +31,31 @@
   service:
     name: postfix
     state: restarted
-  
+
 - name: Update Grub Configuration
   command: update-grub
 
 - name: Apply nftables ruleset
   command: nft -f /etc/nftables.conf
-  
+
 - name: Save iptables rules
   ansible.builtin.shell: /sbin/iptables-save > /etc/iptables/rules.v4
   args:
     executable: /bin/bash
   become: yes
 
-
 - name: Restart systemd-journald
   ansible.builtin.systemd:
     name: systemd-journald
+    
+- name: Restart sshd
+  ansible.builtin.service:
+    name: sshd
     state: restarted
+    
+- name: update_grub
+  become: true
+  command: grub2-mkconfig -o /boot/grub2/grub.cfg
 
 - name: Reload systemd
   ansible.builtin.systemd:
@@ -59,13 +66,28 @@
   ansible.builtin.systemd:
     name: rsyslog
     state: restarted
-
+    
 - name: Restart journald
   systemd:
     name: systemd-journald
     state: restarted
-
+    
 - name: Restart systemd-journal-upload
   ansible.builtin.service:
     name: systemd-journal-upload.service
     state: restarted
+
+- name: yum_clean_metadata
+  ansible.builtin.command:
+    cmd: yum clean metadata
+  changed_when: true
+
+- name: yum_clean_all
+  ansible.builtin.command:
+    cmd: yum clean all
+  changed_when: true
+
+- name: patching_log
+  ansible.builtin.debug:
+    msg: "System packages updated successfully."
+

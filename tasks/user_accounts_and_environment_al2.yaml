@@ -196,6 +196,19 @@
   when: "'Password not set' in root_pass_status.stdout"
   ignore_errors: yes
 
+# Ensure /nologin is not listed in /etc/shells
+- name: "Check if /nologin is present in /etc/shells"
+  ansible.builtin.shell: "grep '/nologin\\b' /etc/shells || true"
+  register: nologin_shells
+  changed_when: false
+
+- name: "Remove any /nologin entries from /etc/shells"
+  ansible.builtin.replace:
+    path: /etc/shells
+    regexp: '.*nologin.*'
+    replace: ''
+  when: nologin_shells.stdout != ""
+
 # Ensure default user shell timeout is configured 
 
 - name: "Collect shell configuration file paths"
