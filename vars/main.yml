@@ -206,4 +206,14 @@ shm_mount_options:
   - { name: "Ensure nosuid option set on /dev/shm", opts: "defaults,rw,nosuid,nodev,noexec,relatime" }
   - { name: "Ensure noexec option set on /dev/shm", opts: "defaults,rw,nosuid,nodev,noexec,relatime" }
 
+#Configure Filesystem Kernel Modules
+fs_modules:
+  - cramfs
+  - freevxfs
+  - hfs
+  - hfsplus
+  - jffs2
+  - udf
+  - squashfs
+  - usb-storage
 
