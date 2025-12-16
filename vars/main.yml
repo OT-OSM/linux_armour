@@ -206,4 +206,15 @@ shm_mount_options:
   - { name: "Ensure nosuid option set on /dev/shm", opts: "defaults,rw,nosuid,nodev,noexec,relatime" }
   - { name: "Ensure noexec option set on /dev/shm", opts: "defaults,rw,nosuid,nodev,noexec,relatime" }
 
+# Approved inbound ports
+iptables_allowed_tcp_ports:
+  - 22   # SSH
+
+iptables_allowed_udp_ports: []
+
+# Default policies
+iptables_default_policy:
+  INPUT: DROP
+  FORWARD: DROP
+  OUTPUT: ACCEPT
 
