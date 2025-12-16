@@ -1,0 +1,109 @@
+---
+#######################################################
+###### Configure Filesystems kernel & Partitions ######
+#######################################################
+- name: Filesystem Configuration
+  ansible.builtin.include_tasks: filesystem_Configuration.yaml
+
+##########################################
+###### Additional Process Hardening ######
+##########################################
+- name: Process Hardening
+  ansible.builtin.include_tasks: process_Hardening.yaml
+  when: cis_Stage > 1
+
+##################################################
+###### AppArmor & Secure Boot Configuration ######
+##################################################
+- name: Secure Boot Settings
+  ansible.builtin.include_tasks: secure_BootSettings.yaml
+  when: ansible_os_family == 'Debian'
+
+- name: SELinux Configuration
+  ansible.builtin.include_tasks: selinux_Configurations.yaml
+  when:
+    ansible_os_family == 'RedHat'
+
+##########################################
+###### Command Line Warning Banners ######
+##########################################
+- name: Command Line Warning Banners
+  ansible.builtin.include_tasks: command_Warning.yaml
+
+############################################
+###### GNOME Display Manager Settings ######
+############################################
+- name: Ensure GNOME Display Manager is removed
+  ansible.builtin.apt:
+    name: gdm3
+    state: absent
+  when: ansible_os_family == "Debian" and cis_Stage > 1
+
+######################################
+###### Special Purpose Services ######
+######################################
+- name: Remove Special Purpose Services
+  ansible.builtin.include_tasks: services.yaml
+
+############################################
+###### Configure Time Synchronization ######
+############################################
+- name: Configure Time Synchronization
+  ansible.builtin.include_tasks: time_Synchronize.yaml
+  when: cis_Stage > 1 and ansible_os_family == 'Debian'
+
+######################################
+###### Configure job Schedulers ######
+######################################
+- name: Configure job Schedulers
+  ansible.builtin.include_tasks: job_Schedulers.yaml
+
+##################################################
+###### Configure Uncommon Network Protocols ######
+##################################################
+- name: Network Parameters For Host
+  ansible.builtin.include_tasks: network_Configuration.yaml
+  when: cis_Stage > 1
+
+################################
+###### Configure Firewall ######
+################################
+- name: Network Parameters For Host
+  ansible.builtin.include_tasks: firewall_Configuration.yaml
+
+##################################
+###### Configure SSH Control ######
+###################################
+- name: Access Control Configuration
+  ansible.builtin.include_tasks: ssh_Configuration.yaml
+
+- name: Sudo Configuration
+  ansible.builtin.include_tasks: access_Control.yaml
+
+##############################################################
+###### Configure Pluggable Authentication Modules (PAM) ######
+##############################################################
+- name: pluggable_Notification Access Control Configuration
+  ansible.builtin.include_tasks: pam_{{ ansible_os_family }}.yaml
+
+####################################################
+###### Configure User Account AND ENVIRONMENT ######
+####################################################
+- name: Configure user account and environment
+  include_tasks: user_Account_Environments.yaml
+
+####################################################
+###### Configure System Logging ######
+####################################################
+- name: Ensure filesystem integrity is regularly checked
+  ansible.builtin.include_tasks: system_Logging.yaml
+
+- name: Configure System Accounting
+  include_tasks: audit.yaml
+
+- name: Ensure filesystem integrity is regularly checked
+  include_tasks: filesystem_Integrity.yaml
+  when: cis_Stage > 1
+
+- name: Configure System files
+  include_tasks: system_file_permissions.yaml
