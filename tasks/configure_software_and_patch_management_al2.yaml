@@ -1,0 +1,95 @@
+# Ensure GPG keys are configured
+
+- name: "Check for GPG keys in repo files"
+  ansible.builtin.shell: "grep -r 'gpgkey' /etc/yum.repos.d/* || true"
+  register: gpgkey_output
+  changed_when: false
+
+- name: "Fail if GPG key URL missing"
+  ansible.builtin.fail:
+    msg: "FAILED – Missing GPG key in one or more repositories!"
+  when: gpgkey_output.stdout == ""
+
+- name: "Import required GPG keys"
+  ansible.builtin.rpm_key:
+    state: present
+    key: "{{ item }}"
+  loop:
+    - /etc/pki/rpm-gpg/RPM-GPG-KEY-amazon-linux-2
+  notify: yum_clean_metadata
+
+# Ensure gpgcheck=1 globally
+
+- name: "Ensure gpgcheck=1 in yum.conf"
+  ansible.builtin.replace:
+    path: /etc/yum.conf
+    regexp: '^gpgcheck\s*=.*'
+    replace: 'gpgcheck=1'
+  notify: yum_clean_all
+
+- name: "Ensure gpgcheck=1 in all repo files"
+  ansible.builtin.replace:
+    path: "{{ item }}"
+    regexp: '^gpgcheck\s*=.*'
+    replace: 'gpgcheck=1'
+  with_fileglob:
+    - "/etc/yum.repos.d/*.repo"
+  notify: yum_clean_all
+
+# Ensure repo_gpgcheck=1 globally 
+
+- name: "Ensure repo_gpgcheck=1 in yum.conf"
+  ansible.builtin.replace:
+    path: /etc/yum.conf
+    regexp: '^repo_gpgcheck\s*=.*'
+    replace: 'repo_gpgcheck=1'
+  notify: yum_clean_metadata
+
+- name: "Ensure repo_gpgcheck=1 in repo files"
+  ansible.builtin.replace:
+    path: "{{ item }}"
+    regexp: '^repo_gpgcheck\s*=.*'
+    replace: 'repo_gpgcheck=1'
+  with_fileglob:
+    - "/etc/yum.repos.d/*.repo"
+  notify: yum_clean_metadata
+
+# Ensure package manager repositories are configured 
+
+- name: "Check if repos are configured"
+  ansible.builtin.command: yum repolist enabled
+  register: repo_status
+  changed_when: false
+  args:
+    warn: false
+
+- name: "Fail if no repos configured"
+  ansible.builtin.fail:
+    msg: "FAILED – No yum repositories configured!"
+  when: "'repolist: 0' in repo_status.stdout"
+
+- name: "Check repo directory existence"
+  ansible.builtin.stat:
+    path: "/etc/yum.repos.d/"
+  register: repodir
+
+- name: "Fail if /etc/yum.repos.d is missing"
+  ansible.builtin.fail:
+    msg: "FAILED – /etc/yum.repos.d directory not found!"
+  when: repodir.stat.exists == false
+
+# Ensure updates, patches, and security software installed
+
+- name: "Ensure all system packages are updated"
+  ansible.builtin.yum:
+    name: "*"
+    state: latest
+    update_cache: yes
+  notify: patching_log
+
+- name: "Install required security packages (yum-plugin-security, aide)"
+  ansible.builtin.yum:
+    name:
+      - yum-plugin-security
+      - aide
+    state: present

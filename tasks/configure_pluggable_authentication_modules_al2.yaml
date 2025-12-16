@@ -135,6 +135,30 @@
   vars:
     param: "{{ pwquality_parameters | first }}"
 
+# Ensure password complexity is configured 
+- name: "Ensure pwquality complexity values are set in pwquality.conf"
+  become: true
+  ansible.builtin.lineinfile:
+    path: /etc/security/pwquality.conf
+    regexp: "^\\s*{{ item.name }}\\s*="
+    line: "{{ item.name }} = {{ item.value }}"
+    create: yes
+    mode: "0644"
+  loop: "{{ pwquality_complexity }}"
+  loop_control:
+    label: "{{ item.name }}"
+
+- name: "Remove pwquality arguments from PAM pwquality lines"
+  become: true
+  ansible.builtin.replace:
+    path: "{{ item }}"
+    regexp: "\\s+(minclass|dcredit|ucredit|lcredit|ocredit)\\s*=\\s*\\S+"
+    replace: ""
+    backup: yes
+  loop: "{{ pam_files }}"
+  loop_control:
+    label: "{{ item }}"
+
 # Ensure password dictionary check is enabled
 - name: "Ensure password dictionary check is enabled"
   become: true
