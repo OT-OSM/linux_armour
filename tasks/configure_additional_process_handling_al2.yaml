@@ -1,0 +1,38 @@
+---
+# Kernel hardening parameters
+- name: "Configure kernel hardening parameters"
+  ansible.builtin.sysctl:
+    name: "{{ item.name }}"
+    value: "{{ item.value }}"
+    state: present
+    sysctl_set: true
+    reload: yes
+    sysctl_file: /etc/sysctl.d/60-kernel_sysctl.conf
+  loop: "{{ kernel_hardening_params }}"
+  loop_control:
+    label: "{{ item.desc }}"
+  become: true
+
+# Core dump restrictions
+# Check existing coredump configuration for ProcessSizeMax and Storage directives
+- name: "Check existing coredump configuration"
+  ansible.builtin.shell: |
+    grep -Pi -- '^\h*(ProcessSizeMax|Storage)\b' /etc/systemd/coredump.conf 2>/dev/null || true
+  register: coredump_check
+  changed_when: false
+  failed_when: false
+  become: true
+
+# Configure core dump restrictions only if not already set
+- name: "Configure core dump restrictions (only if missing or incorrect)"
+  ansible.builtin.blockinfile:
+    path: /etc/systemd/coredump.conf
+    create: yes
+    block: "{{ coredump_config_block }}"
+  when: >
+    ('ProcessSizeMax=0' not in coredump_check.stdout) or
+    ('Storage=none' not in coredump_check.stdout)
+  notify:
+    - Reload systemd
+  become: true
+
