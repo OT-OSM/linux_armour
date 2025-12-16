@@ -1,0 +1,34 @@
+---
+# Check whether IPv6 is enabled
+- name: Check IPv6 enablement status
+  ansible.builtin.shell: cat /sys/module/ipv6/parameters/disable
+  register: ipv6_disabled
+  changed_when: false
+  failed_when: false
+  become: true
+
+# Apply sysctl parameters for Amazon Linux 2
+- name: Apply sysctl parameters for Amazon Linux 2
+  ansible.posix.sysctl:
+    name: "{{ item.name }}"
+    value: "{{ item.value }}"
+    sysctl_set: true
+    state: present
+    reload: true
+    sysctl_file: "/etc/sysctl.d/60-sysctl.conf"
+  loop: "{{ sysctl_params }}"
+  loop_control:
+    label: "{{ item.name }}"
+  register: sysctl_results
+  when: "not (item.name is search('ipv6') and ipv6_disabled.stdout is defined and ipv6_disabled.stdout.strip() != '0')"
+  become: true
+
+- name: Display sysctl status summary
+  ansible.builtin.debug:
+    msg: >-
+      Parameter {{ item.item.name }} set to {{ item.item.value }}
+      - {{ 'updated' if item.changed else 'no change' }}
+  loop: "{{ sysctl_results.results }}"
+  loop_control:
+    label: "{{ item.item.name }}"
+

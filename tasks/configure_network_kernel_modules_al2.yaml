@@ -1,0 +1,77 @@
+---
+- name: "Check if module exists"
+  ansible.builtin.shell: "ls -d /lib/modules/**/kernel/net/{{ item }} 2>/dev/null | wc -l"
+  register: module_exists
+  loop: "{{ modules_list }}"
+  loop_control:
+    index_var: idx
+  changed_when: false
+
+- name: "Check if module is denylisted"
+  ansible.builtin.shell: 'modprobe --showconfig | grep -Pq "^\h*blacklist\h+{{ item }}\b"'
+  register: module_denylisted
+  loop: "{{ modules_list }}"
+  loop_control:
+    index_var: idx
+  changed_when: false
+  failed_when: false
+  when: module_exists.results[idx].stdout | int > 0
+
+- name: "Denylist module"
+  ansible.builtin.lineinfile:
+    path: "/etc/modprobe.d/{{ item }}.conf"
+    create: yes
+    line: "blacklist {{ item }}"
+  loop: "{{ modules_list }}"
+  loop_control:
+    index_var: idx
+  when:
+    - module_exists.results[idx].stdout | int > 0
+    - module_denylisted.results[idx].rc != 0
+
+- name: "Check loadable rule"
+  ansible.builtin.shell: |
+    l_loadable="$(modprobe -n -v {{ item }})"
+    if [ "$(wc -l <<< "$l_loadable")" -gt "1" ]; then
+      l_loadable="$(grep -P '(^\h*install|\b{{ item }})\b' <<< "$l_loadable")"
+    fi
+    echo "$l_loadable" | grep -Pq '^\h*install /bin/(true|false)'
+  register: module_loadable
+  loop: "{{ modules_list }}"
+  loop_control:
+    index_var: idx
+  changed_when: false
+  failed_when: false
+  when: module_exists.results[idx].stdout | int > 0
+
+- name: "Disable module from being loadable"
+  ansible.builtin.lineinfile:
+    path: "/etc/modprobe.d/{{ item }}.conf"
+    create: yes
+    line: "install {{ item }} /bin/false"
+  loop: "{{ modules_list }}"
+  loop_control:
+    index_var: idx
+  when:
+    - module_exists.results[idx].stdout | int > 0
+    - module_loadable.results[idx].rc != 0
+
+- name: "Check if module is loaded"
+  ansible.builtin.shell: "lsmod | grep -w {{ item }}"
+  register: module_loaded
+  loop: "{{ modules_list }}"
+  loop_control:
+    index_var: idx
+  changed_when: false
+  failed_when: false
+  when: module_exists.results[idx].stdout | int > 0
+
+- name: "Unload module"
+  ansible.builtin.command: "modprobe -r {{ item }}"
+  loop: "{{ modules_list }}"
+  loop_control:
+    index_var: idx
+  when:
+    - module_exists.results[idx].stdout | int > 0
+    - module_loaded.results[idx].rc == 0
+
