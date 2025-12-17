@@ -1,4 +1,6 @@
 ---
+- name: Amazon Linux 2 | Configure Service Clients
+  include_tasks: configure_network_devices_al2.yaml
 - name: Amazon Linux 2 | Configure Network Kernel Modules
   include_tasks: configure_network_kernel_modules_al2.yaml
 - name: Amazon Linux 2 | Configure System Accounting (auditd) 
