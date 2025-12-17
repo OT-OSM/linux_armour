@@ -1,48 +1,48 @@
 ---
 - name: Reload AIDE
-  service:
-    name: '{{ item }}'
+  ansible.builtin.systemd:
+    name: "{{ item }}"
     state: restarted
     daemon_reload: true
-  with_items:
+  loop:
     - aidecheck.timer
     - aidecheck
 
 - name: Reload systemd units
-  systemd:
-    daemon_reload: yes
+  ansible.builtin.systemd:
+    daemon_reload: true
 
 - name: Restart Chrony
-  service:
+  ansible.builtin.service:
     name: chrony
     state: restarted
 
 - name: Restart systemd-timesyncd
-  service:
+  ansible.builtin.service:
     name: systemd-timesyncd
     state: restarted
 
 - name: Restart NTP
-  service:
+  ansible.builtin.service:
     name: ntp
     state: restarted
 
 - name: Restart Postfix
-  service:
+  ansible.builtin.service:
     name: postfix
     state: restarted
 
 - name: Update Grub Configuration
-  command: update-grub
+  ansible.builtin.command: update-grub
 
 - name: Apply nftables ruleset
-  command: nft -f /etc/nftables.conf
+  ansible.builtin.command: nft -f /etc/nftables.conf
 
 - name: Save iptables rules
   ansible.builtin.shell: /sbin/iptables-save > /etc/iptables/rules.v4
   args:
     executable: /bin/bash
-  become: yes
+  become: true
 
 - name: Restart systemd-journald
   ansible.builtin.systemd:
@@ -52,10 +52,22 @@
   ansible.builtin.service:
     name: sshd
     state: restarted
+    
+- name: update_grub
+  become: true
+  command: grub2-mkconfig -o /boot/grub2/grub.cfg
 
 - name: Reload systemd
   ansible.builtin.systemd:
-    daemon_reload: yes
+    daemon_reload: true
+  become: true
+
+- name: Restart AIDE Timer
+  ansible.builtin.systemd:
+    name: aidecheck.timer
+    state: restarted
+    enabled: true
+    daemon_reload: true
   become: true
 
 - name: Restart rsyslog

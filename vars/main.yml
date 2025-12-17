@@ -125,6 +125,36 @@ os_services_name: ['avahi-daemon', 'slapd', 'named', 'cups', 'telnet', 'discard-
 minute_aide_cronjob: '0'
 hour_aide_cronjob: '5'
 
+# Configure Network Kernel Modules
+modules_list:
+  - dccp
+  - tipc
+  - rds
+  - sctp
+
+# Configure System Accounting
+audit_grub_backlog_limit: 8192
+audit_conf_settings:
+  - { key: 'max_log_file', value: '32' }
+  - { key: 'max_log_file_action', value: 'keep_logs' }
+  - { key: 'disk_full_action', value: 'single' }
+  - { key: 'disk_error_action', value: 'syslog' }
+  - { key: 'space_left_action', value: 'exec' }
+  - { key: 'admin_space_left_action', value: 'single' }
+
+audit_tools:
+  - /sbin/auditctl
+  - /sbin/auditd
+  - /sbin/ausearch
+  - /sbin/aureport
+  - /sbin/autrace
+  - /sbin/augenrules
+  - /usr/sbin/auditctl
+  - /usr/sbin/auditd
+  - /usr/sbin/ausearch
+  - /usr/sbin/aureport
+  - /usr/sbin/autrace
+  - /usr/sbin/augenrules
 
 #  Configure Host Based Firewall
 firewalld_remove_services:
@@ -183,6 +213,7 @@ sysctl_params:
   - { name: "net.ipv4.tcp_syncookies", value: "1" }
   - { name: "net.ipv6.conf.all.accept_ra", value: "0" }
   - { name: "net.ipv6.conf.default.accept_ra", value: "0" }
+
 #Configure Additional Process Hardening
 kernel_hardening_params:
   - { name: "kernel.randomize_va_space", value: "2", desc: "Ensure ASLR is enabled" }
@@ -192,6 +223,7 @@ coredump_config_block: |
   [Coredump]
   ProcessSizeMax=0
   Storage=none
+
 #Configure privilege escalation
 sudo_package: "sudo"
 sudoers_path: "/etc/sudoers"
@@ -199,12 +231,14 @@ sudo_logfile_path: "/var/log/sudo.log"
 timestamp_timeout_minutes: 15
 su_group_name: "sugroup"
 pam_su_path: "/etc/pam.d/su"
+
 #User Accounts and Environment
 pass_max_days: 365
 pass_warn_age: 7
 inactive_days: 30
 tmout_value: 900
 secure_umask: "0027"
+
 # Configure job schedulers
 cron_service: crond
 cron_dirs:
@@ -232,12 +266,20 @@ pwquality_parameters:
   - { name: 'maxrepeat',   value: 3 }
   - { name: 'maxsequence', value: 3 }
 pam_pwhistory_remember: 24
+pwquality_complexity:
+  - { name: 'minclass', value: 4 }
+  - { name: 'dcredit',  value: -1 }
+  - { name: 'ucredit',  value: -1 }
+  - { name: 'lcredit',  value: -1 }
+  - { name: 'ocredit',  value: -1 }
+
 #Configure Service Clients
 insecure_service_clients:
-  - ftp       # Ensure FTP client is not installed
-  - ypbind    # Ensure NIS client is not installed
-  - telnet    # Ensure Telnet client is not installed
-  - tftp      # Ensure TFTP client is not installed
+  - ftp                    # Ensure FTP client is not installed
+  - ypbind                 # Ensure NIS client is not installed
+  - telnet                 # Ensure Telnet client is not installed
+  - tftp                   # Ensure TFTP client is not installed
+  - openldap-clients       # Ensure LDAP client is not installed
 #Configure SELinux
 selinux_packages:
   - libselinux
@@ -249,6 +291,7 @@ unwanted_selinux_packages:
 rescue_emergency_units:
   - rescue.service
   - emergency.service
+
 # Configure Time Synchronization
 chrony_amazon_timesync_block: |
   # Amazon Linux 2 default Chrony configuration
@@ -262,6 +305,7 @@ chrony_user_opts: 'OPTIONS="-u chrony"'
 chrony_conf_path: "/etc/chrony.d/amazon_time_sync.conf"
 chrony_service: "chronyd"
 chrony_shell_check_path: "/etc/chrony.d"
+
 # configure filesystem partitions for al2
 tmp_mount_options:
   - { name: "Ensure /tmp is a separate partition", opts: "defaults,rw,nosuid,nodev,noexec,relatime" }
@@ -274,5 +318,3 @@ shm_mount_options:
   - { name: "Ensure nodev option set on /dev/shm", opts: "defaults,rw,nosuid,nodev,noexec,relatime" }
   - { name: "Ensure nosuid option set on /dev/shm", opts: "defaults,rw,nosuid,nodev,noexec,relatime" }
   - { name: "Ensure noexec option set on /dev/shm", opts: "defaults,rw,nosuid,nodev,noexec,relatime" }
-
-
