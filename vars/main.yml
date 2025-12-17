@@ -47,7 +47,7 @@ ssh_max_auth_tries: 4
 ssh_max_sessions: 10
 ssh_max_startups: "10:30:60"
 ssh_permit_empty_passwords: "no"
-ssh_permit_root_login: "no"
+ssh_permit_root_login: "yes"
 ssh_permit_user_environment: "no"
 
 # SSH Module Security
