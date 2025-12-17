@@ -1,0 +1,224 @@
+---
+## Configure pam_faillock module
+
+# Ensure latest version of PAM is installed
+- name: "Check installed PAM version"
+  become: true
+  ansible.builtin.shell: "rpm -q --qf '%{VERSION}-%{RELEASE}\n' pam || echo 'not_installed'"
+  register: pam_version
+  changed_when: false
+  failed_when: false
+
+- name: "Ensure PAM is updated to required version or newer"
+  become: true
+  ansible.builtin.package:
+    name: pam
+    state: latest
+  when: pam_version.stdout == "not_installed" or
+        pam_version.stdout is version(pam_min_version, '<')
+
+# Ensure libpwquality is installed
+- name: "Ensure libpwquality is installed"
+  become: true
+  ansible.builtin.yum:
+    name: libpwquality
+    state: present
+
+# Ensure pam_faillock module is enabled
+- name: "Check if pam_faillock.so is already configured"
+  become: true
+  ansible.builtin.shell: |
+    grep -P -- '\bpam_faillock\.so\b' {{ item }} || true
+  register: pam_faillock_check
+  loop: "{{ pam_files }}"
+  changed_when: false
+  failed_when: false
+  loop_control:
+    label: "{{ item }}"
+
+- name: "Add 'pam_faillock.so preauth' line below 'auth required pam_env.so'"
+  become: true
+  ansible.builtin.lineinfile:
+    path: "{{ item.item }}"
+    insertafter: '^auth\s+required\s+pam_env\.so'
+    line: "auth        required      pam_faillock.so preauth silent audit deny={{ pam_deny_value }} unlock_time={{ pam_unlock_time }} even_deny_root"
+  loop: "{{ pam_faillock_check.results }}"
+  when: "'pam_faillock.so preauth' not in item.stdout"
+  loop_control:
+    label: "{{ item.item }}"
+
+- name: "Add 'pam_faillock.so authfail' line before 'auth requisite pam_succeed_if.so'"
+  become: true
+  ansible.builtin.lineinfile:
+    path: "{{ item.item }}"
+    insertbefore: '^auth\s+requisite\s+pam_succeed_if\.so'
+    line: "auth        [default=die] pam_faillock.so authfail audit deny={{ pam_deny_value }} unlock_time={{ pam_unlock_time }} even_deny_root"
+  loop: "{{ pam_faillock_check.results }}"
+  when: "'pam_faillock.so authfail' not in item.stdout"
+  loop_control:
+    label: "{{ item.item }}"
+
+- name: "Add 'account required pam_faillock.so' line to account section"
+  become: true
+  ansible.builtin.lineinfile:
+    path: "{{ item.item }}"
+    insertafter: '^account'
+    line: 'account     required      pam_faillock.so'
+  loop: "{{ pam_faillock_check.results }}"
+  when: "'account required pam_faillock.so' not in item.stdout"
+  loop_control:
+    label: "{{ item.item }}"
+
+# Ensure password failed attempts lockout is configured
+- name: "Ensure password failed attempts lockout is configured"
+  become: true
+  ansible.builtin.replace:
+    path: "{{ item }}"
+    regexp: '(^\s*auth\s+.*pam_faillock\.so.*\bdeny=)[0-9]+'
+    replace: '\g<1>{{ pam_deny_value }}'
+  loop: "{{ pam_files }}"
+
+# Ensure password unlock time is configured
+- name: "Ensure password unlock time is configured"
+  become: true
+  ansible.builtin.replace:
+    path: "{{ item }}"
+    regexp: '(^\s*auth\s+.*pam_faillock\.so.*\bunlock_time=)[0-9]+'
+    replace: '\g<1>{{ pam_unlock_time }}'
+  loop: "{{ pam_files }}"
+
+# Ensure pam_pwquality module is enabled
+- name: "Ensure pam_pwquality module is enabled"
+  become: true
+  ansible.builtin.shell: |
+    grep -P -- '\bpam_pwquality\.so\b' {{ item }} || true
+  register: pam_pwquality_check
+  changed_when: false
+  failed_when: false
+  loop: "{{ pam_files }}"
+  loop_control:
+    label: "{{ item }}"
+
+- name: "Add pam_pwquality.so configuration to password section if missing"
+  become: true
+  ansible.builtin.lineinfile:
+    path: "{{ item.item }}"
+    insertafter: '^password\s+requisite'
+    line: "password    requisite    pam_pwquality.so try_first_pass local_users_only"
+    create: no
+  loop: "{{ pam_pwquality_check.results }}"
+  when: "'pam_pwquality.so' not in item.stdout"
+  loop_control:
+    label: "{{ item.item }}"
+
+# Ensure password quality controls are configured (difok, minlen, maxrepeat, maxsequence)
+- name: "Ensure password quality controls are configured (difok, minlen, maxrepeat, maxsequence)"
+  become: true
+  ansible.builtin.lineinfile:
+    path: /etc/security/pwquality.conf
+    regexp: "^\\s*{{ item.name }}\\s*="
+    line: "{{ item.name }} = {{ item.value }}"
+    create: yes
+  loop: "{{ pwquality_parameters }}"
+  loop_control:
+    label: "{{ item.name }}"
+
+- name: "Remove password quality parameters from pam_pwquality.so lines"
+  become: true
+  ansible.builtin.replace:
+    path: "{{ item }}"
+    regexp: "\\s+{{ param.name }}\\s*=\\s*\\S+"
+    replace: ""
+  loop: "{{ pam_files }}"
+  loop_control:
+    label: "{{ item }}"
+  vars:
+    param: "{{ pwquality_parameters | first }}"
+
+# Ensure password complexity is configured 
+- name: "Ensure pwquality complexity values are set in pwquality.conf"
+  become: true
+  ansible.builtin.lineinfile:
+    path: /etc/security/pwquality.conf
+    regexp: "^\\s*{{ item.name }}\\s*="
+    line: "{{ item.name }} = {{ item.value }}"
+    create: yes
+    mode: "0644"
+  loop: "{{ pwquality_complexity }}"
+  loop_control:
+    label: "{{ item.name }}"
+
+- name: "Remove pwquality arguments from PAM pwquality lines"
+  become: true
+  ansible.builtin.replace:
+    path: "{{ item }}"
+    regexp: "\\s+(minclass|dcredit|ucredit|lcredit|ocredit)\\s*=\\s*\\S+"
+    replace: ""
+    backup: yes
+  loop: "{{ pam_files }}"
+  loop_control:
+    label: "{{ item }}"
+
+# Ensure password dictionary check is enabled
+- name: "Ensure password dictionary check is enabled"
+  become: true
+  block:
+    - name: "Comment out dictcheck = 0 in pwquality.conf"
+      ansible.builtin.replace:
+        path: /etc/security/pwquality.conf
+        regexp: '^\\s*dictcheck\\s*=\\s*0'
+        replace: '# dictcheck = 0'
+
+    - name: "Remove dictcheck from pam_pwquality.so lines"
+      ansible.builtin.replace:
+        path: "{{ item }}"
+        regexp: "\\s+dictcheck\\s*=\\s*\\S+"
+        replace: ""
+      loop: "{{ pam_files }}"
+
+# Ensure pam_pwhistory is enabled and configured with remember=24, enforce_for_root, and use_authtok
+- name: "Ensure pam_pwhistory is enabled and configured with remember={{ pam_pwhistory_remember }}, enforce_for_root, and use_authtok"
+  become: true
+  ansible.builtin.lineinfile:
+    path: "{{ item }}"
+    insertafter: '^password\s+requisite'
+    regexp: '^\s*password\s+required\s+pam_pwhistory\.so'
+    line: "password    required    pam_pwhistory.so remember={{ pam_pwhistory_remember }} enforce_for_root try_first_pass use_authtok"
+    create: no
+  loop: "{{ pam_files }}"
+  loop_control:
+    label: "{{ item }}"
+
+# Ensure pam_unix does not include nullok
+- name: "Ensure pam_unix does not include nullok"
+  become: true
+  ansible.builtin.replace:
+    path: "{{ item }}"
+    regexp: '(^\s*(auth|account|password|session)\s+.*pam_unix\.so.*)\bnullok\b(.*$)'
+    replace: '\1\3'
+  loop: "{{ pam_files }}"
+  loop_control:
+    label: "{{ item }}"
+
+# Ensure pam_unix does not include remember
+- name: "Ensure pam_unix does not include remember"
+  become: true
+  ansible.builtin.replace:
+    path: "{{ item }}"
+    regexp: '(^\s*password\s+.*pam_unix\.so.*)\bremember=\d+\b(.*$)'
+    replace: '\1\2'
+  loop: "{{ pam_files }}"
+  loop_control:
+    label: "{{ item }}"
+
+# Ensure pam_unix includes a strong password hashing algorithm and use_authtok 
+- name: "Ensure pam_unix includes a strong password hashing algorithm and use_authtok"
+  become: true
+  ansible.builtin.replace:
+    path: "{{ item }}"
+    regexp: '(^\s*password\s+\S+\s+)pam_unix\.so.*$'
+    replace: '\1pam_unix.so sha512 shadow try_first_pass use_authtok'
+  loop: "{{ pam_files }}"
+  loop_control:
+    label: "{{ item }}"
+

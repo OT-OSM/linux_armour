@@ -1,0 +1,23 @@
+---
+- name: Configure /tmp partition security options
+  mount:
+    path: /tmp
+    src: tmpfs
+    fstype: tmpfs
+    opts: "{{ item.opts }}"
+    state: mounted
+  loop: "{{ tmp_mount_options }}"
+  loop_control:
+    label: "{{ item.name }}"
+
+- name: Configure /dev/shm partition security options
+  mount:
+    path: /dev/shm
+    src: tmpfs
+    fstype: tmpfs
+    opts: "{{ item.opts }}"
+    state: mounted
+  loop: "{{ shm_mount_options }}"
+  loop_control:
+    label: "{{ item.name }}"
+
