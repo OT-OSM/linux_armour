@@ -322,8 +322,12 @@ shm_mount_options:
 # Approved inbound ports
 iptables_allowed_tcp_ports:
   - 22   # SSH
+  - 80
+  - 53
+  - 443
 
-iptables_allowed_udp_ports: []
+iptables_allowed_udp_ports:
+  - 53
 
 # Default policies
 iptables_default_policy:
