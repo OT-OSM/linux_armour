@@ -9,8 +9,9 @@
     - aidecheck
 
 - name: Reload systemd units
-  systemd:
+  ansible.builtin.systemd:
     daemon_reload: yes
+  become: true
 
 - name: Reload firewalld
   ansible.builtin.service:
@@ -74,11 +75,6 @@
 - name: update_grub
   become: true
   command: grub2-mkconfig -o /boot/grub2/grub.cfg
-
-- name: Reload systemd
-  ansible.builtin.systemd:
-    daemon_reload: yes
-  become: true
 
 - name: Restart rsyslog
   ansible.builtin.systemd:

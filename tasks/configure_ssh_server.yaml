@@ -132,7 +132,7 @@
     - { regexp: '^#?IgnoreRhosts', line: "IgnoreRhosts yes" }
     - { regexp: '^#?KexAlgorithms', line: "KexAlgorithms {{ ssh_kex_algorithms }}" }
     - { regexp: '^#?LoginGraceTime', line: "LoginGraceTime {{ ssh_login_grace_time }}" }
-    - { regexp: '^#?LogLevel', line: "LogLevel {{ ssh_loglevel }}" }
+    - { regexp: '^#?LogLevel', line: "LogLevel {{ ssh_log_level }}" }
     - { regexp: '^#?MACs', line: "MACs {{ ssh_macs }}" }
     - { regexp: '^#?MaxAuthTries', line: "MaxAuthTries {{ ssh_max_auth_tries }}" }
     - { regexp: '^#?MaxSessions', line: "MaxSessions {{ ssh_max_sessions }}" }

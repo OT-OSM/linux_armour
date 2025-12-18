@@ -9,7 +9,7 @@
 ###### Additional Process Hardening ######
 ##########################################
 - name: Process Hardening
-  ansible.builtin.include_tasks: process_Hardening.yaml
+  ansible.builtin.include_tasks: configure_additional_process_handling_al2.yaml
   when: cis_Stage > 1
 
 ##################################################

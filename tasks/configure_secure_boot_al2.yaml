@@ -6,5 +6,5 @@
     line: 'ExecStart=-/bin/sh -c "/usr/sbin/sulogin; /usr/bin/systemctl --fail --no-block default"'
     backup: yes
   loop: "{{ rescue_emergency_units }}"
-  notify: Reload systemd
+  notify: Reload systemd units
 
