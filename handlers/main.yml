@@ -99,3 +99,8 @@
   ansible.builtin.debug:
     msg: "System packages updated successfully."
 
+- name: Restart iptables
+  ansible.builtin.service:
+    name: iptables
+    state: restarted
+

@@ -1,0 +1,25 @@
+---
+# Configure iptables (AL2)
+
+- name: Ensure iptables package is installed
+  ansible.builtin.package:
+    name: iptables-services
+    state: present
+
+# Ensure iptables service enabled and active
+- name: Ensure iptables service is enabled and running
+  ansible.builtin.service:
+    name: iptables
+    state: started
+    enabled: true
+
+# Deploy idempotent rules
+- name: Deploy CIS-compliant iptables rules
+  ansible.builtin.template:
+    src: iptables.rules.j2
+    dest: /etc/sysconfig/iptables
+    owner: root
+    group: root
+    mode: '0600'
+  notify: Restart iptables
+

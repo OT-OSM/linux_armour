@@ -43,5 +43,7 @@
   include_tasks: configure_software_and_patch_management_al2.yaml
 - name: Amazon Linux 2 | Configure SSH Server
   include_tasks: configure_ssh_server.yaml
+- name: Amazon Linux 2 | Configure iptables
+  include_tasks: configure_iptables_al2.yml
 - name: Amazon Linux 2 | Configure Integrity Checking
   include_tasks: configure_integrity_checking.yaml
