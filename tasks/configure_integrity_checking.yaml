@@ -1,0 +1,84 @@
+---
+# ===============================
+#   AIDE INSTALLATION & SETUP
+# ===============================
+
+# -------- Debian Family --------
+- name: Install & Configure AIDE on Debian
+  when: ansible_os_family == "Debian"
+  block:
+
+    - name: Install AIDE packages
+      ansible.builtin.apt:
+        name:
+          - aide
+          - aide-common
+        state: present
+        update_cache: yes
+      register: aide_installed
+      until: aide_installed is succeeded
+
+    - name: Check if AIDE DB exists
+      ansible.builtin.stat:
+        path: /var/lib/aide/aide.db
+      register: aide_db
+
+    - name: Initialize AIDE DB (Debian)
+      ansible.builtin.command: aideinit
+      when: not aide_db.stat.exists
+      notify: Restart AIDE Timer
+
+    - name: Move new AIDE DB into place
+      ansible.builtin.copy:
+        remote_src: true
+        src: "/var/lib/aide/aide.db.new"
+        dest: "/var/lib/aide/aide.db"
+      when: not aide_db.stat.exists
+
+
+# -------- RedHat / Amazon Linux --------
+- name: Install & Configure AIDE on RedHat
+  when: ansible_os_family == "RedHat"
+  block:
+
+    - name: Install AIDE package
+      ansible.builtin.package:
+        name: aide
+        state: present
+      register: aide_installed
+      until: aide_installed is succeeded
+
+    - name: Check if AIDE DB exists (RedHat)
+      ansible.builtin.stat:
+        path: /var/lib/aide/aide.db.gz
+      register: aide_db
+
+    - name: Initialize AIDE DB (RedHat)
+      ansible.builtin.command: aide --init
+      when: not aide_db.stat.exists
+      notify: Restart AIDE Timer
+
+    - name: Move new AIDE DB into place
+      ansible.builtin.copy:
+        remote_src: true
+        src: "/var/lib/aide/aide.db.new.gz"
+        dest: "/var/lib/aide/aide.db.gz"
+      when: not aide_db.stat.exists
+
+
+# ===============================
+#   SYSTEMD TIMER FOR AIDE CHECK
+# ===============================
+
+- name: Install AIDE check systemd units
+  ansible.builtin.template:
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+    owner: root
+    group: root
+    mode: '0644'
+  loop:
+    - { src: 'aidecheck.service', dest: '/etc/systemd/system/aidecheck.service' }
+    - { src: 'aidecheck.timer',   dest: '/etc/systemd/system/aidecheck.timer' }
+  notify: Restart AIDE Timer
+

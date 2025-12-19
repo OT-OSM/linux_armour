@@ -1,0 +1,158 @@
+# ===============================
+# System File Permissions (AL2)
+# ===============================
+
+# Ensure permissions on /etc/passwd
+- name: Ensure correct ownership and permissions on /etc/passwd
+  ansible.builtin.file:
+    path: /etc/passwd
+    owner: root
+    group: root
+    mode: '0644'
+  when: ansible_facts.os_family in ['RedHat', 'Debian', 'Amazon']
+
+# Ensure permissions on /etc/passwd-
+- name: Ensure correct ownership and permissions on /etc/passwd-
+  ansible.builtin.file:
+    path: /etc/passwd-
+    owner: root
+    group: root
+    mode: '0644'
+    state: file
+
+# Ensure permissions on /etc/group
+- name: Ensure permissions on /etc/group
+  ansible.builtin.file:
+    path: /etc/group
+    owner: root
+    group: root
+    mode: '0644'
+
+# Ensure permissions on /etc/group-
+- name: Ensure permissions on /etc/group-
+  ansible.builtin.file:
+    path: /etc/group-
+    owner: root
+    group: root
+    mode: '0644'
+  when: ansible_facts.os_family in ['RedHat', 'Debian', 'Amazon']
+
+# Ensure permissions on /etc/shadow
+- name: Ensure permissions on /etc/shadow
+  ansible.builtin.file:
+    path: /etc/shadow
+    owner: root
+    group: root
+    mode: '0000'
+
+# Ensure permissions on /etc/shadow-
+- name: Ensure permissions on /etc/shadow-
+  ansible.builtin.file:
+    path: /etc/shadow-
+    owner: root
+    group: root
+    mode: '0000'
+  when: ansible_facts.os_family in ['RedHat', 'Debian', 'Amazon']
+
+# Ensure permissions on /etc/gshadow
+- name: Ensure permissions on /etc/gshadow
+  ansible.builtin.file:
+    path: /etc/gshadow
+    owner: root
+    group: root
+    mode: '0000'
+
+# Ensure permissions on /etc/gshadow-
+- name: Ensure permissions on /etc/gshadow-
+  ansible.builtin.file:
+    path: /etc/gshadow-
+    owner: root
+    group: root
+    mode: '0000'
+  when: ansible_facts.os_family in ['RedHat', 'Debian', 'Amazon']
+
+# Ensure permissions on /etc/shells
+- name: Ensure permissions on /etc/shells
+  ansible.builtin.file:
+    path: /etc/shells
+    owner: root
+    group: root
+    mode: '0644'
+  when: ansible_facts.os_family in ['RedHat', 'Debian', 'Amazon']
+
+# Ensure permissions on opasswd files
+- name: Ensure permissions on /etc/security/opasswd
+  ansible.builtin.file:
+    path: /etc/security/opasswd
+    owner: root
+    group: root
+    mode: '0600'
+  when: ansible_facts['distribution'] is defined
+
+- name: Ensure permissions on /etc/security/opasswd.old
+  ansible.builtin.file:
+    path: /etc/security/opasswd.old
+    owner: root
+    group: root
+    mode: '0600'
+  when: ansible_facts['distribution'] is defined
+
+# ===============================
+# World Writable Files & Dirs
+# ===============================
+
+- name: Find world-writable files
+  ansible.builtin.command: find / -xdev -type f -perm -0002
+  register: world_writable_files
+  changed_when: false
+
+- name: Remove world-writable permission from files (use 755)
+  ansible.builtin.file:
+    path: "{{ item }}"
+    mode: '0755'
+  loop: "{{ world_writable_files.stdout_lines }}"
+  when: world_writable_files.stdout_lines | length > 0
+
+- name: Find world-writable directories
+  ansible.builtin.command: find / -xdev -type d -perm -0002
+  register: world_writable_dirs
+  changed_when: false
+
+- name: Add sticky bit to world-writable directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    mode: '1755'
+  loop: "{{ world_writable_dirs.stdout_lines }}"
+  when: world_writable_dirs.stdout_lines | length > 0
+
+# ===============================
+# Unowned / Ungrouped Files
+# ===============================
+
+- name: Find unowned or ungrouped files
+  ansible.builtin.command: find / -xdev \( -nouser -o -nogroup \)
+  register: unowned_result
+  changed_when: false
+
+- name: Fix ownership of unowned / ungrouped files (use file module)
+  ansible.builtin.file:
+    path: "{{ item }}"
+    owner: root
+    group: root
+  loop: "{{ unowned_result.stdout_lines }}"
+  when: item != ""
+
+# ===============================
+# SUID / SGID Review (Audit Only)
+# ===============================
+
+- name: Find SUID and SGID files
+  ansible.builtin.shell: |
+    find / -xdev -type f \( -perm -4000 -o -perm -2000 \) 2>/dev/null
+  register: suid_sgid_files
+  changed_when: false
+
+- name: Report SUID and SGID files
+  ansible.builtin.debug:
+    var: suid_sgid_files.stdout_lines
+

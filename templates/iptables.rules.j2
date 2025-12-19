@@ -1,0 +1,26 @@
+*filter
+
+# Default policies
+:INPUT {{ iptables_default_policy.INPUT }} [0:0]
+:FORWARD {{ iptables_default_policy.FORWARD }} [0:0]
+:OUTPUT {{ iptables_default_policy.OUTPUT }} [0:0]
+
+# 3.4.4.2.1 – Allow loopback traffic
+-A INPUT -i lo -j ACCEPT
+-A INPUT -s 127.0.0.0/8 ! -i lo -j DROP
+
+# 3.4.4.2.2 – Allow established and related connections
+-A INPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
+
+# 3.4.4.2.3 – Allow approved TCP ports
+{% for port in iptables_allowed_tcp_ports %}
+-A INPUT -p tcp --dport {{ port }} -m conntrack --ctstate NEW -j ACCEPT
+{% endfor %}
+
+# Allow approved UDP ports
+{% for port in iptables_allowed_udp_ports %}
+-A INPUT -p udp --dport {{ port }} -m conntrack --ctstate NEW -j ACCEPT
+{% endfor %}
+
+COMMIT
+

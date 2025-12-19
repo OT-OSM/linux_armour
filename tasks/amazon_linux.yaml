@@ -1,4 +1,6 @@
 ---
+- name: Amazon Linux 2 | Configure Service Clients
+  include_tasks: configure_network_devices_al2.yaml
 - name: Amazon Linux 2 | Configure Network Kernel Modules
   include_tasks: configure_network_kernel_modules_al2.yaml
 - name: Amazon Linux 2 | Configure System Accounting (auditd) 
@@ -37,7 +39,13 @@
   include_tasks: configure_logging_al2.yaml
 - name: Amazon Linux 2 | Disable kernal module
   include_tasks: filesystem_kernel_modules_al2.yaml
+- name: Amazon Linux 2 | System File Permission
+  include_tasks: system_file_permission.yaml
 - name: Amazon Linux 2 | Configure Software and Patch Management
   include_tasks: configure_software_and_patch_management_al2.yaml
 - name: Amazon Linux 2 | Configure SSH Server
   include_tasks: configure_ssh_server.yaml
+- name: Amazon Linux 2 | Configure iptables
+  include_tasks: configure_iptables_al2.yml
+- name: Amazon Linux 2 | Configure Integrity Checking
+  include_tasks: configure_integrity_checking.yaml
