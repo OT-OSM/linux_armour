@@ -1,6 +1,6 @@
 ---
 - name: Reload AIDE
-  service:
+  ansible.builtin.service:
     name: '{{ item }}'
     state: restarted
     daemon_reload: true
@@ -10,7 +10,7 @@
 
 - name: Reload systemd units
   ansible.builtin.systemd:
-    daemon_reload: yes
+    daemon_reload: true
   become: true
 
 - name: Reload firewalld
@@ -33,12 +33,12 @@
   when: ansible_facts.os_family == "RedHat"
 
 - name: Restart systemd-timesyncd
-  service:
+  ansible.builtin.service:
     name: systemd-timesyncd
     state: restarted
 
 - name: Restart Postfix
-  service:
+  ansible.builtin.service:
     name: postfix
     state: restarted
 
@@ -56,7 +56,7 @@
 
 - name: Apply nftables ruleset
   ansible.builtin.command: nft -f /etc/nftables.conf
-  
+
 - name: Save iptables rules
   ansible.builtin.shell: /sbin/iptables-save > /etc/iptables/rules.v4
   args:
@@ -66,23 +66,23 @@
 - name: Restart systemd-journald
   ansible.builtin.systemd:
     name: systemd-journald
-    
+ 
 - name: Restart sshd
   ansible.builtin.service:
     name: sshd
     state: restarted
-    
+
 - name: update_grub
   become: true
-  command: grub2-mkconfig -o /boot/grub2/grub.cfg
+  ansible.builtin.command: grub2-mkconfig -o /boot/grub2/grub.cfg
 
 - name: Restart rsyslog
   ansible.builtin.systemd:
     name: rsyslog
     state: restarted
-    
+
 - name: Restart journald
-  systemd:
+  ansible.builtin.systemd:
     name: systemd-journald
     state: restarted
 
@@ -104,7 +104,7 @@
     state: restarted
   listen: Restart sshd
   when: ansible_facts.os_family == "RedHat"
-    
+
 - name: Restart systemd-journal-upload
   ansible.builtin.service:
     name: systemd-journal-upload.service
@@ -123,4 +123,3 @@
 - name: patching_log
   ansible.builtin.debug:
     msg: "System packages updated successfully."
-

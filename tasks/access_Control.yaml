@@ -46,7 +46,7 @@
     path: /etc/sudoers
     regexp: '^([^#].*NOPASSWD.*)$'
     replace: '# REMOVED_NOPASSWD: \1'
-    backup: yes
+    backup: true
     validate: '/usr/sbin/visudo -cf %s'
 
 # - name: Comment out NOPASSWD lines in /etc/sudoers.d files
@@ -66,7 +66,7 @@
     path: /etc/sudoers
     regexp: '^\s*Defaults\s+!authenticate\b'
     state: absent
-    backup: yes
+    backup: true
     validate: '/usr/sbin/visudo -cf %s'
 
 # 5.2.6 Ensure sudo authentication timeout is configured correctly
@@ -76,7 +76,7 @@
     state: present
     regexp: '^#?\s*Defaults\s+timestamp_timeout='
     line: "Defaults timestamp_timeout={{ sudo_timeout }}"
-    backup: yes
+    backup: true
     validate: '/usr/sbin/visudo -cf %s'
 
 # Need change
