@@ -7,10 +7,10 @@
 # 5.2.2 Ensure sudo commands use pty
 - name: Ensure sudo commands use pty
   ansible.builtin.lineinfile:
-    path: /etc/sudoers
-    state: present
-    regexp: '^#?Defaults\s+use_pty'
-    line: "Defaults use_pty"
+    path: "{{ item.path }}"
+    regexp: '^\s*Defaults\s+.*use_pty'
+    line: 'Defaults use_pty'
+    validate: '/usr/sbin/visudo -cf %s'
 
 # 5.2.3 Ensure sudo log file exists
 - name: Ensure sudo log file exists
@@ -25,9 +25,9 @@
         mode: '0750'
 
     - name: Ensure sudo logfile file exists
-      ansible.builtin.file:
-        path: /var/log/sudo/sudo.log
-        state: touch
+      ansible.builtin.copy:
+        dest: /var/log/sudo/sudo.log
+        content: ""
         owner: root
         group: root
         mode: '0640'

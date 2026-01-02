@@ -54,8 +54,8 @@
     regexp: "^#?AllowUsers"
     line: "AllowUsers {{ (ssh_allow_users + [ansible_user]) | unique | join(' ') }}"
     state: present
-    create: yes
-    backup: yes
+    create: true
+    backup: true
     insertafter: EOF
   when: ssh_allow_users is defined and ssh_allow_users | length > 0
   notify: Restart sshd

@@ -20,17 +20,8 @@
 
 - name: Restart Chrony
   ansible.builtin.service:
-    name: chrony
+    name: "{{ 'chronyd' if ansible_os_family == 'RedHat' else 'chrony' }}"
     state: restarted
-  listen: Restart Chrony
-  when: ansible_facts.os_family == "Debian"
-
-- name: Restart Chrony
-  ansible.builtin.service:
-    name: chronyd
-    state: restarted
-  listen: Restart Chrony
-  when: ansible_facts.os_family == "RedHat"
 
 - name: Restart systemd-timesyncd
   ansible.builtin.service:
@@ -43,16 +34,8 @@
     state: restarted
 
 - name: Update Grub Configuration
-  ansible.builtin.command: update-grub
+  ansible.builtin.command: "{{ 'grub2-mkconfig -o /boot/grub2/grub.cfg' if ansible_os_family == 'RedHat' else 'update-grub' }}"
   become: true
-  listen: Update Grub Configuration
-  when: ansible_facts.os_family == "Debian"
-
-- name: Update Grub2 Configuration
-  ansible.builtin.command: grub2-mkconfig -o /boot/grub2/grub.cfg
-  become: true
-  listen: Update Grub Configuration
-  when: ansible_facts.os_family == "RedHat"
 
 - name: Apply nftables ruleset
   ansible.builtin.command: nft -f /etc/nftables.conf
@@ -66,11 +49,6 @@
 - name: Restart systemd-journald
   ansible.builtin.systemd:
     name: systemd-journald
- 
-- name: Restart sshd
-  ansible.builtin.service:
-    name: sshd
-    state: restarted
 
 - name: update_grub
   become: true
@@ -93,17 +71,8 @@
 
 - name: Restart sshd
   ansible.builtin.service:
-    name: ssh
+    name: "{{ 'sshd' if ansible_os_family == 'RedHat' else 'ssh' }}"
     state: restarted
-  listen: Restart sshd
-  when: ansible_facts.os_family == "Debian"
-
-- name: Restart sshd
-  ansible.builtin.service:
-    name: sshd
-    state: restarted
-  listen: Restart sshd
-  when: ansible_facts.os_family == "RedHat"
 
 - name: Restart systemd-journal-upload
   ansible.builtin.service:

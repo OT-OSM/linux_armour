@@ -44,27 +44,12 @@ os_services_name:
     - rsyncd
     - tftp
     - httpd
-  # - autofs
-  # - avahi-daemon
-  # - isc-dhcp-server
+
   # - bind9
-  # - dnsmasq
-  # - vsftpd
-  # - slapd
   # - dovecot-imapd 
   # - dovecot-pop3d
   # - nfs-kernel-server
-  # - ypserv
-  # - cups
-  # - rpcbind
-  # - rsync
   # - samba
-  # - snmpd
-  # - tftpd-hpa
-  # - squid
-  # - apache2
-  # - nginx
-  # - xinetd
   # - xserver-common
 
 clients_services_name:

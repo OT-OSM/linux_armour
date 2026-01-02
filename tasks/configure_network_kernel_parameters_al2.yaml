@@ -7,8 +7,8 @@
   failed_when: false
   become: true
 
-# Apply sysctl parameters for Amazon Linux 2
-- name: Apply sysctl parameters for Amazon Linux 2
+# Apply sysctl parameters
+- name: Apply sysctl parameters
   ansible.posix.sysctl:
     name: "{{ item.name }}"
     value: "{{ item.value }}"
@@ -19,16 +19,8 @@
   loop: "{{ sysctl_params }}"
   loop_control:
     label: "{{ item.name }}"
-  register: sysctl_results
-  when: "not (item.name is search('ipv6') and ipv6_disabled.stdout is defined and ipv6_disabled.stdout.strip() != '0')"
+  vars:
+    ipv6_disabled_check: "{{ ipv6_disabled.stdout | default('1') | trim != '0' }}"
+  when: "not (item.name is search('^net.ipv6') and ipv6_disabled_check)"
   become: true
-
-- name: Display sysctl status summary
-  ansible.builtin.debug:
-    msg: >-
-      Parameter {{ item.item.name }} set to {{ item.item.value }}
-      - {{ 'updated' if item.changed else 'no change' }}
-  loop: "{{ sysctl_results.results }}"
-  loop_control:
-    label: "{{ item.item.name }}"
-
+  register: sysctl_results

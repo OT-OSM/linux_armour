@@ -1,77 +1,46 @@
 ---
-- name: "Check if module exists"
-  ansible.builtin.shell: "ls -d /lib/modules/**/kernel/net/{{ item }} 2>/dev/null | wc -l"
-  register: module_exists
-  loop: "{{ modules_list }}"
-  loop_control:
-    index_var: idx
-  changed_when: false
-
-- name: "Check if module is denylisted"
-  ansible.builtin.shell: 'modprobe --showconfig | grep -Pq "^\h*blacklist\h+{{ item }}\b"'
-  register: module_denylisted
-  loop: "{{ modules_list }}"
-  loop_control:
-    index_var: idx
+- name: Check if kernel modules exist
+  ansible.builtin.command: "modinfo {{ item }}"
+  loop: "{{ network_modules_list }}"
+  register: module_info
   changed_when: false
   failed_when: false
-  when: module_exists.results[idx].stdout | int > 0
 
-- name: "Denylist module"
+- name: Build module existence map
+  ansible.builtin.set_fact:
+    module_state: "{{ module_state | default({}) | combine({ item_name: item.rc == 0 }) }}"
+  loop: "{{ module_info.results }}"
+  loop_control:
+    label: "{{ item.item }}"
+  vars:
+    item_name: "{{ item.item }}"
+
+- name: Ensure modules are denylisted
   ansible.builtin.lineinfile:
-    path: "/etc/modprobe.d/{{ item }}.conf"
-    create: yes
-    line: "blacklist {{ item }}"
-  loop: "{{ modules_list }}"
-  loop_control:
-    index_var: idx
-  when:
-    - module_exists.results[idx].stdout | int > 0
-    - module_denylisted.results[idx].rc != 0
+    path: "/etc/modprobe.d/{{ item.key }}.conf"
+    create: true
+    regexp: '^\s*blacklist\s+{{ item.key }}\b'
+    line: "blacklist {{ item.key }}"
+  loop: "{{ module_state | dict2items }}"
+  when: item.value
 
-- name: "Check loadable rule"
-  ansible.builtin.shell: |
-    l_loadable="$(modprobe -n -v {{ item }})"
-    if [ "$(wc -l <<< "$l_loadable")" -gt "1" ]; then
-      l_loadable="$(grep -P '(^\h*install|\b{{ item }})\b' <<< "$l_loadable")"
-    fi
-    echo "$l_loadable" | grep -Pq '^\h*install /bin/(true|false)'
-  register: module_loadable
-  loop: "{{ modules_list }}"
-  loop_control:
-    index_var: idx
-  changed_when: false
-  failed_when: false
-  when: module_exists.results[idx].stdout | int > 0
-
-- name: "Disable module from being loadable"
+- name: Ensure modules cannot be loaded
   ansible.builtin.lineinfile:
-    path: "/etc/modprobe.d/{{ item }}.conf"
-    create: yes
-    line: "install {{ item }} /bin/false"
-  loop: "{{ modules_list }}"
-  loop_control:
-    index_var: idx
-  when:
-    - module_exists.results[idx].stdout | int > 0
-    - module_loadable.results[idx].rc != 0
+    path: "/etc/modprobe.d/{{ item.key }}.conf"
+    create: true
+    regexp: '^\s*install\s+{{ item.key }}\b'
+    line: "install {{ item.key }} /bin/false"
+  loop: "{{ module_state | dict2items }}"
+  when: item.value
 
-- name: "Check if module is loaded"
-  ansible.builtin.shell: "lsmod | grep -w {{ item }}"
-  register: module_loaded
-  loop: "{{ modules_list }}"
-  loop_control:
-    index_var: idx
+- name: Get list of loaded kernel modules
+  ansible.builtin.command: lsmod
+  register: lsmod_out
   changed_when: false
-  failed_when: false
-  when: module_exists.results[idx].stdout | int > 0
 
-- name: "Unload module"
-  ansible.builtin.command: "modprobe -r {{ item }}"
-  loop: "{{ modules_list }}"
-  loop_control:
-    index_var: idx
+- name: Unload kernel modules if loaded
+  ansible.builtin.command: "modprobe -r {{ item.key }}"
+  loop: "{{ module_state | dict2items }}"
   when:
-    - module_exists.results[idx].stdout | int > 0
-    - module_loaded.results[idx].rc == 0
-
+    - item.value
+    - "item.key in lsmod_out.stdout"

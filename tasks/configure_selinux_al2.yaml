@@ -38,9 +38,10 @@
   block:
     # Apply enforcing mode immediately to enable SELinux protection at runtime
     - name: "Set SELinux mode to enforcing at runtime"
-      ansible.builtin.command: setenforce 1
+      ansible.posix.selinux:
+        policy: targeted
+        state: enforcing
       become: true
-      ignore_errors: true
 
     # Persist enforcing mode configuration across system reboots
     - name: "Ensure SELINUX is set to enforcing in /etc/selinux/config"

@@ -25,49 +25,36 @@
     state: present
 
 # Ensure pam_faillock module is enabled
-- name: "Check if pam_faillock.so is already configured"
-  become: true
-  ansible.builtin.shell: |
-    grep -P -- '\bpam_faillock\.so\b' {{ item }} || true
-  register: pam_faillock_check
-  loop: "{{ pam_files }}"
-  changed_when: false
-  failed_when: false
-  loop_control:
-    label: "{{ item }}"
-
 - name: "Add 'pam_faillock.so preauth' line below 'auth required pam_env.so'"
   become: true
   ansible.builtin.lineinfile:
-    path: "{{ item.item }}"
+    path: "{{ item }}"
     insertafter: '^auth\s+required\s+pam_env\.so'
     line: "auth        required      pam_faillock.so preauth silent audit deny={{ pam_deny_value }} unlock_time={{ pam_unlock_time }} even_deny_root"
-  loop: "{{ pam_faillock_check.results }}"
-  when: "'pam_faillock.so preauth' not in item.stdout"
+    state: present
+  loop: "{{ pam_files }}"
   loop_control:
-    label: "{{ item.item }}"
+    label: "{{ item }}"
 
 - name: "Add 'pam_faillock.so authfail' line before 'auth requisite pam_succeed_if.so'"
   become: true
   ansible.builtin.lineinfile:
-    path: "{{ item.item }}"
+    path: "{{ item }}"
     insertbefore: '^auth\s+requisite\s+pam_succeed_if\.so'
     line: "auth        [default=die] pam_faillock.so authfail audit deny={{ pam_deny_value }} unlock_time={{ pam_unlock_time }} even_deny_root"
-  loop: "{{ pam_faillock_check.results }}"
-  when: "'pam_faillock.so authfail' not in item.stdout"
+  loop: "{{ pam_files }}"
   loop_control:
-    label: "{{ item.item }}"
+    label: "{{ item }}"
 
 - name: "Add 'account required pam_faillock.so' line to account section"
   become: true
   ansible.builtin.lineinfile:
-    path: "{{ item.item }}"
+    path: "{{ item }}"
     insertafter: '^account'
     line: 'account     required      pam_faillock.so'
-  loop: "{{ pam_faillock_check.results }}"
-  when: "'account required pam_faillock.so' not in item.stdout"
+  loop: "{{ pam_files }}"
   loop_control:
-    label: "{{ item.item }}"
+    label: "{{ item }}"
 
 # Ensure password failed attempts lockout is configured
 - name: "Ensure password failed attempts lockout is configured"
@@ -88,28 +75,16 @@
   loop: "{{ pam_files }}"
 
 # Ensure pam_pwquality module is enabled
-- name: "Ensure pam_pwquality module is enabled"
-  become: true
-  ansible.builtin.shell: |
-    grep -P -- '\bpam_pwquality\.so\b' {{ item }} || true
-  register: pam_pwquality_check
-  changed_when: false
-  failed_when: false
-  loop: "{{ pam_files }}"
-  loop_control:
-    label: "{{ item }}"
-
 - name: "Add pam_pwquality.so configuration to password section if missing"
   become: true
   ansible.builtin.lineinfile:
-    path: "{{ item.item }}"
+    path: "{{ item }}"
     insertafter: '^password\s+requisite'
     line: "password    requisite    pam_pwquality.so try_first_pass local_users_only"
     create: no
-  loop: "{{ pam_pwquality_check.results }}"
-  when: "'pam_pwquality.so' not in item.stdout"
+  loop: "{{ pam_files }}"
   loop_control:
-    label: "{{ item.item }}"
+    label: "{{ item }}"
 
 # Ensure password quality controls are configured (difok, minlen, maxrepeat, maxsequence)
 - name: "Ensure password quality controls are configured (difok, minlen, maxrepeat, maxsequence)"

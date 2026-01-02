@@ -50,25 +50,23 @@ ssh_client_alive_count_max: 3
 ssh_login_grace_time: 60
 
 # Logging and Security
-ssh_macs: "hmac-sha2-512,hmac-sha2-256"
-ssh_kex_algorithms: "curve25519-sha256,curve25519-sha256@libssh.org,diffie-hellman-group14-sha256,diffie-hellman-group16-sha512,diffie-hellman-group18-sha512"
 ssh_log_level: VERBOSE
 
-# ssh_kex_algorithms:
-#   - ecdh-sha2-nistp256
-#   - ecdh-sha2-nistp384
-#   - ecdh-sha2-nistp521
-#   - diffie-hellman-group-exchange-sha256
-#   - diffie-hellman-group16-sha512
-#   - diffie-hellman-group18-sha512
-#   - diffie-hellman-group14-sha256
+ssh_kex_algorithms:
+  - ecdh-sha2-nistp256
+  - ecdh-sha2-nistp384
+  - ecdh-sha2-nistp521
+  - diffie-hellman-group-exchange-sha256
+  - diffie-hellman-group16-sha512
+  - diffie-hellman-group18-sha512
+  - diffie-hellman-group14-sha256
 
 ssh_ciphers:
   - aes256-ctr,aes192-ctr,aes128-ctr
 
-# ssh_macs:
-#   - hmac-sha2-512-etm@openssh.com
-#   - hmac-sha2-256-etm@openssh.com
+ssh_macs:
+  - hmac-sha2-512-etm@openssh.com
+  - hmac-sha2-256-etm@openssh.com
   
 # Authentication and Login Restrictions
 ssh_max_auth_tries: 4
@@ -171,7 +169,7 @@ minute_aide_cronjob: '0'
 hour_aide_cronjob: '5'
 
 # Configure Network Kernel Modules
-modules_list:
+network_modules_list:
   - dccp
   - tipc
   - rds
@@ -271,6 +269,9 @@ coredump_config_block: |
 
 #Configure privilege escalation
 sudo_package: "sudo"
+sudoers_files:
+    - /etc/sudoers
+    - /etc/sudoers.d
 sudoers_path: "/etc/sudoers"
 sudo_logfile_path: "/var/log/sudo.log"
 timestamp_timeout_minutes: 15
@@ -285,7 +286,8 @@ tmout_value: 900
 secure_umask: "0027"
 
 # Configure job schedulers
-cron_service: crond
+cron_package: "{{ 'cron' if ansible_os_family == 'Debian' else 'cronie' }}"
+cron_service: "{{ 'crond' if ansible_os_family == 'RedHat' else 'cron' }}"
 cron_dirs:
   - /etc/cron.hourly
   - /etc/cron.daily
@@ -293,8 +295,7 @@ cron_dirs:
   - /etc/cron.monthly
   - /etc/cron.d
 cron_tab_file: /etc/crontab
-cron_allow_file: /etc/cron.allow
-cron_deny_file: /etc/cron.deny
+
 at_files:
   - /etc/at.allow
   - /etc/at.deny
@@ -338,28 +339,41 @@ rescue_emergency_units:
   - emergency.service
 
 # Configure Time Synchronization
-chrony_amazon_timesync_block: |
-  # Amazon Linux 2 default Chrony configuration
-  server 169.254.169.123 prefer iburst minpoll 4 maxpoll 4
-  pool 0.amazon.pool.ntp.org iburst maxsources 1
-  pool 1.amazon.pool.ntp.org iburst maxsources 1
-  pool 2.amazon.pool.ntp.org iburst maxsources 2
+chrony_timesync_blocks:
+  Amazon: |
+    # Amazon Linux 2 default Chrony configuration
+    server 169.254.169.123 prefer iburst minpoll 4 maxpoll 4
+    pool 0.amazon.pool.ntp.org iburst maxsources 1
+    pool 1.amazon.pool.ntp.org iburst maxsources 1
+    pool 2.amazon.pool.ntp.org iburst maxsources 2
+
+  Debian: |
+    # Ubuntu default Chrony configuration
+    pool ntp.ubuntu.com iburst maxsources 4
+    pool 0.ubuntu.pool.ntp.org iburst maxsources 1
+    pool 1.ubuntu.pool.ntp.org iburst maxsources 1
+    pool 2.ubuntu.pool.ntp.org iburst maxsources 2
+
+  RedHat: |
+    # RHEL / CentOS / Rocky / Alma default Chrony configuration
+    server 0.rhel.pool.ntp.org iburst
+    server 1.rhel.pool.ntp.org iburst
+    server 2.rhel.pool.ntp.org iburst
 
 chrony_user_opts: 'OPTIONS="-u chrony"'
 
-chrony_conf_path: "/etc/chrony.d/amazon_time_sync.conf"
+chrony_conf_paths:
+  Debian: /etc/chrony/sources.d/cis_managed.sources
+  RedHat: /etc/chrony.d/amazon_time_sync.conf
+
+chrony_conf_path: "{{ chrony_conf_paths[ansible_os_family] }}"
+
 chrony_service: "chronyd"
-chrony_shell_check_path: "/etc/chrony.d"
+chrony_shell_check_path: "/etc/chrony /etc/chrony.d"
 
-# configure filesystem partitions for al2
-tmp_mount_options:
-  - { name: "Ensure /tmp is a separate partition", opts: "defaults,rw,nosuid,nodev,noexec,relatime" }
-  - { name: "Ensure nodev option set on /tmp", opts: "defaults,rw,nosuid,nodev,noexec,relatime" }
-  - { name: "Ensure nosuid option set on /tmp", opts: "defaults,rw,nosuid,nodev,noexec,relatime" }
-  - { name: "Ensure noexec option set on /tmp", opts: "defaults,rw,nosuid,nodev,noexec,relatime" }
-
-shm_mount_options:
-  - { name: "Ensure /dev/shm is a separate partition", opts: "defaults,rw,nosuid,nodev,noexec,relatime" }
-  - { name: "Ensure nodev option set on /dev/shm", opts: "defaults,rw,nosuid,nodev,noexec,relatime" }
-  - { name: "Ensure nosuid option set on /dev/shm", opts: "defaults,rw,nosuid,nodev,noexec,relatime" }
-  - { name: "Ensure noexec option set on /dev/shm", opts: "defaults,rw,nosuid,nodev,noexec,relatime" }
+timesyncd_conf_dir: /etc/systemd/timesyncd.conf.d
+timesyncd_conf_file: 60-timesyncd.conf
+timesyncd_block: |
+  [Time]
+  NTP=time.nist.gov
+  FallbackNTP=time-a-g.nist.gov time-bg.nist.gov time-c-g.nist.gov

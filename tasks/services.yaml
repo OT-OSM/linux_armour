@@ -39,7 +39,7 @@
   when: cis_Stage > 1
   block:
     - name: Remove Clients Special Purpose Services
-      package:
+      ansible.builtin.package:
         name: "{{ item }}"
         state: absent
       loop: >-

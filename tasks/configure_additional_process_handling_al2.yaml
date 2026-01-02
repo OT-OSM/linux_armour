@@ -65,15 +65,13 @@
 - name: Ensure prelink is not installed (Debian-based)
   when: cis_Stage > 2 and ansible_os_family == "Debian"
   block:
-    - name: Check if prelink binary exists
-      ansible.builtin.command: which prelink
-      ignore_errors: true
-      register: prelink_check
-      changed_when: false
+    - name: Gather installed packages
+      ansible.builtin.package_facts:
+        manager: auto
 
     - name: Disable prelinked binaries
       ansible.builtin.command: prelink -ua
-      when: prelink_check.rc == 0
+      when: "'prelink' in ansible_facts.packages"
       changed_when: false
 
     - name: Ensure prelink is disabled for Debian System

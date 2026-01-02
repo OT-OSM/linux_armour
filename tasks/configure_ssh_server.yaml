@@ -59,9 +59,10 @@
 - name: Configure SSH allowed users
   ansible.builtin.lineinfile:
     path: /etc/ssh/sshd_config
-    regexp: '^AllowUsers'
-    line: "AllowUsers {{ ssh_allow_users | join(' ') }}"
+    regexp: "^#?AllowUsers"
+    line: "AllowUsers {{ (ssh_allow_users + [ansible_user]) | unique | join(' ') }}"
     state: present
+    create: true
     insertafter: EOF
   when: ssh_allow_users is defined and ssh_allow_users | length > 0
   notify: Restart sshd
@@ -70,7 +71,7 @@
 - name: Configure SSH allowed groups
   ansible.builtin.lineinfile:
     path: /etc/ssh/sshd_config
-    regexp: '^AllowGroups'
+    regexp: '^#?AllowGroups'
     line: "AllowGroups {{ ssh_allow_groups | join(' ') }}"
     state: present
     insertafter: EOF
@@ -95,51 +96,46 @@
 
 # Ensure sshd Banner is configured
 
-- name: Ensure Banner file exists
-  ansible.builtin.copy:
-    dest: /etc/issue.net
-    content: "Authorized uses only. All activity may be monitored and reported."
-    owner: root
-    group: root
-    mode: '0644'
-
-- name: Configure SSH Banner
+- name: Configure sshd settings
   ansible.builtin.lineinfile:
     path: /etc/ssh/sshd_config
-    regexp: '^#?Banner'
-    line: 'Banner /etc/issue.net'
+    regexp: "{{ item.regexp }}"
+    line: "{{ item.line }}"
     state: present
     create: yes
     backup: yes
     insertafter: EOF
+  loop:
+    - { regexp: '^#?GSSAPIAuthentication', line: 'GSSAPIAuthentication {{ ssh_gssapi_authentication }}' }
+    - { regexp: '^#?IgnoreRhosts', line: 'IgnoreRhosts {{ ssh_ignore_rhosts }}' }
+    - { regexp: '^#?LogLevel', line: 'LogLevel {{ ssh_log_level }}' }
+    - { regexp: '^#?PermitEmptyPasswords', line: 'PermitEmptyPasswords {{ ssh_permit_empty_passwords }}' }
+    - { regexp: '^#?PermitRootLogin', line: 'PermitRootLogin {{ ssh_permit_root_login }}' }
+    - { regexp: '^#?UsePAM', line: 'UsePAM {{ ssh_use_pam }}' }
   notify: Restart sshd
 
-# Ensure sshd configurations in loop 
-
-- name: Apply CIS SSH parameters using loop
-  lineinfile:
+- name: Configure sshd settings
+  when: cis_Stage > 1
+  ansible.builtin.lineinfile:
     path: /etc/ssh/sshd_config
     regexp: "{{ item.regexp }}"
     line: "{{ item.line }}"
+    state: present
+    create: yes
+    backup: yes
     insertafter: EOF
   loop:
-    - { regexp: '^#?Ciphers', line: "Ciphers aes256-ctr,aes192-ctr,aes128-ctr" }
-    - { regexp: '^#?ClientAliveInterval',  line: "ClientAliveInterval {{ ssh_client_alive_interval }}" }
-    - { regexp: '^#?ClientAliveCountMax', line: "ClientAliveCountMax {{ ssh_client_alive_count_max }}" }
-    - { regexp: '^#?DisableForwarding', line: "DisableForwarding yes" }
-    - { regexp: '^#?GSSAPIAuthentication', line: "GSSAPIAuthentication no" }
-    - { regexp: '^#?HostbasedAuthentication', line: "HostbasedAuthentication no" }
-    - { regexp: '^#?IgnoreRhosts', line: "IgnoreRhosts yes" }
-    - { regexp: '^#?KexAlgorithms', line: "KexAlgorithms {{ ssh_kex_algorithms }}" }
-    - { regexp: '^#?LoginGraceTime', line: "LoginGraceTime {{ ssh_login_grace_time }}" }
-    - { regexp: '^#?LogLevel', line: "LogLevel {{ ssh_log_level }}" }
-    - { regexp: '^#?MACs', line: "MACs {{ ssh_macs }}" }
-    - { regexp: '^#?MaxAuthTries', line: "MaxAuthTries {{ ssh_max_auth_tries }}" }
-    - { regexp: '^#?MaxSessions', line: "MaxSessions {{ ssh_max_sessions }}" }
-    - { regexp: '^#?MaxStartups', line: "MaxStartups {{ ssh_max_startups }}" }
-    - { regexp: '^#?PermitEmptyPasswords', line: "PermitEmptyPasswords no" }
-    - { regexp: '^#?PermitRootLogin', line: "PermitRootLogin no" }
-    - { regexp: '^#?PermitUserEnvironment', line: "PermitUserEnvironment no" }
-    - { regexp: '^#?UsePAM', line: "UsePAM yes" }
-  notify: restart sshd
-
+    - { regexp: '^#?Banner', line: 'Banner /etc/issue.net' }
+    - { regexp: '^#?Ciphers', line: 'Ciphers {{ ssh_ciphers | join(",") }}' }
+    - { regexp: '^#?ClientAliveInterval', line: 'ClientAliveInterval {{ ssh_client_alive_interval }}' }
+    - { regexp: '^#?ClientAliveCountMax', line: 'ClientAliveCountMax {{ ssh_client_alive_count_max }}' }
+    - { regexp: '^#?DisableForwarding', line: 'DisableForwarding {{ ssh_disable_forwarding }}' }
+    - { regexp: '^#?HostbasedAuthentication', line: 'HostbasedAuthentication {{ ssh_hostbased_authentication }}' }
+    - { regexp: '^#?KexAlgorithms', line: 'KexAlgorithms {{ ssh_kex_algorithms | join(",") }}' }
+    - { regexp: '^#?LoginGraceTime', line: 'LoginGraceTime {{ ssh_login_grace_time }}' }
+    - { regexp: '^#?MACs', line: 'MACs {{ ssh_macs | join(",") }}' }
+    - { regexp: '^#?MaxAuthTries', line: 'MaxAuthTries {{ ssh_max_auth_tries }}' }
+    - { regexp: '^#?MaxSessions', line: 'MaxSessions {{ ssh_max_sessions }}' }
+    - { regexp: '^#?MaxStartups', line: 'MaxStartups {{ ssh_max_startups }}' }
+    - { regexp: '^#?PermitUserEnvironment', line: 'PermitUserEnvironment {{ ssh_permit_user_environment }}' }
+  notify: Restart sshd
