@@ -791,16 +791,12 @@
   become: true
   ansible.builtin.shell: |
     find /var/log/audit -type f -exec chmod 0640 {} \;
-  args:
-    warn: false
   changed_when: false
 
 - name: "Ensure audit log files are owned by root"
   become: true
   ansible.builtin.shell: |
     find /var/log/audit -type f -exec chown root:root {} \;
-  args:
-    warn: false
   changed_when: false
 
 # Ensure only authorized users own audit log files
@@ -809,8 +805,6 @@
   become: true
   ansible.builtin.shell: |
     find /var/log/audit -type f ! -user root -exec chown root {} \;
-  args:
-    warn: false
   changed_when: false
 
 # Ensure only authorized groups own audit log files
@@ -819,8 +813,6 @@
   become: true
   ansible.builtin.shell: |
     find /var/log/audit -type f ! -group root -exec chgrp root {} \;
-  args:
-    warn: false
   changed_when: false
 
 # Ensure audit configuration files permissions are 0640 or more restrictive
@@ -829,8 +821,6 @@
   become: true
   ansible.builtin.shell: |
     find /etc/audit -type f -exec chmod 0640 {} \;
-  args:
-    warn: false
   changed_when: false
 
 # Ensure audit configuration files are owned by root
@@ -839,8 +829,6 @@
   become: true
   ansible.builtin.shell: |
     find /etc/audit -type f ! -user root -exec chown root {} \;
-  args:
-    warn: false
   changed_when: false
 
 # Ensure audit configuration files belong to group root
@@ -849,8 +837,6 @@
   become: true
   ansible.builtin.shell: |
     find /etc/audit -type f ! -group root -exec chgrp root {} \;
-  args:
-    warn: false
   changed_when: false
 
 # Ensure audit tools are 755 or more restrictive and root owned
@@ -864,4 +850,3 @@
     group: root
   loop: "{{ audit_tools }}"
   ignore_errors: true
-
