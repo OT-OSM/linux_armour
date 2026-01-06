@@ -88,11 +88,27 @@
         state: stopped
         enabled: false
       ignore_errors: true
+      when: ansible_os_family == 'Debian'
 
+    - name: Disable firewalld if active
+      ansible.builtin.service:
+        name: firewalld
+        state: stopped
+        enabled: false
+      ignore_errors: true
+      when: ansible_os_family == 'RedHat'
+    
     - name: Uninstall UFW package (if installed)
       ansible.builtin.package:
         name: ufw
         state: absent
+      when: ansible_os_family == 'Debian'
+    
+    - name: Uninstall firewalld package (if installed)
+      ansible.builtin.package:
+        name: firewalld
+        state: absent
+      when: ansible_os_family == 'RedHat'
 
     - name: Ensure nftables configuration directory exists
       ansible.builtin.file:
@@ -131,6 +147,15 @@
         masked: true
       ignore_errors: true
 
+    - name: Disable and mask firewalld
+      ansible.builtin.systemd:
+        name: firewalld
+        state: stopped
+        enabled: false
+        masked: true
+      ignore_errors: true
+      when: ansible_os_family == 'RedHat'
+    
     - name: Flush nftables ruleset if present
       ansible.builtin.command: nft flush ruleset
       ignore_errors: true
@@ -145,6 +170,7 @@
         name:
           - nftables
           - ufw
+          - firewalld
         state: absent
       ignore_errors: true
 
@@ -174,6 +200,24 @@
 - name: Configure firewalld
   when: firewall_package == "firewalld"
   block:
+    - name: Ensure firewall_package service is enabled and started
+      ansible.builtin.service:
+        name: firewalld
+        state: started
+        enabled: true
+
+    - name: Disable nftables if active
+      ansible.builtin.service:
+        name: nftables
+        state: stopped
+        enabled: false
+      ignore_errors: true
+
+    - name: Uninstall nftables package (if installed)
+      ansible.builtin.package:
+        name: nftables
+        state: absent
+
     - name: Ensure firewalld default zone is set to 'public'
       ansible.posix.firewalld:
         zone: public

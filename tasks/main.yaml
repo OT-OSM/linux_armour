@@ -84,14 +84,46 @@
 - name: Configure privilege escalation
   ansible.builtin.include_tasks: configure_privilege_escalation_al2.yaml
 
+##############################################################
+###### Configure Pluggable Authentication Modules (PAM) ######
+##############################################################
 - name: Configure Pluggable Authentication Modules
   ansible.builtin.include_tasks: configure_pluggable_authentication_modules_{{ ansible_os_family }}.yaml
 
-- name: Debian related Specification
-  ansible.builtin.include_tasks: configure_Debian.yaml
-  when:
-    ansible_os_family == 'Debian'
+####################################################
+###### Configure User Account AND ENVIRONMENT ######
+####################################################
+- name: Configure user account and environment
+  ansible.builtin.include_tasks: user_accounts_and_environment_al2.yaml
 
-- name: CentOS related Specification
-  ansible.builtin.include_tasks: configure_RedHat.yaml
+######################################
+###### Configure System Logging ######
+######################################
+- name: Amazon Linux 2 | Configure Logging (rsyslog + journald)
+  ansible.builtin.include_tasks: configure_logging_al2.yaml
+
+- name: Amazon Linux 2 | Configure Software and Patch Management
+  ansible.builtin.include_tasks: configure_software_and_patch_management_al2.yaml
   when: ansible_os_family == 'RedHat'
+
+- name: Amazon Linux 2 | Configure System Accounting (auditd) 
+  ansible.builtin.include_tasks:  configure_system_accounting_al2.yaml
+
+- name: Amazon Linux 2 | Local User and Group Settings
+  ansible.builtin.include_tasks: local_user_and_group_settings_al2.yaml
+
+################################
+###### Configure Firewall ######
+################################
+- name: Network Parameters For Host
+  ansible.builtin.include_tasks: firewall_Configuration.yaml
+
+####################################################
+###### Configure System Logging ######
+####################################################
+- name: Ensure filesystem integrity is regularly checked
+  ansible.builtin.include_tasks: filesystem_Integrity.yaml
+  when: cis_Stage > 1
+
+- name: Configure System files
+  ansible.builtin.include_tasks: system_file_permissions.yaml

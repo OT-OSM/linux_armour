@@ -12,6 +12,21 @@
   loop:
     - { path: '/etc/libuser.conf', regexp: '^crypt_style\s*=', line: 'crypt_style = sha512' }
     - { path: '/etc/login.defs',   regexp: '^ENCRYPT_METHOD\s+', line: 'ENCRYPT_METHOD SHA512' }
+  when:
+    - cis_Stage > 1
+    - ansible_os_family == 'RedHat'
+
+- name: "Ensure ENCRYPT_METHOD is set to SHA512 in /etc/login.defs"
+  ansible.builtin.lineinfile:
+    path: /etc/login.defs
+    regexp: '^ENCRYPT_METHOD'
+    line: 'ENCRYPT_METHOD SHA512'
+    state: present
+    create: yes
+    backup: yes
+  when:
+    - cis_Stage > 1
+    - ansible_os_family == 'Debian'
 
 # Ensure PASS_MAX_DAYS is set to 365
 
@@ -20,7 +35,7 @@
     path: /etc/login.defs
     regexp: '^PASS_MAX_DAYS'
     line: "PASS_MAX_DAYS {{ pass_max_days }}"
-    create: yes
+    create: true
     state: present
 
 - name: "Find users with PASS_MAX_DAYS > 365 or < 1"
@@ -70,8 +85,6 @@
 
 - name: "Set default INACTIVE = 30 for new users"
   ansible.builtin.shell: useradd -D -f {{ inactive_days }}
-  args:
-    warn: false
 
 - name: "Find users with non-compliant INACTIVE values (-1 or > 30)"
   ansible.builtin.shell: |
@@ -117,7 +130,20 @@
   loop: "{{ users_with_future_change.stdout_lines }}"
   when: users_with_future_change.stdout_lines | length > 0
 
-#Ensure default group for the root account is GID 0 
+# 5.4.2.1 Ensure root is the only UID 0 account
+
+- name: Get root user's UID using getent
+  ansible.builtin.command: getent passwd root
+  register: root_passwd_entry
+  changed_when: false
+  become: true
+
+#Ensure default group for the root account is UID/GID 0
+- name: Ensure root user has UID 0
+  ansible.builtin.command: usermod -u 0 root
+  when: root_passwd_entry.stdout.split(':')[2] | int != 0
+  become: true
+ 
 - name: "Ensure default group for the root account is GID 0"
   ansible.builtin.user:
     name: root
@@ -143,11 +169,42 @@
   ansible.builtin.lineinfile:
     path: "{{ item }}"
     regexp: '^\s*umask\s+'
-    line: "umask {{ secure_umask }}"
+    line: "umask 0027"
     create: yes
     insertafter: EOF
   loop: "{{ umask_files }}"
   when: item is file
+
+# Ensure root path integrity
+- name: "Fix non-root-owned directories in root's PATH"
+  block:
+    - name: "Get root's PATH variable"
+      ansible.builtin.shell: "sudo -Hiu root env | grep '^PATH=' | cut -d= -f2"
+      register: root_path
+      changed_when: false
+
+    - name: "Split PATH into list"
+      ansible.builtin.set_fact:
+        root_path_dirs: "{{ root_path.stdout.split(':') }}"
+
+    - name: "Stat each directory in PATH"
+      ansible.builtin.stat:
+        path: "{{ item }}"
+      loop: "{{ root_path_dirs }}"
+      register: path_stats
+
+    - name: "Fix ownership to root if not already"
+      ansible.builtin.file:
+        path: "{{ item.stat.path }}"
+        owner: root
+      when:
+        - item.stat.exists
+        - item.stat.isdir
+        - item.stat.pw_name is defined
+        - item.stat.pw_name != "root"
+      loop: "{{ path_stats.results }}"
+      loop_control:
+        label: "{{ item.stat.path | default(item.item) }}"
 
 # Ensure system accounts are secured
 - name: "Get UID_MIN value"
@@ -194,7 +251,7 @@
   ansible.builtin.fail:
     msg: "Root password is NOT set — manual intervention required. Run: passwd root"
   when: "'Password not set' in root_pass_status.stdout"
-  ignore_errors: yes
+  ignore_errors: true
 
 # Ensure /nologin is not listed in /etc/shells
 - name: "Check if /nologin is present in /etc/shells"
@@ -271,7 +328,7 @@
   ansible.builtin.lineinfile:
     path: "{{ item.path }}"
     regexp: '^\s*umask\s+'
-    line: "umask {{ secure_umask }}"
+    line: "umask 027"
     insertafter: EOF
   loop: "{{ umask_files.files }}"
   loop_control:
@@ -283,7 +340,8 @@
   ansible.builtin.copy:
     dest: /etc/profile.d/50-systemwide_umask.sh
     content: |
-      umask {{ secure_umask }}
+      # Set secure default UMASK
+      umask 027
     owner: root
     group: root
     mode: '0644'

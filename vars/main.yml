@@ -283,7 +283,6 @@ pass_max_days: 365
 pass_warn_age: 7
 inactive_days: 30
 tmout_value: 900
-secure_umask: "0027"
 
 # Configure job schedulers
 cron_package: "{{ 'cron' if ansible_os_family == 'Debian' else 'cronie' }}"

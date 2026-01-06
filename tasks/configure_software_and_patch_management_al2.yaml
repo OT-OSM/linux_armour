@@ -13,45 +13,53 @@
 - name: "Import required GPG keys"
   ansible.builtin.rpm_key:
     state: present
-    key: "{{ item }}"
-  loop:
-    - /etc/pki/rpm-gpg/RPM-GPG-KEY-amazon-linux-2
+    key: "/etc/pki/rpm-gpg/RPM-GPG-KEY-amazon-linux-{{ ansible_distribution_major_version}}"
   notify: yum_clean_metadata
 
 # Ensure gpgcheck=1 globally
 
-- name: "Ensure gpgcheck=1 in yum.conf"
-  ansible.builtin.replace:
+- name: Check if /etc/yum.conf exists
+  become: true
+  ansible.builtin.stat:
     path: /etc/yum.conf
-    regexp: '^gpgcheck\s*=.*'
-    replace: 'gpgcheck=1'
-  notify: yum_clean_all
+  register: yum_conf_stat
 
-- name: "Ensure gpgcheck=1 in all repo files"
+- name: Find yum repo config files
+  become: true
+  ansible.builtin.find:
+    paths: /etc/yum.repos.d
+    patterns: "*.conf"
+    file_type: file
+  register: yum_config_d_files
+
+- name: Build full rsyslog config file list
+  ansible.builtin.set_fact:
+    yum_config_all_files: >-
+      {{
+        (yum_conf_stat.stat.exists | ternary(['/etc/yum.conf'], []))
+        + (yum_repo_files.files | map(attribute='path') | list)
+      }}
+
+- name: "Ensure gpgcheck=1 in yum.conf"
   ansible.builtin.replace:
     path: "{{ item }}"
     regexp: '^gpgcheck\s*=.*'
     replace: 'gpgcheck=1'
-  with_fileglob:
-    - "/etc/yum.repos.d/*.repo"
+  loop: "{{ yum_config_all_files }}"
+  loop_control:
+    label: "{{ item }}"
   notify: yum_clean_all
 
 # Ensure repo_gpgcheck=1 globally 
 
 - name: "Ensure repo_gpgcheck=1 in yum.conf"
   ansible.builtin.replace:
-    path: /etc/yum.conf
-    regexp: '^repo_gpgcheck\s*=.*'
-    replace: 'repo_gpgcheck=1'
-  notify: yum_clean_metadata
-
-- name: "Ensure repo_gpgcheck=1 in repo files"
-  ansible.builtin.replace:
     path: "{{ item }}"
     regexp: '^repo_gpgcheck\s*=.*'
     replace: 'repo_gpgcheck=1'
-  with_fileglob:
-    - "/etc/yum.repos.d/*.repo"
+  loop: "{{ yum_config_all_files }}"
+  loop_control:
+    label: "{{ item }}"
   notify: yum_clean_metadata
 
 # Ensure package manager repositories are configured 

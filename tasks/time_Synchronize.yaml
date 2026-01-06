@@ -160,7 +160,7 @@
       ansible.builtin.lineinfile:
         path: /etc/sysconfig/chronyd
         regexp: '^OPTIONS='
-        line: 'OPTIONS="-u _chrony"'
+        line: 'OPTIONS="-u chrony"'
         create: yes
       notify: Restart Chrony
       when: ansible_os_family == "RedHat"

@@ -21,7 +21,7 @@
   ansible.builtin.service:
     name: auditd
     state: started
-    enabled: yes
+    enabled: true
 
 # 6.2.1.3 Ensure auditing for processes that start prior to auditd is enabled
 # 6.2.1.4 Ensure audit_backlog_limit is sufficient
@@ -35,23 +35,19 @@
 
 
 # 6.2.2 Configure Audit log Retention
-- name: Ensure audit logs are not automatically deleted
-  lineinfile:
+- name: "Configure auditd.conf parameters"
+  become: true
+  ansible.builtin.lineinfile:
     path: /etc/audit/auditd.conf
-    regexp: '^#?{{ item.key }}='
+    regexp: '^\\s*{{ item.key }}\\s*='
     line: '{{ item.key }} = {{ item.value }}'
-    state: present
-  with_items:
-    - { key: 'max_log_file', value: '8' }
-    - { key: 'max_log_file_action', value: 'keep_logs' }
-    - { key: 'disk_full_action', value: 'halt' }
-    - { key: 'disk_error_action', value: 'syslog' }
-    - { key: 'space_left_action', value: 'email' }
-    - { key: 'admin_space_left_action', value: 'single' }
+  loop: "{{ audit_conf_settings }}"
+  loop_control:
+    label: "{{ item.key }}"
 
 # Configure Audit Rules
 - name: check if audit.rules file exist
-  stat:
+  ansible.builtin.stat:
     path: /etc/audit/audit.rules
   register: file_result
 

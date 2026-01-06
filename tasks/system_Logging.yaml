@@ -1,22 +1,4 @@
 # 6.1.1.1, 6.1.1.4 Configure journald
-- name: Install selected logger package(s)
-  ansible.builtin.package:
-    name: "{{ item }}"
-    state: present
-  loop:
-    - rsyslog
-    - journald
-  when: item == preferred_logger
-
-- name: Enable and start preferred_logger
-  ansible.builtin.systemd:
-    name: "{{ item }}"
-    enabled: yes
-    state: started
-  loop:
-    - rsyslog
-    - systemd-journald
-  when: item == preferred_logger
 
 # Systemd Journal configuration
 - name: Systemd Journal configuration
