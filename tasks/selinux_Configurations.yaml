@@ -32,8 +32,6 @@
 
 - name: Set SELinux enforcing mode immediately
   ansible.builtin.command: setenforce 1
-  args:
-    warn: false
 
 - name: Ensure SETroubleshoot is not installed
   yum:

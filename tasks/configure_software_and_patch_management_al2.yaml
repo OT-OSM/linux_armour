@@ -37,7 +37,7 @@
     yum_config_all_files: >-
       {{
         (yum_conf_stat.stat.exists | ternary(['/etc/yum.conf'], []))
-        + (yum_repo_files.files | map(attribute='path') | list)
+        + (yum_config_d_files.files | map(attribute='path') | list)
       }}
 
 - name: "Ensure gpgcheck=1 in yum.conf"
@@ -68,8 +68,6 @@
   ansible.builtin.command: yum repolist enabled
   register: repo_status
   changed_when: false
-  args:
-    warn: false
 
 - name: "Fail if no repos configured"
   ansible.builtin.fail:
@@ -94,10 +92,3 @@
     state: latest
     update_cache: yes
   notify: patching_log
-
-- name: "Install required security packages (yum-plugin-security, aide)"
-  ansible.builtin.yum:
-    name:
-      - yum-plugin-security
-      - aide
-    state: present
