@@ -22,10 +22,6 @@ dir_partition:
 grub_password_required: false # Set true for on-premise on console enabled servers only
 root_password: "Cis@123#"
 
-sudo_timeout: 15
-
-su_group: "{{ 'wheel' if ansible_facts['os_family'] == 'RedHat' else 'sudo' }}"
-
 # Access Control
 # ssh_allow_users is mandatory to mention the username of specific user who want to ssh into the server (Important)
 ssh_allow_users:
@@ -86,8 +82,6 @@ ssh_ignore_rhosts: "yes"
 # Set the default time synchronization daemon
 time_sync_daemon: chrony # Replace with one of in list ('chrony', 'systemd-timesyncd')
 
-cron_service_name: "{{ 'crond' if ansible_os_family == 'RedHat' else 'cron' }}"
-
 firewall_packages_by_os:
   Debian:
     - ufw
@@ -97,7 +91,8 @@ firewall_packages_by_os:
     - firewalld
     - nftables
     - iptables
-firewall_package: ufw
+
+firewall_package: firewalld
 allowed_services:
   - ssh
   - http
@@ -134,40 +129,6 @@ File_Permissions:
 opasswd_file: /etc/security/opasswd
 opasswd_old_file: /etc/security/opasswd.old
 
-# Additional process hardening
-cis_security_limits_filename: /etc/security/limits.conf
-
-# remove packages with known issues
-os_packages_clean: true
-os_packages_list:
-  - xinetd
-  - inetd
-  - ypserv
-  - telnet-server
-  - telnet-client
-  - rsh-server
-  - rsh-client
-  - prelink
-  - openldap-clients
-  - openldap2-client
-  - ldap-utils
-
-# Audit
-audit_package: 'auditd'
-audit_package_centos: 'audit'
-audit_rules_filename: "/etc/audit/audit.rules"
-
-# Secure boot
-sysconfig_init_filename: "/etc/sysconfig/init"
-grub_bootloader_filename: "/boot/grub/menu.lst"
-
-# Services needs to be disable
-os_services_name: ['avahi-daemon', 'slapd', 'named', 'cups', 'telnet', 'discard-dgram', 'discard-stream']
-
-# aide cronjob configuration
-minute_aide_cronjob: '0'
-hour_aide_cronjob: '5'
-
 # Configure Network Kernel Modules
 network_modules_list:
   - dccp
@@ -176,7 +137,6 @@ network_modules_list:
   - sctp
 
 # Configure System Accounting
-audit_grub_backlog_limit: 8192
 audit_conf_settings:
   - { key: 'max_log_file', value: '32' }
   - { key: 'max_log_file_action', value: 'keep_logs' }
@@ -199,33 +159,6 @@ audit_tools:
   - /usr/sbin/autrace
   - /usr/sbin/augenrules
 
-#  Configure Host Based Firewall
-firewalld_remove_services:
-  - cockpit
-firewalld_remove_ports:
-  - "25/tcp"
-firewalld_zone: public
-firewalld_interface: eth0
-firewalld_conflict_packages:
-  - nftables
-  - iptables-services
-nftables_conflict_packages:
-  - firewalld
-  - iptables-services
-iptables_conflict_packages:
-  - firewalld
-  - nftables
-firewalld_conflict_services:
-  - nftables
-  - iptables
-  - ip6tables
-nftables_conflict_services:
-  - firewalld
-  - iptables
-  - ip6tables
-iptables_conflict_services:
-  - firewalld
-  - nftables
 # Configure Command Line Warning Banners
 login_banner_text: "Authorized users only. All activity may be monitored and reported.\n"
 issue_files:
@@ -269,9 +202,6 @@ coredump_config_block: |
 
 #Configure privilege escalation
 sudo_package: "sudo"
-sudoers_files:
-    - /etc/sudoers
-    - /etc/sudoers.d
 sudoers_path: "/etc/sudoers"
 sudo_logfile_path: "/var/log/sudo.log"
 timestamp_timeout_minutes: 15
@@ -295,9 +225,6 @@ cron_dirs:
   - /etc/cron.d
 cron_tab_file: /etc/crontab
 
-at_files:
-  - /etc/at.allow
-  - /etc/at.deny
 # Configure Pluggable Authentication Modules
 pam_min_version: "1.1.8-23"
 pam_deny_value: 5
@@ -318,13 +245,6 @@ pwquality_complexity:
   - { name: 'lcredit',  value: -1 }
   - { name: 'ocredit',  value: -1 }
 
-#Configure Service Clients
-insecure_service_clients:
-  - ftp                    # Ensure FTP client is not installed
-  - ypbind                 # Ensure NIS client is not installed
-  - telnet                 # Ensure Telnet client is not installed
-  - tftp                   # Ensure TFTP client is not installed
-  - openldap-clients       # Ensure LDAP client is not installed
 #Configure SELinux
 selinux_packages:
   - libselinux

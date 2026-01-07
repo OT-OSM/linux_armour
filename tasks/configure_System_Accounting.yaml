@@ -1,0 +1,442 @@
+# Ensure audit is installed
+
+- name: Install auditd package for Debian System
+  ansible.builtin.apt:
+    name:
+      - auditd
+      - audispd-plugins
+    state: 'present'
+  when: ansible_os_family == "Debian"
+
+- name: Install auditd package for Redhat System
+  ansible.builtin.yum:
+    name:
+      - audit
+      - audit-libs
+    state: 'present'
+  when: ansible_os_family == "RedHat"
+
+# Ensure auditing for processes that start prior to auditd is enabled
+- name: Set kernel boot parameters for auditing
+  ansible.builtin.lineinfile:
+    path: /etc/default/grub
+    regexp: '^GRUB_CMDLINE_LINUX='
+    line: 'GRUB_CMDLINE_LINUX="audit=1 audit_backlog_limit=8192"'
+    backrefs: no
+  notify: Update Grub Configuration
+
+# Ensure auditd.conf settings are configured
+
+- name: "Configure auditd.conf parameters"
+  become: true
+  ansible.builtin.lineinfile:
+    path: /etc/audit/auditd.conf
+    regexp: '^\\s*{{ item.key }}\\s*='
+    line: '{{ item.key }} = {{ item.value }}'
+  loop: "{{ audit_conf_settings }}"
+  loop_control:
+    label: "{{ item.key }}"
+
+# Ensure auditd service is enabled
+
+- name: "Ensure auditd is enabled and running"
+  become: true
+  ansible.builtin.systemd:
+    name: auditd
+    enabled: true
+    state: started
+  failed_when: false
+  ignore_errors: true
+
+# Ensure changes to system administration scope (sudoers) is collected
+- name: "Create auditd rules for monitoring sudoers changes"
+  become: true
+  ansible.builtin.copy:
+    dest: /etc/audit/rules.d/50-scope.rules
+    owner: root
+    group: root
+    mode: '0640'
+    content: |
+      -w /etc/sudoers -p wa -k scope
+      -w /etc/sudoers.d -p wa -k scope
+
+# Ensure actions as another user are always logged
+
+# Set supported audit architectures based on system architecture
+- name: Determine supported audit architectures
+  ansible.builtin.set_fact:
+    audit_arch: >-
+      {{ 'b64,b32' if ansible_architecture == 'x86_64'
+         else 'b64' if ansible_architecture in ['aarch64']
+         else 'b32' }}
+
+- name: "Create audit rule for logging actions executed as another user"
+  become: true
+  ansible.builtin.copy:
+    dest: /etc/audit/rules.d/50-user-emulation.rules
+    owner: root
+    group: root
+    mode: '0640'
+    content: |
+      {% for arch in audit_arch.split(',') %}
+      -a always,exit -F arch={{ arch }} -S execve -C uid!=euid -F key=user_emulation
+      {% endfor %}
+
+# Ensure events that modify the sudo log file are collected
+- name: "Create audit rule for sudo log file modification"
+  become: true
+  ansible.builtin.copy:
+    dest: /etc/audit/rules.d/50-sudo-log.rules
+    owner: root
+    group: root
+    mode: '0640'
+    content: |
+      -w {{ sudo_logfile_path }} -p wa -k sudo_log_file
+
+# Ensure events that modify date and time information are collected
+- name: Deploy time-change audit rules
+  ansible.builtin.copy:
+    dest: /etc/audit/rules.d/50-time-change.rules
+    owner: root
+    group: root
+    mode: '0640'
+    content: |
+      {% for arch in audit_arch.split(',') %}
+      -a always,exit -F arch={{ arch }} -S adjtimex,settimeofday,clock_settime -k time-change
+      {% endfor %}
+      -w /etc/localtime -p wa -k time-change
+  become: true
+
+# Ensure events that modify the system's network environment are collected
+- name: Deploy network modification audit rules
+  become: true
+  ansible.builtin.copy:
+    dest: /etc/audit/rules.d/50-system-network.rules
+    owner: root
+    group: root
+    mode: '0640'
+    content: |
+      {% for arch in audit_arch.split(',') %}
+      -a always,exit -F arch={{ arch }} -S sethostname,setdomainname -k system-locale
+      {% endfor %}
+      -w /etc/hosts -p wa -k system-locale
+      -w /etc/issue -p wa -k system-locale
+      -w /etc/issue.net -p wa -k system-locale
+
+- name: Deploy network modification audit rules
+  become: true
+  ansible.builtin.copy:
+    dest: /etc/audit/rules.d/50-system-network.rules
+    owner: root
+    group: root
+    mode: '0640'
+    content: |
+      -w /etc/networks -p wa -k system-locale
+      -w /etc/network -p wa -k system-locale
+      -w /etc/netplan -p wa -k system-locale
+  when: ansible_os_family == "Debian"
+
+- name: Deploy network modification audit rules
+  become: true
+  ansible.builtin.copy:
+    dest: /etc/audit/rules.d/50-system-network.rules
+    owner: root
+    group: root
+    mode: '0640'
+    content: |
+      -w /etc/sysconfig/network -p wa -k system-locale
+      -w /etc/sysconfig/network-scripts/ -p wa -k system-locale
+  when: ansible_os_family == "RedHat"
+
+# Ensure use of privileged commands are collected
+
+- name: "Find privileged (SUID/SGID) commands"
+  become: true
+  ansible.builtin.shell: |
+    find / -xdev -type f \( -perm -4000 -o -perm -2000 \) 2>/dev/null
+  register: privileged_cmds_raw
+  changed_when: false
+
+- name: "Create audit rules file for privileged commands"
+  become: true
+  ansible.builtin.copy:
+    dest: /etc/audit/rules.d/50-privileged.rules
+    owner: root
+    group: root
+    mode: '0640'
+    content: |
+      {% for cmd in privileged_cmds_raw.stdout_lines %}
+      -a always,exit -F path={{ cmd }} -F perm=x -F auid>=1000 -F auid!=unset -k privileged
+      {% endfor %}
+
+# Ensure unsuccessful unauthorized file access attempts are collected
+- name: Deploy audit rules for unauthorized access attempts
+  become: true
+  ansible.builtin.copy:
+    dest: /etc/audit/rules.d/50-access.rules
+    owner: root
+    group: root
+    mode: '0640'
+    content: |
+      {% for arch in audit_arch.split(',') %}
+      -a always,exit -F arch={{ arch }} -S open,openat,creat,truncate,ftruncate -F exit=-EACCES -k access
+      -a always,exit -F arch={{ arch }} -S open,openat,creat,truncate,ftruncate -F exit=-EPERM  -k access
+      {% endfor %}
+
+# Ensure events that modify user/group information are collected
+- name: Deploy user/group modification audit rules
+  become: true
+  ansible.builtin.copy:
+    dest: /etc/audit/rules.d/50-identity.rules
+    owner: root
+    group: root
+    mode: '0640'
+    content: |
+      -w /etc/group -p wa -k identity
+      -w /etc/passwd -p wa -k identity
+      -w /etc/gshadow -p wa -k identity
+      -w /etc/shadow -p wa -k identity
+      -w /etc/security/opasswd -p wa -k identity
+
+# Ensure discretionary access control permission modification events are collected
+- name: Deploy DAC modification audit rules
+  become: true
+  ansible.builtin.copy:
+    dest: /etc/audit/rules.d/50-perm_mod.rules
+    owner: root
+    group: root
+    mode: '0640'
+    content: |
+      {% for arch in audit_arch.split(',') %}
+      -a always,exit -F arch={{ arch }} -S chmod,fchmod,fchmodat,chown,fchown,fchownat,lchown,setxattr,lsetxattr,fsetxattr,removexattr,lremovexattr,fremovexattr -k perm_mod
+      {% endfor %}
+
+# Ensure successful file system mounts are collected
+- name: Deploy mount audit rules
+  become: true
+  ansible.builtin.copy:
+    dest: /etc/audit/rules.d/50-mounts.rules
+    owner: root
+    group: root
+    mode: '0640'
+    content: |
+      {% for arch in audit_arch.split(',') %}
+      -a always,exit -F arch={{ arch }} -S mount -F auid>=1000 -F auid!=unset -k mounts
+      {% endfor %}
+
+# Ensure session initiation information is collected
+- name: Deploy session initiation audit rules
+  become: true
+  ansible.builtin.copy:
+    dest: /etc/audit/rules.d/50-session.rules
+    owner: root
+    group: root
+    mode: '0640'
+    content: |
+      -w /var/run/utmp -p wa -k session
+      -w /var/log/wtmp -p wa -k session
+      -w /var/log/btmp -p wa -k session
+
+# Ensure login and logout events are collected
+- name: Deploy login/logout audit rules
+  become: true
+  ansible.builtin.copy:
+    dest: /etc/audit/rules.d/50-logins.rules
+    owner: root
+    group: root
+    mode: '0640'
+    content: |
+      -w /var/log/lastlog -p wa -k logins
+      -w /var/run/faillock -p wa -k logins
+
+# Ensure file deletion events by users are collected
+- name: Deploy file deletion audit rules
+  become: true
+  ansible.builtin.copy:
+    dest: /etc/audit/rules.d/50-delete.rules
+    owner: root
+    group: root
+    mode: '0640'
+    content: |
+      {% for arch in audit_arch.split(',') %}
+      -a always,exit -F arch={{ arch }} -S unlink,unlinkat,rename,renameat -F auid>=1000 -F auid!=unset -k delete
+      {% endfor %}
+
+# Ensure events that modify the system’s Mandatory Access Controls (MAC) are collected
+- name: Deploy MAC policy audit rules
+  become: true
+  ansible.builtin.copy:
+    dest: /etc/audit/rules.d/50-MAC-policy.rules
+    owner: root
+    group: root
+    mode: '0640'
+    content: |
+      -w /etc/apparmor/ -p wa -k MAC-policy
+      -w /etc/apparmor.d/ -p wa -k MAC-policy
+  when: ansible_os_family == "Debian"
+
+- name: Deploy MAC policy audit rules
+  become: true
+  ansible.builtin.copy:
+    dest: /etc/audit/rules.d/50-MAC-policy.rules
+    owner: root
+    group: root
+    mode: '0640'
+    content: |
+      -w /etc/selinux/ -p wa -k MAC-policy
+      -w /usr/share/selinux/ -p wa -k MAC-policy
+  when: ansible_os_family == "RedHat"
+
+# Ensure successful and unsuccessful attempts to use the chcon command are recorded
+
+- name: "Create audit rule for chcon command"
+  become: true
+  ansible.builtin.copy:
+    dest: /etc/audit/rules.d/50-chcon.rules
+    owner: root
+    group: root
+    mode: '0640'
+    content: |
+      -a always,exit -F path=/usr/bin/chcon -F perm=x -F auid>=1000 -F auid!=unset -k perm_mod
+
+# Ensure successful and unsuccessful attempts to use the setfacl command are recorded
+
+- name: "Create audit rule for setfacl command"
+  become: true
+  ansible.builtin.copy:
+    dest: /etc/audit/rules.d/50-setfacl.rules
+    owner: root
+    group: root
+    mode: '0640'
+    content: |
+      -a always,exit -F path=/usr/bin/setfacl -F perm=x -F auid>=1000 -F auid!=unset -k perm_mod
+
+# Ensure successful and unsuccessful attempts to use the chacl command are recorded
+
+- name: "Create audit rule for chacl command"
+  become: true
+  ansible.builtin.copy:
+    dest: /etc/audit/rules.d/50-chacl.rules
+    owner: root
+    group: root
+    mode: '0640'
+    content: |
+      -a always,exit -F path=/usr/bin/chacl -F perm=x -F auid>=1000 -F auid!=unset -k perm_mod
+
+# Ensure successful and unsuccessful attempts to use the chacl command are recorded
+
+- name: "Create audit rule for chacl command"
+  become: true
+  ansible.builtin.copy:
+    dest: /etc/audit/rules.d/50-chacl.rules
+    owner: root
+    group: root
+    mode: '0640'
+    content: |
+      -a always,exit -F path=/usr/bin/chacl -F perm=x -F auid>=1000 -F auid!=unset -k perm_mod
+
+# Ensure successful and unsuccessful attempts to use the usermod command are recorded
+
+- name: "Create audit rule for usermod command"
+  become: true
+  ansible.builtin.copy:
+    dest: /etc/audit/rules.d/50-usermod.rules
+    owner: root
+    group: root
+    mode: '0640'
+    content: |
+      -a always,exit -F path=/usr/sbin/usermod -F perm=x -F auid>=1000 -F auid!=unset -k usermod
+
+# Ensure kernel module loading/unloading/modification is collected
+
+- name: "Deploy kernel module audit rules"
+  become: true
+  ansible.builtin.copy:
+    dest: /etc/audit/rules.d/50-modules.rules
+    owner: root
+    group: root
+    mode: '0640'
+    content: |
+      {% for arch in audit_arch.split(',') %}
+      -a always,exit -F arch={{ arch }} -S init_module,finit_module,delete_module -k modules
+      {% endfor %}
+
+# Ensure the audit configuration is immutable
+
+- name: "Enable immutable audit configuration (-e 2)"
+  become: true
+  ansible.builtin.copy:
+    dest: /etc/audit/rules.d/99-immutable.rules
+    owner: root
+    group: root
+    mode: '0640'
+    content: |
+      -e 2
+
+- name: Load_audit_rules
+  become: true
+  ansible.builtin.command: augenrules --load
+  register: audit_load
+  failed_when: false
+  changed_when: "'No rules' not in audit_load.stderr"
+
+# Ensure running and on-disk audit configuration is the same (Manual)
+
+- name: "Get running audit rules"
+  become: true
+  ansible.builtin.command: auditctl -l
+  register: running_rules
+  changed_when: false
+
+- name: "Check on-disk audit rules integrity"
+  become: true
+  ansible.builtin.command: augenrules --check
+  register: disk_rules
+  changed_when: false
+
+- name: "Show on-disk vs running audit rules comparison"
+  ansible.builtin.debug:
+    msg: "{{ disk_rules.stdout_lines }}"
+
+# Ensure audit log directory is 0750 or more restrictive
+
+- name: "Ensure audit log directory has correct permissions"
+  become: true
+  ansible.builtin.file:
+    path: /var/log/audit
+    state: directory
+    owner: root
+    group: root
+    mode: '0750'
+
+# Ensure audit log files are mode 0640 or less permissive
+- name: Harden audit log directory
+  become: true
+  file:
+    path: /var/log/audit
+    owner: root
+    group: root
+    mode: '0750'
+
+- name: Harden audit files
+  become: true
+  file:
+    path: "{{ item }}"
+    owner: root
+    group: root
+    mode: '0640'
+  with_fileglob:
+    - /var/log/audit/*
+    - /etc/audit/**/*
+
+# Ensure audit tools are 755 or more restrictive and root owned
+
+- name: "Ensure audit tools are 755 and root-owned"
+  become: true
+  ansible.builtin.file:
+    path: "{{ item }}"
+    mode: '0755'
+    owner: root
+    group: root
+  loop: "{{ audit_tools }}"
+  ignore_errors: true

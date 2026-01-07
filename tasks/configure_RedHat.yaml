@@ -1,3 +1,0 @@
----  
-- name: Amazon Linux 2 | Configure Host Based Firewall
-  include_tasks: configure_host_based_firewall_al2.yaml

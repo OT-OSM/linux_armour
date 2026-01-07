@@ -1,9 +1,0 @@
----
-# Ensure insecure service clients are not installed 
-- name: "Ensure insecure service clients are not installed"
-  ansible.builtin.package:
-    name: "{{ item }}"
-    state: absent
-  loop: "{{ insecure_service_clients }}"
-  become: true
-

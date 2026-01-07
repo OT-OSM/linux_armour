@@ -206,18 +206,6 @@
         state: started
         enabled: true
 
-    - name: Disable nftables if active
-      ansible.builtin.service:
-        name: nftables
-        state: stopped
-        enabled: false
-      ignore_errors: true
-
-    - name: Uninstall nftables package (if installed)
-      ansible.builtin.package:
-        name: nftables
-        state: absent
-
     - name: Ensure firewalld default zone is set to 'public'
       ansible.posix.firewalld:
         zone: public
@@ -241,34 +229,6 @@
         state: enabled
       loop: "{{ allowed_ports }}"
       notify: Reload firewalld
-
-    # -------------------------------
-    # Loopback traffic configuration
-    # -------------------------------
-
-    - name: Allow loopback traffic (IPv4/IPv6)
-      ansible.posix.firewalld:
-        rich_rule: "{{ item }}"
-        permanent: true
-        state: enabled
-      loop:
-        - 'rule family="ipv4" source address="127.0.0.0/8" accept'
-        - 'rule family="ipv6" source address="::1" accept'
-        - 'rule family="ipv4" source address="127.0.0.0/8" not interface="lo" drop'
-        - 'rule family="ipv6" source address="::1" not interface="lo" drop'
-      notify: Reload firewalld
-
-    # -------------------------------
-    # Drop all other inbound and forward traffic by default
-    # -------------------------------
-
-    - name: Set default zone target to DROP
-      ansible.posix.firewalld:
-        zone: public
-        target: DROP
-        permanent: true
-      notify: Reload firewalld
-
   rescue:
     - name: Log error configuring firewalld
       ansible.builtin.debug:

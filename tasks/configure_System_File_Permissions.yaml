@@ -85,16 +85,16 @@
   register: ungrouped_files
   changed_when: false
 
-# - name: Set group ownership to 'root' for ungrouped files
-#   ansible.builtin.file:
-#     path: "{{ item }}"
-#     group: root
-#   loop: "{{ ungrouped_files.stdout_lines }}"
-#   when:
-#     - item is defined
-#     - not item.startswith('/snap/')
-#     - not item.startswith('/proc/')
-#     - not item.startswith('/sys/')
-#     - not item.startswith('/run/')
-#     - not item.startswith('/dev/')
-#   ignore_errors: true
+- name: Set group ownership to 'root' for ungrouped files
+  ansible.builtin.file:
+    path: "{{ item }}"
+    group: root
+  loop: "{{ ungrouped_files.stdout_lines }}"
+  when:
+    - item is defined
+    - not item.startswith('/snap/')
+    - not item.startswith('/proc/')
+    - not item.startswith('/sys/')
+    - not item.startswith('/run/')
+    - not item.startswith('/dev/')
+  ignore_errors: true
