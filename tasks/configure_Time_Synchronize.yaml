@@ -26,11 +26,11 @@
       ansible.builtin.systemd:
         name: "{{ item }}"
         state: stopped
-        enabled: no
+        enabled: false
       loop:
         - chrony
         - systemd-timesyncd
-      when: 
+      when:
         - ansible_os_family == 'Debian'
         - item in ansible_facts.services
         - item != time_sync_daemon
@@ -43,7 +43,7 @@
       loop:
         - chrony
         - systemd-timesyncd
-      when: 
+      when:
         - ansible_os_family == 'Debian'
         - item != time_sync_daemon
       ignore_errors: true
@@ -80,7 +80,7 @@
     - name: Configure timesyncd NTP servers
       ansible.builtin.blockinfile:
         path: "{{ timesyncd_conf_dir }}/{{ timesyncd_conf_file }}"
-        create: yes
+        create: true
         block: "{{ timesyncd_block }}"
         marker: "# {mark} CIS MANAGED TIMESYNCD CONFIG"
       notify: Restart timesyncd
@@ -100,7 +100,7 @@
       ansible.builtin.debug:
         msg: "Time synchronization active: {{ ntp_status.stdout }}"
 
-# 2.3.2 Configure chrony   
+# 2.3.2 Configure chrony 
 - name: Configure Chrony
   when: time_sync_daemon == "chrony"
   block:
@@ -116,7 +116,7 @@
     - name: "Configure Chrony with Amazon Time Sync Service (if missing)"
       ansible.builtin.blockinfile:
         path: "{{ chrony_conf_path }}"
-        create: yes
+        create: true
         block: "{{ chrony_timesync_blocks[ansible_distribution if ansible_distribution in ['Amazon'] else ansible_os_family] }}"
       when: chrony_sources.stdout == ""
       become: true
@@ -139,21 +139,21 @@
           {% else %}
           Chrony was missing configuration — CIS managed config has been added.
           {% endif %}
-  
+
     - name: Ensure _chrony user exists
       ansible.builtin.user:
         name: _chrony
-        system: yes
+        system: true
         shell: /sbin/nologin
-        create_home: no
+        create_home: false
       when: ansible_facts.os_family == 'Debian'
-    
+
     - name: Ensure chrony user exists
       ansible.builtin.user:
         name: chrony
-        system: yes
+        system: true
         shell: /sbin/nologin
-        create_home: no
+        create_home: false
       when: ansible_facts.os_family == 'RedHat'
 
     - name: Ensure chrony runs as chrony user (RedHat)
@@ -161,7 +161,7 @@
         path: /etc/sysconfig/chronyd
         regexp: '^OPTIONS='
         line: 'OPTIONS="-u chrony"'
-        create: yes
+        create: true
       notify: Restart Chrony
       when: ansible_os_family == "RedHat"
 
@@ -170,7 +170,7 @@
         path: "/etc/chrony/chrony.conf"
         regexp: '^user\s+'
         line: 'user _chrony'
-        create: yes
+        create: true
         insertafter: EOF
       notify: Restart Chrony
       when: ansible_facts.os_family == 'Debian'

@@ -8,7 +8,7 @@
 
 - name: Build module existence map
   ansible.builtin.set_fact:
-    module_state: "{{ module_state | default({}) | combine({ item_name: item.rc == 0 }) }}"
+    module_state: "{{ module_state | default({}) | combine({item_name: item.rc == 0}) }}"
   loop: "{{ module_info.results }}"
   loop_control:
     label: "{{ item.item }}"

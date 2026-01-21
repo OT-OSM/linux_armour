@@ -30,7 +30,7 @@
     regexp: '^SELINUXTYPE='
     line: 'SELINUXTYPE={{ selinux_policy_type }}'
     state: present
-    backup: yes
+    backup: true
   become: true
 
 # Ensure SELinux mode is not disabled
@@ -50,7 +50,7 @@
         regexp: '^SELINUX='
         line: 'SELINUX={{ selinux_mode }}'
         state: present
-        backup: yes
+        backup: true
       become: true
 
 # Ensure no unconfined services exist
@@ -77,4 +77,3 @@
     name: "{{ unwanted_selinux_packages }}"
     state: absent
   become: true
-

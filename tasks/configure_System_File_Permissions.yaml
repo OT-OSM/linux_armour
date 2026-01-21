@@ -10,7 +10,7 @@
 - name: File Permissions
   ansible.builtin.file:
     path: "/etc/{{ item }}"
-    owner: root 
+    owner: root
     group: root
     mode: '0640'
   loop: "{{ File_Permissions }}"
@@ -43,14 +43,14 @@
   when: opasswd_old.stat.exists
 
 # 7.1.11 Ensure world writable files and directories are secured
-- name: Find all world-writable files and dirs 
+- name: Find all world-writable files and dirs
   ansible.builtin.find:
     paths:
       - /tmp
       - /var/tmp
       - /var/log
       - /home
-    recurse: yes
+    recurse: true
     file_type: any
     follow: false
   register: all_paths

@@ -13,7 +13,7 @@
 - name: "Import required GPG keys"
   ansible.builtin.rpm_key:
     state: present
-    key: "/etc/pki/rpm-gpg/RPM-GPG-KEY-amazon-linux-{{ ansible_distribution_major_version}}"
+    key: "/etc/pki/rpm-gpg/RPM-GPG-KEY-amazon-linux-{{ ansible_distribution_major_version }}"
   notify: Yum_clean_metadata
 
 # Ensure gpgcheck=1 globally
@@ -50,8 +50,7 @@
     label: "{{ item }}"
   notify: Yum_clean_all
 
-# Ensure repo_gpgcheck=1 globally 
-
+# Ensure repo_gpgcheck=1 globally
 - name: "Ensure repo_gpgcheck=1 in yum.conf"
   ansible.builtin.replace:
     path: "{{ item }}"
@@ -62,8 +61,7 @@
     label: "{{ item }}"
   notify: Yum_clean_metadata
 
-# Ensure package manager repositories are configured 
-
+# Ensure package manager repositories are configured
 - name: "Check if repos are configured"
   ansible.builtin.command: yum repolist enabled
   register: repo_status

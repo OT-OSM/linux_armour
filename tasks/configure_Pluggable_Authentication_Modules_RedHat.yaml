@@ -13,7 +13,7 @@
   become: true
   ansible.builtin.package:
     name: pam
-    state: latest
+    state: present
   when: pam_version.stdout == "not_installed" or
         pam_version.stdout is version(pam_min_version, '<')
 
@@ -81,7 +81,7 @@
     path: "{{ item }}"
     insertafter: '^password\s+requisite'
     line: "password    requisite    pam_pwquality.so try_first_pass local_users_only"
-    create: no
+    create: false
   loop: "{{ pam_files }}"
   loop_control:
     label: "{{ item }}"
@@ -93,7 +93,7 @@
     path: /etc/security/pwquality.conf
     regexp: "^\\s*{{ item.name }}\\s*="
     line: "{{ item.name }} = {{ item.value }}"
-    create: yes
+    create: true
   loop: "{{ pwquality_parameters }}"
   loop_control:
     label: "{{ item.name }}"
@@ -110,14 +110,14 @@
   vars:
     param: "{{ pwquality_parameters | first }}"
 
-# Ensure password complexity is configured 
+# Ensure password complexity is configured
 - name: "Ensure pwquality complexity values are set in pwquality.conf"
   become: true
   ansible.builtin.lineinfile:
     path: /etc/security/pwquality.conf
     regexp: "^\\s*{{ item.name }}\\s*="
     line: "{{ item.name }} = {{ item.value }}"
-    create: yes
+    create: true
     mode: "0644"
   loop: "{{ pwquality_complexity }}"
   loop_control:
@@ -129,7 +129,7 @@
     path: "{{ item }}"
     regexp: "\\s+(minclass|dcredit|ucredit|lcredit|ocredit)\\s*=\\s*\\S+"
     replace: ""
-    backup: yes
+    backup: true
   loop: "{{ pam_files }}"
   loop_control:
     label: "{{ item }}"
@@ -152,14 +152,14 @@
       loop: "{{ pam_files }}"
 
 # Ensure pam_pwhistory is enabled and configured with remember=24, enforce_for_root, and use_authtok
-- name: "Ensure pam_pwhistory is enabled and configured with remember={{ pam_pwhistory_remember }}, enforce_for_root, and use_authtok"
+- name: "Ensure pam_pwhistory is enabled and configured with enforce_for_root, use_authtok and remember={{ pam_pwhistory_remember }}"
   become: true
   ansible.builtin.lineinfile:
     path: "{{ item }}"
     insertafter: '^password\s+requisite'
     regexp: '^\s*password\s+required\s+pam_pwhistory\.so'
     line: "password    required    pam_pwhistory.so remember={{ pam_pwhistory_remember }} enforce_for_root try_first_pass use_authtok"
-    create: no
+    create: false
   loop: "{{ pam_files }}"
   loop_control:
     label: "{{ item }}"
@@ -186,7 +186,7 @@
   loop_control:
     label: "{{ item }}"
 
-# Ensure pam_unix includes a strong password hashing algorithm and use_authtok 
+# Ensure pam_unix includes a strong password hashing algorithm and use_authtok
 - name: "Ensure pam_unix includes a strong password hashing algorithm and use_authtok"
   become: true
   ansible.builtin.replace:
@@ -196,4 +196,3 @@
   loop: "{{ pam_files }}"
   loop_control:
     label: "{{ item }}"
-

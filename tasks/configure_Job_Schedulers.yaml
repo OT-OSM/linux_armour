@@ -9,7 +9,7 @@
 - name: Ensure cron daemon is enabled and active
   ansible.builtin.systemd:
     name: "{{ cron_service }}"
-    masked: no
+    masked: false
     enabled: true
     state: started
   become: true
@@ -59,7 +59,7 @@
   when: cron_deny_status.stat.exists
   become: true
 
-# Ensure at is restricted to authorized users 
+# Ensure at is restricted to authorized users
 - name: Check if daemon group exists
   ansible.builtin.getent:
     database: group

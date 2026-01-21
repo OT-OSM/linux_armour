@@ -6,7 +6,7 @@
     value: "{{ item.value }}"
     state: present
     sysctl_set: true
-    reload: yes
+    reload: true
     sysctl_file: /etc/sysctl.d/60-kernel_sysctl.conf
   loop: "{{ kernel_hardening_params }}"
   loop_control:
@@ -38,7 +38,7 @@
         - name: "Configure core dump restrictions (only if missing or incorrect)"
           ansible.builtin.blockinfile:
             path: /etc/systemd/coredump.conf
-            create: yes
+            create: true
             block: "{{ coredump_config_block }}"
           when: >
             ('ProcessSizeMax=0' not in coredump_check.stdout) or

@@ -9,14 +9,14 @@ cis_Stage: 3
 # #   # - {path: "/home", device: "/dev/xvda1",opts: "nodev,nosuid"}
 # #   # - {path: "/var", device: "/dev/xvda1", opts: "nodev,nosuid"}
 secure_tmpfs_mounts:
-  - { path: /tmp,    opts: "nodev,nosuid,noexec" }
+  - { path: /tmp, opts: "nodev,nosuid,noexec" }
   - { path: /dev/shm, opts: "nodev,nosuid,noexec" }
 dir_partition:
   # - { path: "/home",           device: "/home",        opts: "bind,nodev,nosuid" }
   # - { path: "/var",           device: "/home",        opts: "bind,nodev,nosuid" }
-  - { path: "/var/tmp",        device: "/var/tmp",        opts: "bind,nodev,noexec,nosuid" }
-  - { path: "/var/log",        device: "/var/log",        opts: "bind,nodev,noexec,nosuid" }
-  - { path: "/var/log/audit",  device: "/var/log/audit",  opts: "bind,nodev,noexec,nosuid" }
+  - { path: "/var/tmp", device: "/var/tmp", opts: "bind,nodev,noexec,nosuid" }
+  - { path: "/var/log", device: "/var/log", opts: "bind,nodev,noexec,nosuid" }
+  - { path: "/var/log/audit", device: "/var/log/audit", opts: "bind,nodev,noexec,nosuid" }
 
 
 grub_password_required: false # Set true for on-premise on console enabled servers only
@@ -63,7 +63,7 @@ ssh_ciphers:
 ssh_macs:
   - hmac-sha2-512-etm@openssh.com
   - hmac-sha2-256-etm@openssh.com
-  
+
 # Authentication and Login Restrictions
 ssh_max_auth_tries: 4
 ssh_max_sessions: 10
@@ -114,7 +114,7 @@ preferred_logger: systemd-journald
 
 System_File_Permissions:
   - passwd
-  - passwd-  
+  - passwd-
   - group
   - group-
   - shells
@@ -190,7 +190,7 @@ sysctl_params:
   - { name: "net.ipv6.conf.all.accept_ra", value: "0" }
   - { name: "net.ipv6.conf.default.accept_ra", value: "0" }
 
-#Configure Additional Process Hardening
+# Configure Additional Process Hardening
 kernel_hardening_params:
   - { name: "kernel.randomize_va_space", value: "2", desc: "Ensure ASLR is enabled" }
   - { name: "kernel.yama.ptrace_scope", value: "1", desc: "Restrict ptrace_scope" }
@@ -200,7 +200,7 @@ coredump_config_block: |
   ProcessSizeMax=0
   Storage=none
 
-#Configure privilege escalation
+# Configure privilege escalation
 sudo_package: "sudo"
 sudoers_path: "/etc/sudoers"
 sudo_logfile_path: "/var/log/sudo.log"
@@ -208,7 +208,7 @@ timestamp_timeout_minutes: 15
 su_group_name: "sugroup"
 pam_su_path: "/etc/pam.d/su"
 
-#User Accounts and Environment
+# User Accounts and Environment
 pass_max_days: 365
 pass_warn_age: 7
 inactive_days: 30
@@ -233,19 +233,19 @@ pam_files:
   - /etc/pam.d/system-auth
   - /etc/pam.d/password-auth
 pwquality_parameters:
-  - { name: 'difok',       value: 2 }
-  - { name: 'minlen',      value: 14 }
-  - { name: 'maxrepeat',   value: 3 }
+  - { name: 'difok', value: 2 }
+  - { name: 'minlen', value: 14 }
+  - { name: 'maxrepeat', value: 3 }
   - { name: 'maxsequence', value: 3 }
 pam_pwhistory_remember: 24
 pwquality_complexity:
   - { name: 'minclass', value: 4 }
-  - { name: 'dcredit',  value: -1 }
-  - { name: 'ucredit',  value: -1 }
-  - { name: 'lcredit',  value: -1 }
-  - { name: 'ocredit',  value: -1 }
+  - { name: 'dcredit', value: -1 }
+  - { name: 'ucredit', value: -1 }
+  - { name: 'lcredit', value: -1 }
+  - { name: 'ocredit', value: -1 }
 
-#Configure SELinux
+# Configure SELinux
 selinux_packages:
   - libselinux
 selinux_policy_type: targeted

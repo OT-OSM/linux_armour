@@ -46,8 +46,8 @@
     path: /etc/default/grub
     regexp: '^GRUB_CMDLINE_LINUX='
     line: 'GRUB_CMDLINE_LINUX="apparmor=1 security=apparmor"'
-    create: yes
-    backup: yes
+    create: true
+    backup: true
   notify: Update Grub Configuration
   when:
     - not apparmor_active | bool
@@ -89,7 +89,7 @@
           set superusers="root"
           password_pbkdf2 root {{ pbkdf2_hash }}
         insertbefore: '^exit 0'
-        create: yes
+        create: true
       notify: Update Grub Configuration
 
 # 1.4.2 Ensure permissions on bootloader config are configured

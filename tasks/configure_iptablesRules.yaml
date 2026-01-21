@@ -17,7 +17,7 @@
     chain: "{{ item }}"
     flush: true
     ip_version: "{{ ipver }}"
-  ignore_errors: true 
+  ignore_errors: true
   loop:
     - INPUT
     - FORWARD

@@ -184,7 +184,7 @@
 
 - name: Convert list to user-home mapping
   ansible.builtin.set_fact:
-    user_home_map: "{{ user_home_map | default([]) + [ { 'user': item.split(':')[0], 'home': item.split(':')[1] } ] }}"
+    user_home_map: "{{ user_home_map | default([]) + [{'user': item.split(':')[0], 'home': item.split(':')[1]}] }}"
   loop: "{{ interactive_users.stdout_lines }}"
 
 - name: Ensure home directories exist & are secured
@@ -202,9 +202,9 @@
 - name: Find dotfiles in user home directories (depth = 2)
   ansible.builtin.find:
     paths: "{{ item.home }}"
-    hidden: yes
+    hidden: true
     file_type: file
-    recurse: yes
+    recurse: true
     depth: 2
   loop: "{{ user_home_map }}"
   loop_control:
@@ -248,8 +248,6 @@
       {% else %}
       0644
       {% endif %}
-
   when:
     - file_item.path is defined
     - dotfile_name not in ['.forward', '.rhost']
-

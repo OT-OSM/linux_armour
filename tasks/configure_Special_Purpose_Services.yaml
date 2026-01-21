@@ -1,5 +1,5 @@
 ---
-##2.1 Disable Special Purpose Services
+# 2.1 Disable Special Purpose Services
 
 - name: Gather service facts
   ansible.builtin.service_facts:
@@ -22,12 +22,12 @@
   when: cis_Stage > 1
   block:
     - name: Check if postfix config file exists
-      stat:
+      ansible.builtin.stat:
         path: /etc/postfix/main.cf
       register: postfix_main_cf
 
     - name: Set Postfix main.cf for local-only mode
-      lineinfile:
+      ansible.builtin.lineinfile:
         path: /etc/postfix/main.cf
         regexp: '^inet_interfaces = '
         line: 'inet_interfaces = loopback-only'

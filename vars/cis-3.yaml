@@ -1,4 +1,4 @@
-filesystem_kernel_modules: 
+filesystem_kernel_modules:
   common:
     - cramfs
     - freevxfs
@@ -40,13 +40,13 @@ os_services_name:
     - dhcpd
     - dhcpd6
     - smb # samba
-    - cyrus-imapd # message access server 
+    - cyrus-imapd # message access server
     - rsyncd
     - tftp
     - httpd
 
   # - bind9
-  # - dovecot-imapd 
+  # - dovecot-imapd
   # - dovecot-pop3d
   # - nfs-kernel-server
   # - samba

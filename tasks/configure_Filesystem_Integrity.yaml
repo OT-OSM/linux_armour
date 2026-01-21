@@ -50,7 +50,7 @@
         src: "/var/lib/aide/aide.db.new.gz"
         dest: "/var/lib/aide/aide.db.gz"
       ignore_errors: true
-    
+
     - name: Remove the newly generated database
       ansible.builtin.file:
         path: /var/lib/aide/aide.db.new.gz
@@ -58,7 +58,7 @@
 
 # 6.1.2 Ensure filesystem integrity is regularly checked
 - name: "Service files are copied"
-  template:
+  ansible.builtin.template:
     src: '{{ item.src }}'
     dest: '{{ item.dest }}'
     owner: root

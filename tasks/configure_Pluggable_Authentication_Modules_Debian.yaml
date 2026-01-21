@@ -5,8 +5,8 @@
       - libpam-modules
       - libpam-modules-bin
       - libpam-pwquality
-    state: latest
-    update_cache: yes
+    state: present
+    update_cache: true
 
 # 5.3.2.1 Ensure pam_unix module is enabled
 - name: Ensure pam_unix module is enabled
@@ -163,8 +163,8 @@
         path: /etc/security/faillock.conf
         regexp: "{{ item.regexp }}"
         line: "{{ item.line }}"
-        create: yes
-        backup: yes
+        create: true
+        backup: true
       loop:
         - { regexp: '^\s*#?\s*deny\s*=', line: 'deny = 5' }
         - { regexp: '^\s*#?\s*unlock_time\s*=', line: 'unlock_time = 900' }
@@ -185,7 +185,7 @@
         path: "{{ item }}"
         regexp: '(\bpam_faillock\.so[^\n\r#]*?)\s+(deny=\S+|unlock_time=\S+|even_deny_root|root_unlock_time=\S+)\b'
         replace: '\1'
-        backup: yes
+        backup: true
       loop: "{{ pam_faillock_files.stdout_lines }}"
       when: pam_faillock_files.stdout_lines | length > 0
 
@@ -267,7 +267,7 @@
         path: "{{ item }}"
         regexp: '^.*pam_pwhistory\.so.*$'
         line: 'requisite pam_pwhistory.so remember=24 enforce_for_root try_first_pass use_authtok'
-        backrefs: no
+        backrefs: false
       loop: "{{ pam_pwhistory_files.stdout_lines }}"
       register: pam_pwhistory_updates
       when: pam_pwhistory_files.stdout_lines | length > 0
@@ -297,7 +297,7 @@
     path: "{{ item }}"
     regexp: '(^\s*[^#\n\r]*pam_unix\.so(?:\s+[^#\n\r]*)?)\s+(nullok|remember=\S+)\b'
     replace: '\1'
-    backup: yes
+    backup: true
   loop: "{{ pam_unix_issue_files.stdout_lines }}"
   when: pam_unix_issue_files.stdout_lines | length > 0
 
@@ -314,7 +314,3 @@
   ansible.builtin.shell: "pam-auth-update --enable {{ item.stdout }}"
   loop: "{{ pam_profiles_to_enable.results }}"
   when: item.stdout != ""
-
-# 5.3.3.4.3 Ensure pam_unix includes a strong password hashing algorithm
-# 5.3.3.4.4 Ensure pam_unix includes use_authtok
-

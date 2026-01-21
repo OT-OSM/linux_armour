@@ -14,7 +14,7 @@
     paths: /etc/ssh
     patterns: "ssh_host_*_key"
     file_type: file
-    recurse: no
+    recurse: false
   register: ssh_private_keys
 
 - name: Set ownership and permissions on SSH private host key files
@@ -33,7 +33,7 @@
     paths: /etc/ssh
     patterns: "ssh_host_*_key.pub"
     file_type: file
-    recurse: no
+    recurse: false
   register: ssh_public_keys
 
 - name: Set ownership and permissions on SSH public host key files
@@ -87,7 +87,7 @@
     state: present
     insertafter: EOF
   loop:
-    - { regexp: '^DenyUsers',  line: 'DenyUsers {{ ssh_deny_users | join(" ") }}' }
+    - { regexp: '^DenyUsers', line: 'DenyUsers {{ ssh_deny_users | join(" ") }}' }
     - { regexp: '^DenyGroups', line: 'DenyGroups {{ ssh_deny_groups | join(" ") }}' }
   when:
     - (ssh_deny_users is defined and ssh_deny_users | length > 0) or
@@ -102,8 +102,8 @@
     regexp: "{{ item.regexp }}"
     line: "{{ item.line }}"
     state: present
-    create: yes
-    backup: yes
+    create: true
+    backup: true
     insertafter: EOF
   loop:
     - { regexp: '^#?GSSAPIAuthentication', line: 'GSSAPIAuthentication {{ ssh_gssapi_authentication }}' }
@@ -121,8 +121,8 @@
     regexp: "{{ item.regexp }}"
     line: "{{ item.line }}"
     state: present
-    create: yes
-    backup: yes
+    create: true
+    backup: true
     insertafter: EOF
   loop:
     - { regexp: '^#?Banner', line: 'Banner /etc/issue.net' }

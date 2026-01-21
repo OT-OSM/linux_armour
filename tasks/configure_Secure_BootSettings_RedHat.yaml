@@ -4,7 +4,6 @@
     path: "/usr/lib/systemd/system/{{ item }}"
     regexp: '^ExecStart='
     line: 'ExecStart=-/bin/sh -c "/usr/sbin/sulogin; /usr/bin/systemctl --fail --no-block default"'
-    backup: yes
+    backup: true
   loop: "{{ rescue_emergency_units }}"
   notify: Reload systemd units
-

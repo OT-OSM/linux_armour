@@ -6,12 +6,12 @@
     path: "{{ item.path }}"
     regexp: "{{ item.regexp }}"
     line: "{{ item.line }}"
-    create: yes
+    create: true
     state: present
     mode: '0644'
   loop:
     - { path: '/etc/libuser.conf', regexp: '^crypt_style\s*=', line: 'crypt_style = sha512' }
-    - { path: '/etc/login.defs',   regexp: '^ENCRYPT_METHOD\s+', line: 'ENCRYPT_METHOD SHA512' }
+    - { path: '/etc/login.defs', regexp: '^ENCRYPT_METHOD\s+', line: 'ENCRYPT_METHOD SHA512' }
   when:
     - cis_Stage > 1
     - ansible_os_family == 'RedHat'
@@ -22,8 +22,8 @@
     regexp: '^ENCRYPT_METHOD'
     line: 'ENCRYPT_METHOD SHA512'
     state: present
-    create: yes
-    backup: yes
+    create: true
+    backup: true
   when:
     - cis_Stage > 1
     - ansible_os_family == 'Debian'
@@ -67,7 +67,7 @@
     path: /etc/login.defs
     regexp: '^PASS_WARN_AGE'
     line: "PASS_WARN_AGE {{ pass_warn_age }}"
-    create: yes
+    create: true
     state: present
 
 - name: "Find users with PASS_WARN_AGE < 7"
@@ -138,12 +138,12 @@
   changed_when: false
   become: true
 
-#Ensure default group for the root account is UID/GID 0
+# Ensure default group for the root account is UID/GID 0
 - name: Ensure root user has UID 0
   ansible.builtin.command: usermod -u 0 root
   when: root_passwd_entry.stdout.split(':')[2] | int != 0
   become: true
- 
+
 - name: "Ensure default group for the root account is GID 0"
   ansible.builtin.user:
     name: root
@@ -170,7 +170,7 @@
     path: "{{ item }}"
     regexp: '^\s*umask\s+'
     line: "umask 0027"
-    create: yes
+    create: true
     insertafter: EOF
   loop: "{{ umask_files }}"
   when: item is file
@@ -266,8 +266,7 @@
     replace: ''
   when: nologin_shells.stdout != ""
 
-# Ensure default user shell timeout is configured 
-
+# Ensure default user shell timeout is configured
 - name: "Collect shell configuration file paths"
   ansible.builtin.find:
     paths:
@@ -283,7 +282,7 @@
     path: "{{ item }}"
     regexp: '^\s*(readonly\s+TMOUT.*|export\s+TMOUT.*|TMOUT=.*)'
     replace: ''
-    backup: yes
+    backup: true
   loop: "{{ tmout_files.files | map(attribute='path') | list }}"
 
 - name: "Set TMOUT policy"
@@ -297,8 +296,7 @@
     group: root
     mode: '0644'
 
-# Ensure default user umask is configured 
-
+# Ensure default user umask is configured
 - name: "Collect shell configuration files"
   ansible.builtin.find:
     paths:
@@ -345,4 +343,3 @@
     owner: root
     group: root
     mode: '0644'
-

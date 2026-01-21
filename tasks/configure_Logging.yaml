@@ -63,7 +63,7 @@
         regexp: '^#?{{ item.key }}='
         line: '{{ item.key }}={{ item.value }}'
         state: present
-        create: yes
+        create: true
       loop:
         - { key: 'SystemMaxUse', value: '500M' }
         - { key: 'SystemKeepFree', value: '100M' }
@@ -86,7 +86,7 @@
         path: /etc/systemd/journald.conf
         regexp: '^#?ForwardToSyslog='
         line: 'ForwardToSyslog=yes'
-        backup: yes
+        backup: true
       notify: Restart systemd-journald
 
     - name: Ensure rsyslog drop-in config directory exists
@@ -98,7 +98,7 @@
     - name: Set restrictive FileCreateMode in rsyslog
       ansible.builtin.lineinfile:
         path: /etc/rsyslog.d/60-rsyslog.conf
-        create: yes
+        create: true
         line: '$FileCreateMode 0640'
         state: present
       notify: Restart rsyslog
@@ -136,7 +136,7 @@
     - name: Find all log files in /var/log
       ansible.builtin.find:
         paths: /var/log
-        recurse: yes
+        recurse: true
         file_type: file
       register: log_files
 

@@ -40,7 +40,7 @@ os_services_name:
     - dhcpd
     - dhcpd6
     - smb # samba
-    - cyrus-imapd # message access server 
+    - cyrus-imapd # message access server
     - rsyncd
     - tftp
     - httpd

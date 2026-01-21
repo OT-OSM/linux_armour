@@ -85,4 +85,3 @@
     line: "auth required pam_wheel.so use_uid group={{ su_group_name }}"
     create: false
     backrefs: false
-

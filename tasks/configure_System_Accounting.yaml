@@ -22,7 +22,7 @@
     path: /etc/default/grub
     regexp: '^GRUB_CMDLINE_LINUX='
     line: 'GRUB_CMDLINE_LINUX="audit=1 audit_backlog_limit=8192"'
-    backrefs: no
+    backrefs: false
   notify: Update Grub Configuration
 
 # Ensure auditd.conf settings are configured
@@ -412,7 +412,7 @@
 # Ensure audit log files are mode 0640 or less permissive
 - name: Harden audit log directory
   become: true
-  file:
+  ansible.builtin.file:
     path: /var/log/audit
     owner: root
     group: root

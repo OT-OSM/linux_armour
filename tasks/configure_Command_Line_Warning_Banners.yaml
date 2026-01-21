@@ -16,7 +16,7 @@
     group: root
     mode: '0755'
 
-# Ensure local & remote login warning banner is configured properly 
+# Ensure local & remote login warning banner is configured properly
 - name: Remove escape sequences from /etc/issue and /etc/issue.net
   ansible.builtin.replace:
     path: "{{ item }}"
@@ -43,7 +43,7 @@
     mode: '0644'
   loop: "{{ issue_files }}"
 
-# Ensure access to /etc/motd is configured 
+# Ensure access to /etc/motd is configured
 - name: Check if /etc/motd exists
   ansible.builtin.stat:
     path: /etc/motd
@@ -56,4 +56,3 @@
     group: root
     mode: '0644'
   when: motd_stat.stat.exists
-

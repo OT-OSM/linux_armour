@@ -2,7 +2,7 @@
 # 4 Ensure a single firewall is configured
 - name: Install selected firewall package
   ansible.builtin.package:
-    name:  "{{ firewall_package }}"
+    name: "{{ firewall_package }}"
     state: present
 
 # # 4.1 Cofigure ufw
@@ -64,7 +64,7 @@
       loop: "{{ allowed_ports }}"
 
     - name: Set default deny incoming/outgoing/routed policy
-      ufw:
+      community.general.ufw:
         policy: deny
         direction: "{{ item }}"
       loop:
@@ -97,13 +97,13 @@
         enabled: false
       ignore_errors: true
       when: ansible_os_family == 'RedHat'
-    
+
     - name: Uninstall UFW package (if installed)
       ansible.builtin.package:
         name: ufw
         state: absent
       when: ansible_os_family == 'Debian'
-    
+
     - name: Uninstall firewalld package (if installed)
       ansible.builtin.package:
         name: firewalld
@@ -155,7 +155,7 @@
         masked: true
       ignore_errors: true
       when: ansible_os_family == 'RedHat'
-    
+
     - name: Flush nftables ruleset if present
       ansible.builtin.command: nft flush ruleset
       ignore_errors: true

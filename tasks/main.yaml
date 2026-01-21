@@ -66,7 +66,7 @@
   ansible.builtin.include_tasks: configure_Network_Kernel_Modules.yaml
   when: cis_Stage > 1
 
-- name: Configure network kernel parameters 
+- name: Configure network kernel parameters
   ansible.builtin.include_tasks: configure_Network_Kernel_Parameters.yaml
   when: cis_Stage > 1
 
@@ -102,7 +102,7 @@
   when: ansible_os_family == 'RedHat'
 
 - name: Configure System Accounting
-  ansible.builtin.include_tasks:  configure_System_Accounting.yaml
+  ansible.builtin.include_tasks: configure_System_Accounting.yaml
 
 - name: Local User and Group Settings
   ansible.builtin.include_tasks: configure_Local_user_and_group_Settings.yaml
