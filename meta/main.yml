@@ -1,21 +1,22 @@
 ---
 galaxy_info:
+  namespace: ot-osm
+  role_name: linux_armour
   author: Anjali Singh
   description: CIS benchmark for Linux
   company: Opstree Solutions
   license: license (BSD)
 
-  min_ansible_version: "2.9"
-
+  min_ansible_version: "2.18"
 
   platforms:
     - name: Ubuntu
       versions:
-        - bionic
-        - focal
-    - name: Debian
+        - jammy
+        - noble
+    - name: Amazon Linux
       versions:
-        - bookworm
+        - "2023"
 
   galaxy_tags:
     - opstree

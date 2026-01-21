@@ -1,0 +1,253 @@
+# Ensure accounts in /etc/passwd use shadowed passwords
+
+- name: Detect non-shadowed password accounts
+  ansible.builtin.shell: "awk -F':' '$2 != \"x\" && $2 != \"*\" { print $1 }' /etc/passwd"
+  register: non_shadowed_accounts
+  changed_when: false
+
+- name: Migrate to shadow passwords (pwconv)
+  ansible.builtin.command: pwconv
+  when: non_shadowed_accounts.stdout != ""
+  become: true
+
+# Ensure /etc/shadow password fields are not empty
+
+- name: Detect accounts with empty password field in /etc/shadow
+  ansible.builtin.shell: "awk -F':' 'length($2) == 0 { print $1 }' /etc/shadow"
+  register: accounts_without_password
+  changed_when: false
+
+- name: Lock accounts with empty password field
+  ansible.builtin.command: passwd -l "{{ item }}"
+  loop: "{{ accounts_without_password.stdout_lines }}"
+  when: item != ""
+  become: true
+
+# Ensure all groups in /etc/passwd exist in /etc/group
+
+- name: Get list of all GIDs from passwd
+  ansible.builtin.shell: "awk -F':' '{print $4}' /etc/passwd | sort -u"
+  register: passwd_gids
+
+- name: Get list of all GIDs from group
+  ansible.builtin.shell: "awk -F':' '{print $3}' /etc/group | sort -u"
+  register: group_gids
+
+- name: Identify GIDs missing in /etc/group
+  ansible.builtin.set_fact:
+    missing_gids: "{{ passwd_gids.stdout_lines | difference(group_gids.stdout_lines) }}"
+
+- name: Create missing groups
+  ansible.builtin.group:
+    gid: "{{ item }}"
+    name: "gid_{{ item }}"
+    state: present
+  loop: "{{ missing_gids }}"
+  when: missing_gids | length > 0
+  become: true
+
+# Ensure no duplicate UIDs exist
+
+- name: Detect duplicate UIDs
+  ansible.builtin.shell: "cut -d: -f3 /etc/passwd | sort -n | uniq -d"
+  register: duplicate_uids
+  changed_when: false
+
+- name: Get accounts associated with duplicate UIDs
+  ansible.builtin.shell: "awk -F: -v uid={{ item }} '($3==uid){print $1}' /etc/passwd"
+  loop: "{{ duplicate_uids.stdout_lines }}"
+  register: duplicate_uid_users
+  when: duplicate_uids.stdout_lines | length > 0
+  changed_when: false
+
+- name: Warn administrator about duplicate UIDs (manual remediation required)
+  ansible.builtin.debug:
+    msg: >
+      "Duplicate UIDs detected: {{ duplicate_uid_users.results | map(attribute='stdout_lines') | list }}.
+      CIS requires manual review and correction to avoid breaking file ownership."
+  when: duplicate_uids.stdout_lines | length > 0
+
+# Ensure no duplicate GIDs exist
+
+- name: Detect duplicate GIDs
+  ansible.builtin.shell: "cut -d: -f3 /etc/group | sort -n | uniq -d"
+  register: duplicate_gids
+  changed_when: false
+
+- name: Get groups associated with duplicate GIDs
+  ansible.builtin.shell: "awk -F: -v gid={{ item }} '($3==gid){print $1}' /etc/group"
+  loop: "{{ duplicate_gids.stdout_lines }}"
+  register: duplicate_gid_groups
+  when: duplicate_gids.stdout_lines | length > 0
+  changed_when: false
+
+- name: Warn administrator about duplicate GIDs (manual remediation required)
+  ansible.builtin.debug:
+    msg: >
+      "Duplicate GIDs detected: {{ duplicate_gid_groups.results | map(attribute='stdout_lines') | list }}.
+      CIS requires manual correction to avoid breaking group permissions."
+  when: duplicate_gids.stdout_lines | length > 0
+
+# Ensure no duplicate user names exist
+
+- name: Find duplicate user names
+  ansible.builtin.shell: |
+    cut -d: -f1 /etc/passwd | sort | uniq -d
+  register: duplicate_usernames
+  changed_when: false
+
+- name: Get UIDs of duplicate usernames
+  ansible.builtin.shell: |
+    awk -F: -v uname="{{ item }}" '($1 == uname) {print $3}'
+  loop: "{{ duplicate_usernames.stdout_lines }}"
+  register: duplicate_username_uids
+  when: duplicate_usernames.stdout_lines | length > 0
+  changed_when: false
+
+- name: Warn admin about duplicate usernames
+  ansible.builtin.debug:
+    msg: >
+      "Duplicate usernames detected: {{ duplicate_usernames.stdout_lines }}.
+      Please review manually — remediation is not automatically safe."
+  when: duplicate_usernames.stdout_lines | length > 0
+
+# Ensure no duplicate group names exist
+
+- name: Find duplicate group names
+  ansible.builtin.shell: |
+    cut -d: -f1 /etc/group | sort | uniq -d
+  register: duplicate_groupnames
+  changed_when: false
+
+- name: Get GIDs of duplicate groups
+  ansible.builtin.shell: |
+    awk -F: -v gname="{{ item }}" '($1 == gname) {print $3}'
+  loop: "{{ duplicate_groupnames.stdout_lines }}"
+  register: duplicate_group_gids
+  when: duplicate_groupnames.stdout_lines | length > 0
+  changed_when: false
+
+- name: Warn admin about duplicate group names
+  ansible.builtin.debug:
+    msg: >
+      "Duplicate group names detected: {{ duplicate_groupnames.stdout_lines }}.
+      Manual correction required — CIS prohibits auto-fix."
+  when: duplicate_groupnames.stdout_lines | length > 0
+
+# Ensure root PATH integrity
+
+- name: Get PATH variable for root
+  ansible.builtin.shell: 'sudo -Hiu root bash -c ''echo "$PATH"'''
+  register: root_path
+  changed_when: false
+
+- name: Split PATH directories
+  ansible.builtin.set_fact:
+    root_path_dirs: "{{ root_path.stdout.split(':') }}"
+
+- name: Ensure all root PATH directories exist & are owned correctly
+  ansible.builtin.stat:
+    path: "{{ item }}"
+  register: root_path_stat
+  loop: "{{ root_path_dirs }}"
+  when: item != ""
+
+- name: Fix ownership & permissions of root PATH directories
+  ansible.builtin.file:
+    path: "{{ item.item }}"
+    owner: root
+    group: root
+    mode: "{{ '0755' if item.stat.isdir else omit }}"
+  loop: "{{ root_path_stat.results }}"
+  when: item.stat.exists
+
+# Ensure root is the only UID 0 account
+
+- name: Find accounts with UID 0
+  ansible.builtin.shell: "awk -F':' '($3 == 0) {print $1}' /etc/passwd"
+  register: uid_zero_accounts
+  changed_when: false
+
+- name: Lock accounts with UID 0 except root
+  ansible.builtin.command: usermod -L "{{ item }}"
+  loop: "{{ uid_zero_accounts.stdout_lines }}"
+  when: item != "root"
+  become: true
+
+# Ensure local interactive user home directories are configured
+
+- name: Get list of interactive users (non-system users)
+  ansible.builtin.shell: |
+    awk -F: '($3 >= 1000 && $1 != "nobody" && $7 !~ /nologin|false/) {print $1 ":" $6}' /etc/passwd
+  register: interactive_users
+  changed_when: false
+
+- name: Convert list to user-home mapping
+  ansible.builtin.set_fact:
+    user_home_map: "{{ user_home_map | default([]) + [{'user': item.split(':')[0], 'home': item.split(':')[1]}] }}"
+  loop: "{{ interactive_users.stdout_lines }}"
+
+- name: Ensure home directories exist & are secured
+  ansible.builtin.file:
+    path: "{{ item.home }}"
+    state: directory
+    owner: "{{ item.user }}"
+    group: "{{ item.user }}"
+    mode: '0750'
+  loop: "{{ user_home_map }}"
+  when: item.home is defined and item.home != ""
+
+# Ensure local interactive user dot files access is configured
+
+- name: Find dotfiles in user home directories (depth = 2)
+  ansible.builtin.find:
+    paths: "{{ item.home }}"
+    hidden: true
+    file_type: file
+    recurse: true
+    depth: 2
+  loop: "{{ user_home_map }}"
+  loop_control:
+    label: "{{ item.home }}"
+  register: found_dotfiles
+
+# REMOVE DISALLOWED DOTFILES (.forward, .rhost)
+
+- name: Remove disallowed dotfiles (.forward and .rhost)
+  ansible.builtin.file:
+    path: "{{ file_item.path }}"
+    state: absent
+  loop: "{{ found_dotfiles.results | subelements('files', skip_missing=True) }}"
+  loop_control:
+    label: "{{ file_item.path }}"
+  vars:
+    file_item: "{{ item[1] }}"
+    dot_name: "{{ file_item.path | basename }}"
+  when:
+    - file_item.path is defined
+    - dot_name in ['.forward', '.rhost']
+
+# FIX PERMISSIONS / OWNERSHIP OF ALLOWED DOTFILES
+
+- name: Ensure proper permissions and ownership of allowed dotfiles
+  ansible.builtin.file:
+    path: "{{ file_item.path }}"
+    owner: "{{ item.0.item.user }}"
+    group: "{{ item.0.item.user }}"
+    mode: "{{ dotfile_mode }}"
+  loop: "{{ found_dotfiles.results | subelements('files', skip_missing=True) }}"
+  loop_control:
+    label: "{{ file_item.path }}"
+  vars:
+    file_item: "{{ item[1] }}"
+    dotfile_name: "{{ file_item.path | basename }}"
+
+    dotfile_mode: >-
+      {% if dotfile_name in ['.bash_history', '.netrc'] %}
+      0600
+      {% else %}
+      0644
+      {% endif %}
+  when:
+    - file_item.path is defined
+    - dotfile_name not in ['.forward', '.rhost']

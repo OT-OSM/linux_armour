@@ -1,0 +1,49 @@
+---
+# 2.1 Disable Special Purpose Services
+
+- name: Gather service facts
+  ansible.builtin.service_facts:
+
+- name: Disable special purpose services if present
+  ansible.builtin.systemd:
+    name: '{{ item }}'
+    enabled: false
+    state: stopped
+  loop: >-
+    {{
+      (os_services_name.common | default([]))
+      + (os_services_name.get(ansible_facts.os_family, []) | list)
+    }}
+  when: item in ansible_facts.services
+  ignore_errors: true
+
+# 2.1.21 Ensure mail transfer agent is configured for local-only mode
+- name: Ensure mail transfer agent is configured for local-only mode
+  when: cis_Stage > 1
+  block:
+    - name: Check if postfix config file exists
+      ansible.builtin.stat:
+        path: /etc/postfix/main.cf
+      register: postfix_main_cf
+
+    - name: Set Postfix main.cf for local-only mode
+      ansible.builtin.lineinfile:
+        path: /etc/postfix/main.cf
+        regexp: '^inet_interfaces = '
+        line: 'inet_interfaces = loopback-only'
+      when: postfix_main_cf.stat.exists
+      notify: Restart Postfix
+
+# 2.2 Disable Client Purpose Services
+- name: Disable Client Purpose Services
+  when: cis_Stage > 1
+  block:
+    - name: Remove Clients Special Purpose Services
+      ansible.builtin.package:
+        name: "{{ item }}"
+        state: absent
+      loop: >-
+        {{
+        (clients_services_name.common | default([]))
+        + (clients_services_name.get(ansible_facts.os_family, []) | list)
+        }}

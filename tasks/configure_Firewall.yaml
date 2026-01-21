@@ -1,0 +1,235 @@
+# 4.1.1 Ensure a single firewall configuration utility is in use
+# 4 Ensure a single firewall is configured
+- name: Install selected firewall package
+  ansible.builtin.package:
+    name: "{{ firewall_package }}"
+    state: present
+
+# # 4.1 Cofigure ufw
+- name: Configure ufw
+  when: firewall_package == "ufw"
+  block:
+    - name: Uninstall nftables
+      ansible.builtin.package:
+        name: nftables
+        state: absent
+      ignore_errors: true
+
+    - name: Ensure firewall_package service is enabled and started
+      ansible.builtin.service:
+        name: ufw
+        state: started
+        enabled: true
+
+    - name: Ensure iptables-persistent absent
+      ansible.builtin.apt:
+        name: iptables-persistent
+        state: absent
+
+    - name: Enable UFW
+      community.general.ufw:
+        state: enabled
+
+    - name: Unmask ufw service (if needed)
+      ansible.builtin.systemd:
+        name: ufw.service
+        masked: false
+
+    - name: Ensure UFW loopback rules are configured
+      community.general.ufw:
+        rule: "{{ item.rule }}"
+        direction: "{{ item.direction | default(omit) }}"
+        interface: "{{ item.interface | default(omit) }}"
+        src: "{{ item.src | default(omit) }}"
+      loop:
+        - { rule: allow, interface: lo, direction: in }
+        - { rule: allow, interface: lo, direction: out }
+        - { rule: deny, src: "127.0.0.0/8", direction: in }
+        - { rule: deny, src: "::1", direction: in }
+
+    - name: Ensure ufw rules for specific ports
+      community.general.ufw:
+        rule: allow
+        port: "{{ item.port }}"
+        proto: "{{ item.proto }}"
+        direction: in
+      loop: "{{ allowed_ports }}"
+
+    - name: Ensure ufw rules for specific ports (outgoing)
+      community.general.ufw:
+        rule: allow
+        port: "{{ item.port }}"
+        proto: "{{ item.proto }}"
+        direction: out
+      loop: "{{ allowed_ports }}"
+
+    - name: Set default deny incoming/outgoing/routed policy
+      community.general.ufw:
+        policy: deny
+        direction: "{{ item }}"
+      loop:
+        - incoming
+        - outgoing
+        - routed
+
+# 4.2 Cofigure nftables
+- name: Configure nftables
+  when: firewall_package == "nftables"
+  block:
+    - name: Ensure firewall_package service is enabled and started
+      ansible.builtin.service:
+        name: nftables
+        state: started
+        enabled: true
+
+    - name: Disable UFW if active
+      ansible.builtin.service:
+        name: ufw
+        state: stopped
+        enabled: false
+      ignore_errors: true
+      when: ansible_os_family == 'Debian'
+
+    - name: Disable firewalld if active
+      ansible.builtin.service:
+        name: firewalld
+        state: stopped
+        enabled: false
+      ignore_errors: true
+      when: ansible_os_family == 'RedHat'
+
+    - name: Uninstall UFW package (if installed)
+      ansible.builtin.package:
+        name: ufw
+        state: absent
+      when: ansible_os_family == 'Debian'
+
+    - name: Uninstall firewalld package (if installed)
+      ansible.builtin.package:
+        name: firewalld
+        state: absent
+      when: ansible_os_family == 'RedHat'
+
+    - name: Ensure nftables configuration directory exists
+      ansible.builtin.file:
+        path: /etc/nftables
+        state: directory
+        mode: "0755"
+
+    - name: Create nftables ruleset from template
+      ansible.builtin.template:
+        src: nftables.conf.j2
+        dest: /etc/nftables/{{ nftable_name }}.conf
+        owner: root
+        group: root
+        mode: "0644"
+
+    - name: Ensure nftables main config includes our table
+      ansible.builtin.lineinfile:
+        path: /etc/nftables.conf
+        regexp: '^include "/etc/nftables/{{ nftable_name }}\.conf"'
+        line: 'include "/etc/nftables/{{ nftable_name }}.conf"'
+        insertafter: EOF
+      notify: Apply nftables ruleset
+    - name: Save nftables rules persistently
+      ansible.builtin.shell: "nft list ruleset > /etc/nftables.conf"
+
+# 4.3 Cofigure iptables
+- name: Configure iptables
+  when: firewall_package == "iptables"
+  block:
+    # Disable and mask nftables and ufw
+    - name: Disable and mask nftables
+      ansible.builtin.systemd:
+        name: nftables
+        state: stopped
+        enabled: false
+        masked: true
+      ignore_errors: true
+
+    - name: Disable and mask firewalld
+      ansible.builtin.systemd:
+        name: firewalld
+        state: stopped
+        enabled: false
+        masked: true
+      ignore_errors: true
+      when: ansible_os_family == 'RedHat'
+
+    - name: Flush nftables ruleset if present
+      ansible.builtin.command: nft flush ruleset
+      ignore_errors: true
+
+    - name: Disable UFW
+      community.general.ufw:
+        state: disabled
+      ignore_errors: true
+
+    - name: Uninstall other firewall packages
+      ansible.builtin.package:
+        name:
+          - nftables
+          - ufw
+          - firewalld
+        state: absent
+      ignore_errors: true
+
+    # Install iptables packages
+    - name: Install iptables persistence package
+      ansible.builtin.package:
+        name: "{{ 'iptables-persistent' if ansible_facts.os_family == 'Debian' else 'iptables-services' }}"
+        state: present
+
+    # Configuration for IPv4 & IPv6
+    - name: Configure iptables rules for IPv4 and IPv6
+      vars:
+        ip_versions:
+          - ipv4
+          - ipv6
+      ansible.builtin.include_tasks: configure_iptablesRules.yaml
+      loop: "{{ ip_versions }}"
+      loop_control:
+        loop_var: ipver
+
+    # Persist rules
+    - name: Save iptables rules
+      ansible.builtin.shell: >
+        {{ 'netfilter-persistent save' if ansible_facts.os_family == 'Debian' else 'service iptables save' }}
+
+# 4.4 Configure firewalld
+- name: Configure firewalld
+  when: firewall_package == "firewalld"
+  block:
+    - name: Ensure firewall_package service is enabled and started
+      ansible.builtin.service:
+        name: firewalld
+        state: started
+        enabled: true
+
+    - name: Ensure firewalld default zone is set to 'public'
+      ansible.posix.firewalld:
+        zone: public
+        state: enabled
+        permanent: true
+
+    - name: Allow required services
+      ansible.posix.firewalld:
+        service: "{{ item }}"
+        zone: public
+        permanent: true
+        state: enabled
+      loop: "{{ allowed_services }}"
+      notify: Reload firewalld
+
+    - name: Allow required ports
+      ansible.posix.firewalld:
+        port: "{{ item.port }}/{{ item.proto }}"
+        zone: public
+        permanent: true
+        state: enabled
+      loop: "{{ allowed_ports }}"
+      notify: Reload firewalld
+  rescue:
+    - name: Log error configuring firewalld
+      ansible.builtin.debug:
+        msg: "Firewalld configuration failed."

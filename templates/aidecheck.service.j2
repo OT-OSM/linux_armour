@@ -1,0 +1,15 @@
+[Unit]
+Description=Aide Check
+
+[Service]
+Type=simple
+
+# Different binary paths on Debian vs RHEL
+{% if ansible_facts.os_family == 'Debian' %}
+ExecStart=/usr/bin/aide.wrapper --check
+{% else %}
+ExecStart=/usr/sbin/aide --check
+{% endif %}
+
+[Install]
+WantedBy=multi-user.target

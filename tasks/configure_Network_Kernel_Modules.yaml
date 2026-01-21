@@ -1,0 +1,46 @@
+---
+- name: Check if kernel modules exist
+  ansible.builtin.command: "modinfo {{ item }}"
+  loop: "{{ network_modules_list }}"
+  register: module_info
+  changed_when: false
+  failed_when: false
+
+- name: Build module existence map
+  ansible.builtin.set_fact:
+    module_state: "{{ module_state | default({}) | combine({item_name: item.rc == 0}) }}"
+  loop: "{{ module_info.results }}"
+  loop_control:
+    label: "{{ item.item }}"
+  vars:
+    item_name: "{{ item.item }}"
+
+- name: Ensure modules are denylisted
+  ansible.builtin.lineinfile:
+    path: "/etc/modprobe.d/{{ item.key }}.conf"
+    create: true
+    regexp: '^\s*blacklist\s+{{ item.key }}\b'
+    line: "blacklist {{ item.key }}"
+  loop: "{{ module_state | dict2items }}"
+  when: item.value
+
+- name: Ensure modules cannot be loaded
+  ansible.builtin.lineinfile:
+    path: "/etc/modprobe.d/{{ item.key }}.conf"
+    create: true
+    regexp: '^\s*install\s+{{ item.key }}\b'
+    line: "install {{ item.key }} /bin/false"
+  loop: "{{ module_state | dict2items }}"
+  when: item.value
+
+- name: Get list of loaded kernel modules
+  ansible.builtin.command: lsmod
+  register: lsmod_out
+  changed_when: false
+
+- name: Unload kernel modules if loaded
+  ansible.builtin.command: "modprobe -r {{ item.key }}"
+  loop: "{{ module_state | dict2items }}"
+  when:
+    - item.value
+    - "item.key in lsmod_out.stdout"

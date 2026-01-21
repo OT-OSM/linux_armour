@@ -1,0 +1,141 @@
+# Ensure permissions on /etc/ssh/sshd_config are configured
+
+- name: Ensure /etc/ssh/sshd_config has correct ownership and permissions
+  ansible.builtin.file:
+    path: /etc/ssh/sshd_config
+    owner: root
+    group: root
+    mode: '0600'
+
+# Ensure permissions on SSH private host key files are configured
+
+- name: Find SSH private host key files
+  ansible.builtin.find:
+    paths: /etc/ssh
+    patterns: "ssh_host_*_key"
+    file_type: file
+    recurse: false
+  register: ssh_private_keys
+
+- name: Set ownership and permissions on SSH private host key files
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    owner: root
+    group: root
+    mode: '0600'
+  loop: "{{ ssh_private_keys.files }}"
+  when: ssh_private_keys.matched | default(0) | int > 0
+
+# Ensure permissions on SSH public host key files are configured
+
+- name: Find SSH public host key files
+  ansible.builtin.find:
+    paths: /etc/ssh
+    patterns: "ssh_host_*_key.pub"
+    file_type: file
+    recurse: false
+  register: ssh_public_keys
+
+- name: Set ownership and permissions on SSH public host key files
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    owner: root
+    group: root
+    mode: '0644'
+  loop: "{{ ssh_public_keys.files }}"
+  when: ssh_public_keys.matched | default(0) | int > 0
+
+# Ensure sshd access is configured
+
+# Step 1: Ensure ownership and permissions are correct
+- name: Ensure sshd_config has correct ownership and permissions
+  ansible.builtin.file:
+    path: /etc/ssh/sshd_config
+    owner: root
+    group: root
+    mode: '0600'
+
+# Step 2: Configure SSH AllowUsers
+- name: Configure SSH allowed users
+  ansible.builtin.lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: "^#?AllowUsers"
+    line: "AllowUsers {{ (ssh_allow_users + [ansible_user]) | unique | join(' ') }}"
+    state: present
+    create: true
+    insertafter: EOF
+  when: ssh_allow_users is defined and ssh_allow_users | length > 0
+  notify: Restart sshd
+
+# Step 3: Configure SSH allowed groups (optional)
+- name: Configure SSH allowed groups
+  ansible.builtin.lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: '^#?AllowGroups'
+    line: "AllowGroups {{ ssh_allow_groups | join(' ') }}"
+    state: present
+    insertafter: EOF
+  when: ssh_allow_groups is defined and ssh_allow_groups | length > 0
+  notify: Restart sshd
+
+# Step 4 (Optional): Configure deny users/groups if defined
+- name: Configure SSH deny settings
+  ansible.builtin.lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: "{{ item.regexp }}"
+    line: "{{ item.line }}"
+    state: present
+    insertafter: EOF
+  loop:
+    - { regexp: '^DenyUsers', line: 'DenyUsers {{ ssh_deny_users | join(" ") }}' }
+    - { regexp: '^DenyGroups', line: 'DenyGroups {{ ssh_deny_groups | join(" ") }}' }
+  when:
+    - (ssh_deny_users is defined and ssh_deny_users | length > 0) or
+      (ssh_deny_groups is defined and ssh_deny_groups | length > 0)
+  notify: Restart sshd
+
+# Ensure sshd Banner is configured
+
+- name: Configure sshd settings
+  ansible.builtin.lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: "{{ item.regexp }}"
+    line: "{{ item.line }}"
+    state: present
+    create: true
+    backup: true
+    insertafter: EOF
+  loop:
+    - { regexp: '^#?GSSAPIAuthentication', line: 'GSSAPIAuthentication {{ ssh_gssapi_authentication }}' }
+    - { regexp: '^#?IgnoreRhosts', line: 'IgnoreRhosts {{ ssh_ignore_rhosts }}' }
+    - { regexp: '^#?LogLevel', line: 'LogLevel {{ ssh_log_level }}' }
+    - { regexp: '^#?PermitEmptyPasswords', line: 'PermitEmptyPasswords {{ ssh_permit_empty_passwords }}' }
+    - { regexp: '^#?PermitRootLogin', line: 'PermitRootLogin {{ ssh_permit_root_login }}' }
+    - { regexp: '^#?UsePAM', line: 'UsePAM {{ ssh_use_pam }}' }
+  notify: Restart sshd
+
+- name: Configure sshd settings
+  when: cis_Stage > 1
+  ansible.builtin.lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: "{{ item.regexp }}"
+    line: "{{ item.line }}"
+    state: present
+    create: true
+    backup: true
+    insertafter: EOF
+  loop:
+    - { regexp: '^#?Banner', line: 'Banner /etc/issue.net' }
+    - { regexp: '^#?Ciphers', line: 'Ciphers {{ ssh_ciphers | join(",") }}' }
+    - { regexp: '^#?ClientAliveInterval', line: 'ClientAliveInterval {{ ssh_client_alive_interval }}' }
+    - { regexp: '^#?ClientAliveCountMax', line: 'ClientAliveCountMax {{ ssh_client_alive_count_max }}' }
+    - { regexp: '^#?DisableForwarding', line: 'DisableForwarding {{ ssh_disable_forwarding }}' }
+    - { regexp: '^#?HostbasedAuthentication', line: 'HostbasedAuthentication {{ ssh_hostbased_authentication }}' }
+    - { regexp: '^#?KexAlgorithms', line: 'KexAlgorithms {{ ssh_kex_algorithms | join(",") }}' }
+    - { regexp: '^#?LoginGraceTime', line: 'LoginGraceTime {{ ssh_login_grace_time }}' }
+    - { regexp: '^#?MACs', line: 'MACs {{ ssh_macs | join(",") }}' }
+    - { regexp: '^#?MaxAuthTries', line: 'MaxAuthTries {{ ssh_max_auth_tries }}' }
+    - { regexp: '^#?MaxSessions', line: 'MaxSessions {{ ssh_max_sessions }}' }
+    - { regexp: '^#?MaxStartups', line: 'MaxStartups {{ ssh_max_startups }}' }
+    - { regexp: '^#?PermitUserEnvironment', line: 'PermitUserEnvironment {{ ssh_permit_user_environment }}' }
+  notify: Restart sshd

@@ -1,0 +1,79 @@
+---
+# Ensure SELinux is installed
+- name: "Ensure SELinux is installed"
+  ansible.builtin.package:
+    name: "{{ selinux_packages }}"
+    state: present
+  become: true
+
+# Ensure SELinux is not disabled in bootloader configuration
+- name: "Ensure SELinux disable parameters are removed from all GRUB kernel entries"
+  ansible.builtin.command:
+    cmd: grubby --update-kernel ALL --remove-args "selinux=0 enforcing=0"
+  become: true
+  register: result
+  changed_when: "'selinux=0' in result.stdout or 'enforcing=0' in result.stdout"
+  failed_when: false
+
+# Ensure no SELinux disable arguments exist in grub configuration file
+- name: "Ensure /etc/default/grub does not contain selinux=0 or enforcing=0"
+  ansible.builtin.replace:
+    path: /etc/default/grub
+    regexp: '\b(selinux|enforcing)=0\b'
+    replace: ''
+  become: true
+
+# Ensure SELinux policy is configured
+- name: "Ensure SELINUXTYPE is set to targeted in /etc/selinux/config"
+  ansible.builtin.lineinfile:
+    path: /etc/selinux/config
+    regexp: '^SELINUXTYPE='
+    line: 'SELINUXTYPE={{ selinux_policy_type }}'
+    state: present
+    backup: true
+  become: true
+
+# Ensure SELinux mode is not disabled
+- name: "Ensure SELinux mode is not disabled"
+  block:
+    # Apply enforcing mode immediately to enable SELinux protection at runtime
+    - name: "Set SELinux mode to enforcing at runtime"
+      ansible.posix.selinux:
+        policy: targeted
+        state: enforcing
+      become: true
+
+    # Persist enforcing mode configuration across system reboots
+    - name: "Ensure SELINUX is set to enforcing in /etc/selinux/config"
+      ansible.builtin.lineinfile:
+        path: /etc/selinux/config
+        regexp: '^SELINUX='
+        line: 'SELINUX={{ selinux_mode }}'
+        state: present
+        backup: true
+      become: true
+
+# Ensure no unconfined services exist
+- name: "Remediation | Investigate any unconfined services found"
+  ansible.builtin.shell: ps -eZ | grep unconfined_service_t | awk '{print $NF}' | sort -u
+  register: unconfined_services
+  changed_when: false
+  failed_when: false
+  become: true
+
+# Display list of unconfined services if found
+- name: "Report unconfined services"
+  ansible.builtin.debug:
+    msg: >
+      {% if unconfined_services.stdout_lines | length > 0 %}
+      Unconfined services detected: {{ unconfined_services.stdout_lines | join(', ') }}. Please review and take appropriate action if required.
+      {% else %}
+      No unconfined services detected. System is compliant.
+      {% endif %}
+
+# Ensure unnecessary SELinux-related services (mcstrans and SETroubleshoot) are not installed
+- name: "Ensure mcstrans and SETroubleshoot packages are not installed"
+  ansible.builtin.package:
+    name: "{{ unwanted_selinux_packages }}"
+    state: absent
+  become: true

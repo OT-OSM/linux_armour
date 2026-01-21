@@ -1,0 +1,87 @@
+---
+# Ensure sudo package is installed
+- name: Ensure sudo is installed
+  become: true
+  ansible.builtin.package:
+    name: "{{ sudo_package }}"
+    state: present
+
+# Ensure sudo commands use pty
+- name: Check if 'Defaults use_pty' is configured
+  become: true
+  ansible.builtin.shell: |
+    grep -rPi "^\h*Defaults\h+([^#\n\r]+,)?use_pty(,\h*\h+\h*)*\h*(#.*)?$" {{ sudoers_path }} 2>/dev/null || true
+  register: use_pty_check
+  changed_when: false
+  failed_when: false
+
+- name: Add 'Defaults use_pty' if not present
+  become: true
+  ansible.builtin.lineinfile:
+    path: "{{ sudoers_path }}"
+    regexp: '^\s*Defaults\s+.*use_pty'
+    line: 'Defaults use_pty'
+    validate: '/usr/sbin/visudo -cf %s'
+  when: use_pty_check.stdout == ""
+
+# Ensure sudo log file exists
+- name: Check if sudo logfile is configured
+  become: true
+  ansible.builtin.shell: |
+    grep -rPsi "^\h*Defaults\h+([^#]+,\h*)?logfile\h*=\h*(\"|\')?\H+(\"|\')?(,\h*\H+\h*)*\h*(#.*)?$" {{ sudoers_path }} 2>/dev/null || true
+  register: sudo_logfile_check
+  changed_when: false
+  failed_when: false
+
+- name: Add Defaults logfile entry if missing
+  become: true
+  ansible.builtin.lineinfile:
+    path: "{{ sudoers_path }}"
+    regexp: '^\s*Defaults\s+.*logfile='
+    line: 'Defaults logfile="{{ sudo_logfile_path }}"'
+    validate: '/usr/sbin/visudo -cf %s'
+  when: sudo_logfile_check.stdout == ""
+
+# Ensure re-authentication for privilege escalation is not disabled globally
+- name: Check for '!authenticate' entries
+  become: true
+  ansible.builtin.shell: |
+    grep -r "^[^#].*\!authenticate" {{ sudoers_path }} 2>/dev/null || true
+  register: no_authenticate_check
+  changed_when: false
+  failed_when: false
+
+- name: Remove '!authenticate' entries if found
+  become: true
+  ansible.builtin.replace:
+    path: "{{ sudoers_path }}"
+    regexp: '(!authenticate)'
+    replace: ''
+    validate: '/usr/sbin/visudo -cf %s'
+  when: no_authenticate_check.stdout != ""
+
+# Ensure sudo authentication timestamp timeout is configured
+- name: Set sudo timestamp_timeout to policy value
+  become: true
+  ansible.builtin.lineinfile:
+    path: "{{ sudoers_path }}"
+    regexp: '^\s*Defaults\s+.*timestamp_timeout='
+    line: 'Defaults timestamp_timeout={{ timestamp_timeout_minutes }}'
+    insertafter: '^Defaults'
+    validate: '/usr/sbin/visudo -cf %s'
+
+# Ensure access to the 'su' command is restricted
+- name: Create group for su access restriction
+  become: true
+  ansible.builtin.group:
+    name: "{{ su_group_name }}"
+    state: present
+
+- name: Restrict su command to group members
+  become: true
+  ansible.builtin.lineinfile:
+    path: "{{ pam_su_path }}"
+    regexp: '^auth\s+required\s+pam_wheel\.so'
+    line: "auth required pam_wheel.so use_uid group={{ su_group_name }}"
+    create: false
+    backrefs: false

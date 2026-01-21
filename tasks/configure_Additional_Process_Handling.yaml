@@ -1,0 +1,87 @@
+---
+# Kernel hardening parameters
+- name: "Configure kernel hardening parameters"
+  ansible.builtin.sysctl:
+    name: "{{ item.name }}"
+    value: "{{ item.value }}"
+    state: present
+    sysctl_set: true
+    reload: true
+    sysctl_file: /etc/sysctl.d/60-kernel_sysctl.conf
+  loop: "{{ kernel_hardening_params }}"
+  loop_control:
+    label: "{{ item.desc }}"
+  become: true
+
+# Core dump restrictions
+- name: Restrict core dumps
+  when: cis_Stage > 2
+  block:
+    - name: Check if systemd-coredump binary exists
+      ansible.builtin.stat:
+        path: /usr/lib/systemd/systemd-coredump
+      register: coredump_bin
+
+    - name: Configure core dump restriction using systemd
+      when: coredump_bin.stat.exists
+      block:
+        # Check existing coredump configuration for ProcessSizeMax and Storage directives
+        - name: "Check existing coredump configuration"
+          ansible.builtin.shell: |
+            grep -Pi -- '^\h*(ProcessSizeMax|Storage)\b' /etc/systemd/coredump.conf 2>/dev/null || true
+          register: coredump_check
+          changed_when: false
+          failed_when: false
+          become: true
+
+        # Configure core dump restrictions only if not already set
+        - name: "Configure core dump restrictions (only if missing or incorrect)"
+          ansible.builtin.blockinfile:
+            path: /etc/systemd/coredump.conf
+            create: true
+            block: "{{ coredump_config_block }}"
+          when: >
+            ('ProcessSizeMax=0' not in coredump_check.stdout) or
+            ('Storage=none' not in coredump_check.stdout)
+          notify: Reload systemd units
+      rescue:
+        # Configure fallback core dump restriction (non-systemd)
+        - name: Disable core dumps kernel-wide
+          ansible.posix.sysctl:
+            name: fs.suid_dumpable
+            value: 0
+            sysctl_set: true
+            state: present
+            reload: true
+
+        - name: Restrict user core dump limits
+          community.general.pam_limits:
+            domain: '*'
+            limit_type: hard
+            limit_item: core
+            value: 0
+
+## 1.5.4 Ensure prelink is not installed
+- name: Ensure prelink is not installed (Debian-based)
+  when: cis_Stage > 2 and ansible_os_family == "Debian"
+  block:
+    - name: Gather installed packages
+      ansible.builtin.package_facts:
+        manager: auto
+
+    - name: Disable prelinked binaries
+      ansible.builtin.command: prelink -ua
+      when: "'prelink' in ansible_facts.packages"
+      changed_when: false
+
+    - name: Ensure prelink is disabled for Debian System
+      ansible.builtin.apt:
+        name: prelink
+        state: absent
+
+## 1.5.5 Ensure Automatic Error Reporting is not enabled
+- name: Ensure Automatic Error Reporting is disabled (Debian-based)
+  ansible.builtin.apt:
+    name: apport
+    state: absent
+  when: ansible_os_family == "Debian"

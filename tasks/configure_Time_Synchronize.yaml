@@ -1,0 +1,176 @@
+---
+# 2.3.1 Ensure a single time synchronization daemon is in use
+
+- name: Gather service facts
+  ansible.builtin.service_facts:
+
+
+- name: Ensure time synchronization daemon is installed and active
+  block:
+
+    # RedHat-family always uses chrony
+    - name: Set time_sync_daemon for RedHat-family
+      ansible.builtin.set_fact:
+        time_sync_daemon: chrony
+      when: ansible_os_family == 'RedHat'
+
+    # Install selected daemon
+    - name: Install selected time sync daemon
+      ansible.builtin.package:
+        name: "{{ time_sync_daemon }}"
+        state: present
+      become: true
+
+    # Debian-only: disable/uninstall non-selected daemon
+    - name: Disable and stop non-selected time sync daemon (Debian)
+      ansible.builtin.systemd:
+        name: "{{ item }}"
+        state: stopped
+        enabled: false
+      loop:
+        - chrony
+        - systemd-timesyncd
+      when:
+        - ansible_os_family == 'Debian'
+        - item in ansible_facts.services
+        - item != time_sync_daemon
+      ignore_errors: true
+
+    - name: Remove non-selected time sync daemon (Debian)
+      ansible.builtin.package:
+        name: "{{ item }}"
+        state: absent
+      loop:
+        - chrony
+        - systemd-timesyncd
+      when:
+        - ansible_os_family == 'Debian'
+        - item != time_sync_daemon
+      ignore_errors: true
+
+    # Ensure selected daemon is enabled and running
+    - name: Start and enable selected time sync daemon
+      ansible.builtin.service:
+        name: chronyd
+        state: started
+        enabled: true
+      become: true
+      when: ansible_os_family == 'RedHat'
+
+    - name: Start and enable selected time sync daemon
+      ansible.builtin.service:
+        name: "{{ time_sync_daemon }}"
+        state: started
+        enabled: true
+      become: true
+      when: ansible_os_family == 'Debian'
+
+# # 2.3.2 Configure systemd-timesyncd
+- name: Ensure timesyncd NTP settings are configured
+  when:
+    - time_sync_daemon == "systemd-timesyncd"
+    - ansible_os_family == "Debian"
+  block:
+    - name: Ensure timesyncd configuration directory exists
+      ansible.builtin.file:
+        path: "{{ timesyncd_conf_dir }}"
+        state: directory
+        mode: '0755'
+
+    - name: Configure timesyncd NTP servers
+      ansible.builtin.blockinfile:
+        path: "{{ timesyncd_conf_dir }}/{{ timesyncd_conf_file }}"
+        create: true
+        block: "{{ timesyncd_block }}"
+        marker: "# {mark} CIS MANAGED TIMESYNCD CONFIG"
+      notify: Restart timesyncd
+      become: true
+
+    - name: Wait briefly for timesync to stabilize
+      ansible.builtin.pause:
+        seconds: 3
+
+    - name: Verify time synchronization status
+      ansible.builtin.command: timedatectl show -p NTPSynchronized --value
+      register: ntp_status
+      changed_when: false
+      failed_when: ntp_status.rc != 0
+
+    - name: Display NTP synchronization status
+      ansible.builtin.debug:
+        msg: "Time synchronization active: {{ ntp_status.stdout }}"
+
+# 2.3.2 Configure chrony 
+- name: Configure Chrony
+  when: time_sync_daemon == "chrony"
+  block:
+    # Step 1: Check if Chrony has any configured NTP servers or pools
+    - name: "Ensure chrony is configured"
+      ansible.builtin.shell: "grep -Prs -- '^\\h*(server|pool)\\h+[^#\\n\\r]+' {{ chrony_shell_check_path }}"
+      register: chrony_sources
+      changed_when: false
+      failed_when: false
+      become: true
+
+    # Step 2: Add Amazon Time Sync Service configuration if none found
+    - name: "Configure Chrony with Amazon Time Sync Service (if missing)"
+      ansible.builtin.blockinfile:
+        path: "{{ chrony_conf_path }}"
+        create: true
+        block: "{{ chrony_timesync_blocks[ansible_distribution if ansible_distribution in ['Amazon'] else ansible_os_family] }}"
+      when: chrony_sources.stdout == ""
+      become: true
+
+    # Step 3: Restart Chrony only if configuration was added
+    - name: "Restart Chrony service to apply configuration (if modified)"
+      ansible.builtin.service:
+        name: "{{ chrony_service }}"
+        state: restarted
+        enabled: true
+      when: chrony_sources.stdout == ""
+      become: true
+
+    # Step 4: Report status clearly
+    - name: "Report Chrony configuration status"
+      ansible.builtin.debug:
+        msg: >
+          {% if chrony_sources.stdout != "" %}
+          Chrony is already configured with time sources
+          {% else %}
+          Chrony was missing configuration — CIS managed config has been added.
+          {% endif %}
+
+    - name: Ensure _chrony user exists
+      ansible.builtin.user:
+        name: _chrony
+        system: true
+        shell: /sbin/nologin
+        create_home: false
+      when: ansible_facts.os_family == 'Debian'
+
+    - name: Ensure chrony user exists
+      ansible.builtin.user:
+        name: chrony
+        system: true
+        shell: /sbin/nologin
+        create_home: false
+      when: ansible_facts.os_family == 'RedHat'
+
+    - name: Ensure chrony runs as chrony user (RedHat)
+      ansible.builtin.lineinfile:
+        path: /etc/sysconfig/chronyd
+        regexp: '^OPTIONS='
+        line: 'OPTIONS="-u chrony"'
+        create: true
+      notify: Restart Chrony
+      when: ansible_os_family == "RedHat"
+
+    - name: Ensure chrony runs as _chrony user
+      ansible.builtin.lineinfile:
+        path: "/etc/chrony/chrony.conf"
+        regexp: '^user\s+'
+        line: 'user _chrony'
+        create: true
+        insertafter: EOF
+      notify: Restart Chrony
+      when: ansible_facts.os_family == 'Debian'

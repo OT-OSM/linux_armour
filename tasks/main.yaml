@@ -1,34 +1,124 @@
 ---
-- name: Ubuntu realted Specification
-  include_tasks: ubuntu.yaml
-  when:
-    ansible_os_family == 'Debian'
+- name: Include CIS Stage Specific vars
+  ansible.builtin.include_vars: cis-{{ cis_Stage }}.yaml
 
-- name: Centos realted Specification
-  include_tasks: centos.yaml
-  when:
-    ansible_os_family == 'RedHat'
-
-- name: Special purpose services
-  include_tasks: services.yaml
-
-- name: Logging and monitoring
-  include_tasks: audit.yaml
-
-- name: Additional Process Hardening
-  include_tasks: pam_limit.yaml
-
-- name: Tcp Wrapper and System File Permissions
-  include_tasks: file_permissions.yaml
-
+###############################################################
+###### Configure Filesystems kernel Modules & Partitions ######
+###############################################################
 - name: Filesystem Configuration
-  include_tasks: filesystem_configuration.yaml
+  ansible.builtin.include_tasks: configure_Filesystem.yaml
 
-- name: Network Configuration Host
-  include_tasks: network_configuration_host.yaml
+##########################################
+###### Additional Process Hardening ######
+##########################################
+- name: Configure Additional Process handling
+  ansible.builtin.include_tasks: configure_Additional_Process_Handling.yaml
+  when: cis_Stage > 1
 
-- name: Ensure bogus ICMP responses are ignored
-  include_tasks: network_configuration_router.yaml
+##################################################
+###### AppArmor & Secure Boot Configuration ######
+##################################################
+- name: Secure Boot Settings
+  ansible.builtin.include_tasks: configure_Secure_BootSettings_{{ ansible_os_family }}.yaml
 
-- name: Ensure dccp and sctp is disabled
-  include_tasks: network_protocol_and_unusedFilesystem.yaml
+- name: SELinux Configuration
+  ansible.builtin.include_tasks: configure_SElinux.yaml
+  when: ansible_os_family == 'RedHat'
+
+##########################################
+###### Command Line Warning Banners ######
+##########################################
+- name: Command Line Warning Banners
+  ansible.builtin.include_tasks: configure_Command_Line_Warning_Banners.yaml
+
+############################################
+###### GNOME Display Manager Settings ######
+############################################
+- name: Ensure GNOME Display Manager is removed
+  ansible.builtin.apt:
+    name: gdm3
+    state: absent
+  when: ansible_os_family == "Debian" and cis_Stage > 1
+
+######################################
+###### Special Purpose Services ######
+######################################
+- name: Remove Special Purpose Services
+  ansible.builtin.include_tasks: configure_Special_Purpose_Services.yaml
+
+############################################
+###### Configure Time Synchronization ######
+############################################
+- name: Configure Time Synchronization
+  ansible.builtin.include_tasks: configure_Time_Synchronize.yaml
+  when: cis_Stage > 1
+
+######################################
+###### Configure job Schedulers ######
+######################################
+- name: Configure job Schedulers
+  ansible.builtin.include_tasks: configure_Job_Schedulers.yaml
+
+##################################################
+###### Configure Uncommon Network Protocols ######
+##################################################
+- name: Configure Network Kernel Modules
+  ansible.builtin.include_tasks: configure_Network_Kernel_Modules.yaml
+  when: cis_Stage > 1
+
+- name: Configure network kernel parameters
+  ansible.builtin.include_tasks: configure_Network_Kernel_Parameters.yaml
+  when: cis_Stage > 1
+
+##################################
+###### Configure SSH Control ######
+###################################
+- name: Access Control Configuration
+  ansible.builtin.include_tasks: configure_ssh_Server.yaml
+
+- name: Configure privilege escalation
+  ansible.builtin.include_tasks: configure_Privilege_Escalation.yaml
+
+##############################################################
+###### Configure Pluggable Authentication Modules (PAM) ######
+##############################################################
+- name: Configure Pluggable Authentication Modules
+  ansible.builtin.include_tasks: configure_Pluggable_Authentication_Modules_{{ ansible_os_family }}.yaml
+
+####################################################
+###### Configure User Account AND ENVIRONMENT ######
+####################################################
+- name: Configure user account and environment
+  ansible.builtin.include_tasks: configure_User_Accounts_and_Environment.yaml
+
+######################################
+###### Configure System Logging ######
+######################################
+- name: Configure Logging (rsyslog + journald)
+  ansible.builtin.include_tasks: configure_Logging.yaml
+
+- name: Configure Software and Patch Management
+  ansible.builtin.include_tasks: configure_Software_and_Patch_Management.yaml
+  when: ansible_os_family == 'RedHat'
+
+- name: Configure System Accounting
+  ansible.builtin.include_tasks: configure_System_Accounting.yaml
+
+- name: Local User and Group Settings
+  ansible.builtin.include_tasks: configure_Local_user_and_group_Settings.yaml
+
+################################
+###### Configure Firewall ######
+################################
+- name: Network Parameters For Host
+  ansible.builtin.include_tasks: configure_Firewall.yaml
+
+####################################################
+###### Configure System Logging ######
+####################################################
+- name: Ensure filesystem integrity is regularly checked
+  ansible.builtin.include_tasks: configure_Filesystem_Integrity.yaml
+  when: cis_Stage > 1
+
+- name: Configure System files
+  ansible.builtin.include_tasks: configure_System_File_Permissions.yaml

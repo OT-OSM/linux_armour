@@ -1,0 +1,22 @@
+filesystem_kernel_modules:
+  common:
+    - usb-storage
+  Debian: []
+  RedHat: []
+
+os_services_name:
+  common:
+    - autofs
+  Debian: []
+  RedHat: []
+
+clients_services_name:
+  common:
+    - ftp
+    - telnet
+  Debian:
+    - ldap-utils
+    - nis
+    - rsh-client
+    - talk
+  RedHat: []

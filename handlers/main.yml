@@ -1,10 +1,76 @@
 ---
-- name: Reload the services
-  service:
+- name: Reload AIDE
+  ansible.builtin.service:
     name: '{{ item }}'
     state: restarted
     daemon_reload: true
   with_items:
     - aidecheck.timer
     - aidecheck
-    - auditd
+
+- name: Reload systemd units
+  ansible.builtin.systemd:
+    daemon_reload: true
+  become: true
+
+- name: Reload firewalld
+  ansible.builtin.service:
+    name: firewalld
+    state: reloaded
+
+- name: Restart Chrony
+  ansible.builtin.service:
+    name: "{{ 'chronyd' if ansible_os_family == 'RedHat' else 'chrony' }}"
+    state: restarted
+
+- name: Restart timesyncd
+  ansible.builtin.service:
+    name: systemd-timesyncd
+    state: restarted
+
+- name: Restart Postfix
+  ansible.builtin.service:
+    name: postfix
+    state: restarted
+
+- name: Update Grub Configuration
+  ansible.builtin.command: "{{ 'grub2-mkconfig -o /boot/grub2/grub.cfg' if ansible_os_family == 'RedHat' else 'update-grub' }}"
+  become: true
+
+- name: Apply nftables ruleset
+  ansible.builtin.command: nft -f /etc/nftables.conf
+
+- name: Save iptables rules
+  ansible.builtin.shell: /sbin/iptables-save > /etc/iptables/rules.v4
+  args:
+    executable: /bin/bash
+  become: true
+
+- name: Restart systemd-journald
+  ansible.builtin.systemd:
+    name: systemd-journald
+
+- name: Restart rsyslog
+  ansible.builtin.systemd:
+    name: rsyslog
+    state: restarted
+
+- name: Restart journald
+  ansible.builtin.systemd:
+    name: systemd-journald
+    state: restarted
+
+- name: Restart sshd
+  ansible.builtin.service:
+    name: "{{ 'sshd' if ansible_os_family == 'RedHat' else 'ssh' }}"
+    state: restarted
+
+- name: Yum_clean_metadata
+  ansible.builtin.command:
+    cmd: yum clean metadata
+  changed_when: true
+
+- name: Yum_clean_all
+  ansible.builtin.command:
+    cmd: yum clean all
+  changed_when: true

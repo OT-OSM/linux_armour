@@ -1,0 +1,94 @@
+---
+- name: Ensure cron package is installed
+  ansible.builtin.package:
+    name: "{{ cron_package }}"
+    state: present
+  become: true
+
+# Ensure cron daemon is enabled and active
+- name: Ensure cron daemon is enabled and active
+  ansible.builtin.systemd:
+    name: "{{ cron_service }}"
+    masked: false
+    enabled: true
+    state: started
+  become: true
+
+# Ensure permissions on cron directories are configured
+- name: Ensure permissions on cron directories are configured
+  ansible.builtin.file:
+    path: "{{ item }}"
+    owner: root
+    group: root
+    mode: '0700'
+  loop: "{{ cron_dirs }}"
+  become: true
+
+# Ensure permissions on /etc/crontab are configured
+- name: Ensure permissions on crontab file
+  ansible.builtin.file:
+    path: "{{ cron_tab_file }}"
+    owner: root
+    group: root
+    mode: '0600'
+  become: true
+
+# Ensure /etc/cron.allow exists and is properly secured
+- name: Ensure /etc/cron.allow exists and is secured
+  ansible.builtin.copy:
+    content: root
+    dest: /etc/cron.allow
+    owner: root
+    group: root
+    mode: '0640'
+  become: true
+
+# Check if /etc/cron.deny exists
+- name: Check if /etc/cron.deny exists
+  ansible.builtin.stat:
+    path: /etc/cron.deny
+  register: cron_deny_status
+
+# Ensure /etc/cron.deny permissions if file exists
+- name: Ensure /etc/cron.deny permissions if exists
+  ansible.builtin.file:
+    path: /etc/cron.deny
+    owner: root
+    group: root
+    mode: '0640'
+  when: cron_deny_status.stat.exists
+  become: true
+
+# Ensure at is restricted to authorized users
+- name: Check if daemon group exists
+  ansible.builtin.getent:
+    database: group
+    key: daemon
+  register: daemon_group
+  failed_when: false
+
+- name: Set at group
+  ansible.builtin.set_fact:
+    at_group: "{{ 'daemon' if daemon_group is succeeded else 'root' }}"
+
+- name: "Check if /etc/at.deny exists"
+  ansible.builtin.stat:
+    path: /etc/at.deny
+  register: at_deny_file
+
+- name: Ensure /etc/at.allow exists
+  ansible.builtin.copy:
+    dest: /etc/at.allow
+    content: ""
+    owner: root
+    group: "{{ at_group }}"
+    mode: '0640'
+  register: at_allow_create
+
+- name: Secure /etc/at.deny if present
+  ansible.builtin.file:
+    path: /etc/at.deny
+    owner: root
+    group: "{{ at_group }}"
+    mode: '0640'
+  when: at_deny_file.stat.exists

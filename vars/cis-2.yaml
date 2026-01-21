@@ -1,0 +1,60 @@
+filesystem_kernel_modules:
+  common:
+    - cramfs
+    - freevxfs
+    - hfs
+    - hfsplus
+    - jffs2
+    - squashfs
+    - udf
+    - usb-storage
+  Debian:
+    - overlayfs
+  RedHat: []
+
+os_services_name:
+  common:
+    - autofs
+    - avahi-daemon
+    - named # dns server
+    - dnsmasq
+    - vsftpd # ftp
+    - dovecot # message access server
+    - nfs-server # network file system
+    - ypserv # nis server
+    - cups # print server
+    - rpcbind
+    - snmpd
+    - squid # web proxy server
+    - nginx
+    - xinetd
+  Debian:
+    - isc-dhcp-server
+    - isc-dhcp-server6
+    - slapd
+    - smbd
+    - rsync
+    - tftpd-hpa
+    - apache2
+  RedHat:
+    - dhcpd
+    - dhcpd6
+    - smb # samba
+    - cyrus-imapd # message access server
+    - rsyncd
+    - tftp
+    - httpd
+
+clients_services_name:
+  common:
+    - ftp
+    - telnet
+  Debian:
+    - ldap-utils
+    - nis
+    - rsh-client
+    - talk
+  RedHat:
+    - openldap-clients
+    - ypbind
+    - tftp
