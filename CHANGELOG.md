@@ -1,8 +1,9 @@
 # What's New
 
-A high end ansible role to configure OS on the basis of the essential CIS benchmark.
+**Stage-based CIS hardening using `cis_Stage`**, allowing progressive and controlled enforcement of security controls.
 
-### v0.0.4
-##### August 24, 2023
-- Added OS version support for Debain 12
-
+### v0.0.6
+##### Jan 21, 2026
+- Stage-based CIS hardening using `cis_Stage`
+- OS-specific task handling for Debian and RedHat families
+- Secure boot, PAM, SSH, firewall, and filesystem integrity enforcement
