@@ -27,7 +27,8 @@ root_password: "Cis@123#"
 ssh_allow_users:
   - ec2-user
   - root
-  - prince
+  - admin
+  - ubuntu
 
 ssh_banner_content: |
   ***********************************************************************
